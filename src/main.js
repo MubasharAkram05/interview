@@ -54,6 +54,7 @@ import {
 import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
 import { questionOfDay } from './services/qotd.js';
+import { nativeAdLayout } from './services/native-info.js';
 import { formatFullCurrentDate, formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
 import { playTapSound, playSuccessChime, playErrorBeep } from './services/sound.js';
 import { fireConfetti, fireGrandCelebration } from './services/celebration.js';
@@ -238,6 +239,27 @@ if (Capacitor.isNativePlatform() && ADS_CONFIG.enableBanner) setAdSpace(ADS_CONF
 
 // Re-measure the banner position once the layout has settled: web fonts, Capacitor injecting the
 // --safe-area-inset-* variables (a style change on <html>), and late WebView size changes.
+// Header top padding. When the app draws behind the status bar (edge-to-edge), the header needs
+// the status bar height as top padding. On phones where the WebView already starts BELOW the
+// status bar, Android still reports that height as a safe-area inset, so the space was added
+// twice. Ask native where the WebView starts and drop the extra padding in that case.
+async function checkHeaderInset() {
+  const l = await nativeAdLayout();
+  if (!l || typeof l.webViewTop !== 'number') return;
+  const below = l.webViewTop > 1;
+  if (below !== document.documentElement.classList.contains('wv-below-bars')) {
+    document.documentElement.classList.toggle('wv-below-bars', below);
+    requestBannerRelayout();
+  }
+}
+
+function watchHeaderInset() {
+  if (!Capacitor.isNativePlatform()) return;
+  checkHeaderInset();
+  [800, 2500].forEach(ms => setTimeout(checkHeaderInset, ms));
+  window.addEventListener('resize', () => setTimeout(checkHeaderInset, 300));
+}
+
 function watchBannerLayout() {
   try {
     document.fonts && document.fonts.ready.then(requestBannerRelayout);
@@ -748,6 +770,40 @@ function fillMock() {
   $('mcat').value = $('cat').value;
   $('mlvl').value = $('lvl').value;
   $('mtip').textContent = TIPS[new Date().getDate() % TIPS.length];
+  renderMockPicker();
+}
+
+// Mock page picker: same level tabs and category grid as Practice, but tapping a tile only
+// selects it (purple ring + check). "Start mock interview" then starts with that choice.
+function renderMockPicker() {
+  const c0 = $('mcat').value;
+  const l0 = $('mlvl').value;
+  $('mSeg').innerHTML = Object.entries(LEVELS).map(([k, v]) =>
+    `<button class="${k === l0 ? 'on' : ''}" data-lvl="${k}" role="tab" aria-selected="${k === l0}">${esc(v)}</button>`
+  ).join('');
+  $('mSeg').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => mPick(c0, btn.dataset.lvl));
+  });
+
+  $('mGrid').innerHTML = Object.keys(CATS).map(c => {
+    const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
+    const on = c === c0;
+    return `<button class="mt${on ? ' on' : ''}" data-c="${c}" aria-pressed="${on}" style="--c:${col}"><span class="mc"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><i class="mck" aria-hidden="true"></i></span><span class="pl">${esc(CATS[c])}</span></button>`;
+  }).join('');
+  $('mGrid').querySelectorAll('.mt').forEach(btn => {
+    btn.addEventListener('click', () => mPick(btn.dataset.c, $('mlvl').value));
+  });
+
+  const n = bank(c0, l0).length;
+  $('mSel').textContent = `${CATS[c0] || ''} · ${LEVELS[l0] || ''} · ${n} question${n === 1 ? '' : 's'}`;
+}
+
+function mPick(c, l) {
+  playTapSound();
+  $('mcat').value = c;
+  $('mlvl').value = l;
+  mSync();
+  renderMockPicker();
 }
 
 function mSync() {
@@ -1859,8 +1915,9 @@ async function initApp() {
 
   initEventListeners();
   setupSwipeGestures();
-  loadPreferences();
+  // fillHome() first: it fills the type/level lists, so the saved choice can be selected.
   fillHome();
+  loadPreferences();
   tickClk();
   setInterval(tickClk, 1000);
   renderIcons();
@@ -1904,6 +1961,7 @@ async function initApp() {
   // Consent (EEA/UK) first, then AdMob creates ONE banner under the header for the whole session.
   initializeAdMob({ layout: bannerLayout, onSpace: setAdSpace });
   watchBannerLayout();
+  watchHeaderInset();
 
   // Debug builds only: hidden status panel (long-press the title) and build info in Profile.
   // __DEBUG_TOOLS__ is false in the release build, so this code is removed from it.
@@ -2017,6 +2075,7 @@ Object.assign(window, {
   startMock,
   startInterview,
   mSync,
+  mPick,
   reveal,
   toggleMic,
   step,

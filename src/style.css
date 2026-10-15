@@ -248,3 +248,25 @@ header.bar .ic:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 
 /* Header: less empty space above the title (the status bar inset is still kept). */
 header.bar{min-height:0;padding-top:calc(4px + max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px)));padding-bottom:8px}
+/* WebView already starts below the status bar: do not add the status bar height again. */
+.wv-below-bars header.bar{padding-top:6px}
+
+/* ---- Mock page picker: like Practice, with purple tabs and rounded-square tiles ---- */
+.mseg button.on{background:linear-gradient(135deg,#4f46e5,#7c3aed);box-shadow:0 5px 0 #3730a3}
+.mhint{margin:18px 2px 0;font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.mt{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;min-height:0;padding:16px 6px 14px;border-radius:20px;border:2px solid var(--line);background:var(--card);color:var(--ink);font-weight:500;box-shadow:0 4px 0 var(--line);transition:transform .15s,border-color .2s,box-shadow .2s,background .2s}
+.mt .mc{position:relative;width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:var(--c);box-shadow:0 6px 14px color-mix(in srgb,var(--c) 40%,transparent);transition:transform .2s}
+.mt .mc svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mt .pl{font-size:12.5px}
+.mt:active{transform:translateY(3px);box-shadow:0 1px 0 var(--line)}
+.mt.on{border-color:var(--acc);background:color-mix(in srgb,var(--card) 88%,var(--acc));box-shadow:0 4px 0 color-mix(in srgb,var(--acc) 55%,transparent)}
+.mt.on .mc{transform:scale(1.06)}
+.mck{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;background:var(--acc);border:2px solid var(--card);opacity:0;transform:scale(.4);transition:opacity .2s,transform .25s cubic-bezier(.2,1.4,.4,1)}
+.mck::after{content:"";position:absolute;left:6px;top:3px;width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.mt.on .mck{opacity:1;transform:none}
+@media(hover:hover){.mt:hover{border-color:var(--acc)}}
+.mtipc{margin-top:18px}
+.mstart{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:58px}
+.mstart small{font-size:12.5px;font-weight:500;opacity:.88}
+@media(prefers-reduced-motion:reduce){.mt,.mt .mc,.mck{transition:none}}
