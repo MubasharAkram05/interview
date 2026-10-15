@@ -60,6 +60,9 @@ jobs:
       - name: Test ad rules (mocked AdMob)
         run: npm run test:ads
 
+      - name: Test question of the day
+        run: npm run test:home
+
       - name: Build web app (release, no debug tools)
         run: npm run build
 
