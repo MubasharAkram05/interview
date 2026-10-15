@@ -94,7 +94,7 @@ export async function startListening({ onText, onEnd }) {
       partialResults: true,
       popup: false
     });
-  } catch (e) {
+  } catch {
     finish('error');
     return false;
   }

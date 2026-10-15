@@ -48,8 +48,8 @@ export async function initStorage() {
           }
         }
       }
-    } catch (e) {
-      console.warn(`[storage] Error initializing key ${key}:`, e);
+    } catch {
+      // Skip a broken key; the app falls back to defaults.
     }
   }
 }
@@ -80,8 +80,8 @@ export function setItem(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {}
-  localforage.setItem(key, value).catch(err => {
-    console.warn(`[storage] Failed to async persist key ${key}:`, err);
+  localforage.setItem(key, value).catch(() => {
+    // localStorage copy above still holds the value.
   });
 }
 

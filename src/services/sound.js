@@ -1,6 +1,6 @@
 /**
  * Lightweight, zero-asset Web Audio sound synthesizer
- * Works 100% offline with zero external audio downloads.
+ * Needs no internet and no audio files.
  */
 
 let audioCtx = null;
