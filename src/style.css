@@ -229,3 +229,22 @@ header.bar .ic:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 /* Mock interview: the question area only takes the space it needs (long questions scroll),
    so there is no empty gap above the answer box. */
 #interview .qbody{height:auto;min-height:44px;max-height:150px}
+
+/* ---- Profile hero: name opens the details, theme icon next to edit ---- */
+.pcard .psum{flex:1;min-width:0;min-height:44px;padding:0;margin:0;border:0;background:none;color:#fff;text-align:left;font:inherit;font-weight:400;border-radius:14px;cursor:pointer}
+.pcard .psum:active{transform:scale(.98)}
+.pcard .psum:focus-visible{outline:2px solid #fff;outline-offset:4px}
+.pwho{display:flex;flex-direction:column;min-width:0}
+.pwho b{overflow-wrap:anywhere}
+.pmore{font-size:12.5px;color:rgba(255,255,255,.78);margin-top:4px;display:inline-flex;align-items:center;gap:4px}
+.pmore::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .2s}
+.psum[aria-expanded=true] .pmore::after{transform:rotate(-135deg) translateY(-1px)}
+.pacts{display:flex;gap:8px;flex:none}
+.pcard .kv{margin-top:14px;padding:4px 14px;border-radius:14px;background:rgba(255,255,255,.14);animation:fup .3s ease both}
+.pcard .kv>div{border-top-color:rgba(255,255,255,.18)}
+.pcard .kv span{color:rgba(255,255,255,.75)}
+.pcard .kv b{color:#fff}
+@media(prefers-reduced-motion:reduce){.pcard .kv{animation:none}}
+
+/* Header: less empty space above the title (the status bar inset is still kept). */
+header.bar{min-height:0;padding-top:calc(4px + max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px)));padding-bottom:8px}

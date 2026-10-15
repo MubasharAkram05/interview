@@ -30,13 +30,12 @@
 
 <section class="scr hidden" id="form">
   <div id="pSumBox">
-    <div class="hero pcard"><div class="hh"><div class="psum"><div class="av" id="pAv"></div><div><b id="pNm"></b><div class="prole" id="pRl"></div></div></div><button class="pbtn" data-i="edit" onclick="editProfile()" aria-label="Edit profile" title="Edit profile"></button></div>
+    <div class="hero pcard"><div class="hh"><button class="psum" id="pWho" onclick="toggleAbout()" aria-expanded="false" aria-controls="pKv" title="Show details"><span class="av" id="pAv"></span><span class="pwho"><b id="pNm"></b><span class="prole" id="pRl"></span><span class="pmore" id="pMore">Tap to see details</span></span></button><div class="pacts"><button class="pbtn" id="pTheme" data-i="moon" onclick="toggleTheme()" aria-label="Switch to dark mode" title="Switch to dark mode"></button><button class="pbtn" data-i="edit" onclick="editProfile()" aria-label="Edit profile" title="Edit profile"></button></div></div>
+    <div class="kv hidden" id="pKv"></div>
     <div class="stats"><div><b id="pN">0</b><span>Sessions</span></div><div><b id="pB">-</b><span>Best score</span></div><div><b id="pAvg">-</b><span>Average</span></div></div></div>
-    <div class="sec"><div class="hh" style="align-items:center"><h4 style="margin:0">About you</h4><div style="display:flex;gap:8px"><button class="pbtn" data-i="edit" onclick="editProfile()" aria-label="Edit details" title="Edit details"></button><button class="pbtn" id="pEye" data-i="eye" onclick="toggleAbout()" aria-label="Show details" title="Show details"></button></div></div><div class="kv hidden" id="pKv"></div></div>
   </div>
   <div class="sec hidden" id="pForm"><h4 id="formTitle">Your details</h4><div id="fields"></div>
   <div class="row"><button data-i="x" onclick="cancelProfile()" aria-label="Cancel" title="Cancel"></button><button class="ok" onclick="saveProfile()">Save profile</button></div></div>
-  <div class="sec" id="pThemeBox"><h4>Appearance</h4><label class="opt"><input type="checkbox" id="darkSw" onchange="setTheme(this.checked ? 'dark' : 'light')"> Dark mode</label></div>
   <div class="sec" id="pHistBox"><div class="hh" style="align-items:center"><h4 style="margin:0">Interview history</h4><button class="pbtn" id="hEye" data-i="eye" onclick="toggleHist()" aria-label="Show history" title="Show history"></button></div><div id="hList" class="hidden"></div></div>
   <div class="sec" id="pProfBox"><h4>Switch profile</h4><select id="prof" onchange="setActive(this.value);showProfile()"></select>
   <div class="row"><button data-i="plus" onclick="newProfile()" aria-label="New profile" title="New profile"></button><button class="danger" data-i="trash" onclick="delProfile()" aria-label="Delete profile" title="Delete profile"></button></div></div>
