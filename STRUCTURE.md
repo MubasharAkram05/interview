@@ -15,12 +15,15 @@ interview/
 │   ├── config/
 │   │   ├── ads.js                      EDIT     ALL AdMob IDs and ad timing (test IDs now)
 │   │   └── app.js                      EDIT     PRIVACY_POLICY_URL, voice and read-aloud language
+│   ├── debug/panel.js                  CAREFUL  Debug-only ads status panel (only in `npm run build:debug`)
 │   ├── data/questions.js               EDIT     Interview types, levels, questions, sample answers, tips
 │   └── services/
 │       ├── admob.js                    CAREFUL  Consent (UMP), banner, interstitial logic
 │       ├── voice.js                    CAREFUL  Speech-to-text via phone speech service
 │       ├── tts.js                      CAREFUL  Read aloud via phone text-to-speech
 │       ├── online.js                   EDIT     Internet check + offline messages for online features
+│       ├── debug.js                    CAREFUL  ADS: logs (console only in debug builds) + ring buffer for the panel
+│       ├── native-info.js              CAREFUL  Calls BuildInfoPlugin (debug flag, versions, real banner position)
 │       ├── storage.js                  CAREFUL  On-device storage (localforage + localStorage)
 │       ├── dates.js                    EDIT     Date formats and streak (dayjs)
 │       ├── sound.js                    EDIT     Tap/success sounds (Web Audio, offline)
@@ -80,7 +83,9 @@ interview/
 | Command | What it does |
 |---|---|
 | `npm run dev` | Run the web app in a browser for quick UI checks (voice is hidden in the browser) |
-| `npm run build` | Build the web app into `dist/` |
+| `npm run build` | Build the web app into `dist/` (release: no debug tools) |
+| `npm run build:debug` | Build the web app with the hidden ads status panel (used for the debug APK) |
+| `npm run test:ads` | Unit tests for the ad rules with mocked AdMob |
 | `npx cap sync android` | Copy `dist/` into the Android app and update plugin lists |
 | `npm run android:prep` | build + cap sync together |
 | `npm run icon` | Draw icon and splash source images into `assets/` |

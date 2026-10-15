@@ -59,6 +59,16 @@
 - [x] Play Store icon 512x512 (32-bit PNG) and feature graphic 1024x500 (24-bit PNG, no alpha) regenerated in `store-assets/`
 - [ ] Voice and read-aloud tested on a real phone (online, offline, permission denied): **NOT CHECKED**
 
+## Checking ads on the phone
+
+- [x] Debug APK has a hidden **Ads status** panel (hold the app title 1 s): build/commit, consent, banner wanted vs real position, interstitial state, last 20 `ADS:` lines, **Copy report**, **Force interstitial test** (GUIDE section 15)
+- [x] Release .aab contains no panel code (checked in CI: `apk-contents.txt`)
+- [x] Profile shows `Build <commit> · <time> · debug` in debug builds only
+- [ ] Install the newest debug APK, confirm the commit in Profile matches the GitHub run: **NOT CHECKED**
+- [ ] Banner: panel shows `wantedTop` = `realTop` (±2) and nothing is covered: **NOT CHECKED**
+- [ ] Interstitial: finish a mock interview 10 s after start, ad shows; or use **Force interstitial test**: **NOT CHECKED**
+- [ ] Send the copied report to the developer if anything fails
+
 ## Prepare for Play Console
 
 - [x] `index.html` pushed to the policy repo on branch `playstore-final` with a PR (also fixes the broken contact link, which had no `mailto:`)

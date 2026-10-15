@@ -37,6 +37,7 @@ import {
   showInterstitialAtBreak,
   skipInterstitialBreak,
   setBannerSuppressed,
+  requestBannerRelayout,
   needsPrivacyOptions,
   showPrivacyOptions
 } from './services/admob.js';
@@ -212,14 +213,44 @@ function setAdSpace(h) {
   root.setProperty('--ad-slot', h > 0 ? `${ADS_CONFIG.bannerGapTop + h + ADS_CONFIG.bannerGapBottom}px` : '0px');
 }
 
-// Native banner top margin in CSS px (= dp). The ad plugin adds the status bar / notch inset
-// itself for TOP_CENTER, so subtract the same inset the page uses (env() or Capacitor's CSS var).
-function bannerTopMargin() {
+// Header bottom and top safe area (notch / status bar) in CSS px, for the banner position.
+// The ad plugin adds the window's top inset itself for TOP_CENTER; admob.js subtracts the same
+// inset and then checks the real native position (see checkBannerPosition).
+function bannerLayout() {
   const header = document.querySelector('header.bar');
-  const bottom = header ? header.getBoundingClientRect().bottom : 0;
   const probe = $('safeTopProbe');
-  const safeTop = probe ? probe.getBoundingClientRect().height : 0;
-  return Math.max(0, bottom + ADS_CONFIG.bannerGapTop - safeTop);
+  return {
+    headerBottom: header ? header.getBoundingClientRect().bottom : 0,
+    safeTop: probe ? probe.getBoundingClientRect().height : 0
+  };
+}
+
+// Reserve the banner space at first paint (before storage and consent), so the content never
+// jumps down when the ad arrives. It collapses to 0 if there is no consent, no internet or no ad.
+if (Capacitor.isNativePlatform() && ADS_CONFIG.enableBanner) setAdSpace(ADS_CONFIG.bannerReserveHeight);
+
+// Re-measure the banner position once the layout has settled: web fonts, Capacitor injecting the
+// --safe-area-inset-* variables (a style change on <html>), and late WebView size changes.
+function watchBannerLayout() {
+  try {
+    document.fonts && document.fonts.ready.then(requestBannerRelayout);
+  } catch {
+    // ignore
+  }
+  window.addEventListener('load', requestBannerRelayout);
+  [1500, 4000].forEach(ms => setTimeout(requestBannerRelayout, ms));
+  try {
+    let last = '';
+    new MutationObserver(() => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top');
+      if (v !== last) {
+        last = v;
+        requestBannerRelayout();
+      }
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+  } catch {
+    // ignore
+  }
 }
 
 // Navigation & Screen Management
@@ -1877,10 +1908,14 @@ async function initApp() {
   });
 
   // Consent (EEA/UK) first, then AdMob creates ONE banner under the header for the whole session.
-  // The space is reserved now (native only) so the content does not jump when the ad arrives;
-  // it collapses to 0 if there is no consent, no internet or no ad.
-  if (Capacitor.isNativePlatform() && ADS_CONFIG.enableBanner) setAdSpace(ADS_CONFIG.bannerReserveHeight);
-  initializeAdMob({ topMargin: bannerTopMargin, onSpace: setAdSpace });
+  initializeAdMob({ layout: bannerLayout, onSpace: setAdSpace });
+  watchBannerLayout();
+
+  // Debug builds only: hidden status panel (long-press the title) and build info in Profile.
+  // __DEBUG_TOOLS__ is false in the release build, so this code is removed from it.
+  if (__DEBUG_TOOLS__) {
+    import('./debug/panel.js').then(m => m.installDebugPanel()).catch(() => {});
+  }
 
   // Native platform configurations (Status bar, splash, hardware back button, pause/resume)
   if (Capacitor.isNativePlatform()) {

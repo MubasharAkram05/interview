@@ -290,3 +290,45 @@ adb logcat | findstr "ADS:"
 1. Use an old or cheap phone (2 to 3 GB RAM, Android 8 or newer).
 2. Check: app opens in under about 4 seconds, scrolling is smooth, typing has no lag, no crash after 10 minutes of use.
 3. Turn on Settings > Accessibility > Remove animations: app still works.
+
+## 15. Checking ads on the phone
+
+The **debug APK** has a hidden **Ads status** panel. You do not need a PC or adb. The Play Store build (.aab) does not contain this panel at all.
+
+### Install the right build
+1. GitHub > Actions > **Build Android AAB** > open the newest green run for the branch you want (for example `main`).
+2. Download **interview-simulator-debug-apk**, unzip it, install `app-debug.apk` on the phone (uninstall the old one first if Android says "App not installed").
+3. Open the app > **Profile** tab > scroll to the bottom. You see `Build abc1234 · <date> · debug · v1.0 (1)`. The 7 letters (`abc1234`) must match the commit shown on the GitHub run. If there is no build line, you installed a release or an old build.
+
+### Open the panel
+- Press and **hold the app title** ("Interview Simulator") in the top bar for 1 second.
+- The panel updates every second. Tap ✕ to close it. The banner is hidden while the panel is open (so taps never hit the ad).
+
+### Read the panel
+
+| Line | What it means |
+|---|---|
+| `Build: debug \| version 1.0 (1) \| git abc1234` | Which build is installed. `NOT debuggable` means it is not the debug APK. |
+| `Device / Android SDK / WebView` | Phone model, Android version (35 = Android 15, 36 = Android 16) and WebView version. |
+| `Network: online/offline` | Ads need internet. |
+| `Consent: status=… canRequestAds=…` | `NOT_REQUIRED` or `OBTAINED` with `canRequestAds=true` is fine. `REQUIRED` or `canRequestAds=false` means no ads may be requested (EEA/UK consent not given). |
+| `Ads SDK started: true` | AdMob is running. `false` = consent missing, offline at start, or init failed. |
+| `Banner: state=` | `requested` = loading, `loaded` = showing, `failed` = no ad (see `error`), `off` = not created. |
+| `headerBottom / wantedTop / realTop` | Where the banner should start (just under the header) and where it really is on screen (measured natively). They should be equal (±2). `corrections` counts automatic fixes (max 2). |
+| `hiddenFor=` | Why the banner is hidden right now (`dialog`, `sheet`, `consent`, `interstitial`, `debugpanel`). |
+| `native: found=true visible=true top=… h=…` | The real banner view on screen. `found=false` = no banner view exists. |
+| `Interstitial: ready=true` | A full-screen ad is loaded and can show at the next break. |
+| `prepared / loaded / failed / shown / lastError` | Counters. Error codes: `0` internal, `1` invalid request, `2` network, `3` no fill, `timeout` = no answer in 45 s. |
+| `nextRetryIn` | When the next load attempt happens after a failure (15 s, 30 s, then 60 s). |
+| `cooldownLeft / sinceLaunch` | Time rules: no ad in the first 10 s, and 30 s between ads (testing value). |
+| `lastBreak / lastSkip` | The last natural break (`interview_finished` or `practice_question_N`) and why no ad was shown (`too soon after app start`, `cooldown`, `never twice in a row`, `still loading`, `recording`, `typing`, `screen covered: …`). |
+| `last 20 ADS: lines` | The step-by-step log. |
+
+### Buttons
+- **Copy report**: copies everything above as text. If copy is blocked, long-press the text > Select all > Copy.
+- **Force interstitial test**: tries to show a full-screen test ad right now, ignoring the cooldown, the 10 s rule and "never twice in a row". It still needs consent and a loaded ad. The message under the buttons says what happened (`shown`, `not loaded yet (loading)`, `ads not started (consent=…)`).
+
+### What to send to the developer
+1. Reproduce the problem (for example: open the app, wait 15 s, finish a mock interview).
+2. Open the panel, tap **Copy report**, paste it into your message.
+3. Add one screenshot of the screen where the banner looks wrong (if it is a banner problem), and say what you did step by step.

@@ -13,6 +13,11 @@ const config: CapacitorConfig = {
     androidScheme: 'https'
   },
   plugins: {
+    // index.html uses viewport-fit=cover. Telling Capacitor up front avoids a layout jump after
+    // start-up (it otherwise switches inset handling only after the page is shown).
+    SystemBars: {
+      initialViewportFitValueHint: 'cover'
+    },
     SplashScreen: {
       launchShowDuration: 1800,
       launchAutoHide: true,

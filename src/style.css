@@ -204,3 +204,4 @@ header.bar .ic{width:44px;height:44px;min-height:44px}
 header.bar{padding-top:calc(12px + max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px)))}
 nav{padding-bottom:calc(6px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
 @media(prefers-reduced-motion:reduce){#adSlot{transition:none}}
+
