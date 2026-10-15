@@ -12,6 +12,24 @@ import { nativeAppInfo, nativeAdLayout } from '../services/native-info.js';
  */
 
 const HOLD_MS = 1000;
+
+// Styles live here (not in style.css) so the release build has no trace of the panel.
+const PANEL_CSS = `#dbgPanel{position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.6);display:flex;align-items:flex-end;justify-content:center;padding:max(12px,env(safe-area-inset-top,0px)) 12px max(12px,env(safe-area-inset-bottom,0px))}
+#dbgPanel .dbg-card{width:100%;max-width:560px;max-height:100%;display:flex;flex-direction:column;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:12px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+#dbgPanel .dbg-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+#dbgPanel .dbg-head button{width:44px;min-height:44px;padding:0}
+#dbgPanel pre{flex:1;min-height:0;overflow:auto;margin:0;padding:10px;background:var(--fill);border:1px solid var(--line);border-radius:12px;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;-webkit-user-select:text;user-select:text}
+#dbgPanel .dbg-row{display:flex;gap:8px;margin-top:10px}
+#dbgPanel .dbg-row button{flex:1;min-height:48px}
+#dbgPanel .dbg-msg{font-size:14px;color:var(--mute);margin-top:8px;min-height:20px}`;
+
+function injectStyles() {
+  if (document.getElementById('dbgPanelCss')) return;
+  const st = document.createElement('style');
+  st.id = 'dbgPanelCss';
+  st.textContent = PANEL_CSS;
+  document.head.appendChild(st);
+}
 let panel = null;
 let timer = null;
 let appInfo = null;
@@ -22,6 +40,7 @@ export async function installDebugPanel() {
   const isDebug = await debugReady;
   if (!isDebug) return; // release or non-debuggable build: nothing is installed
   appInfo = await nativeAppInfo();
+  injectStyles();
   showBuildFooter();
   const title = $('ttl');
   if (!title) return;
