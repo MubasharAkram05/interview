@@ -84,7 +84,8 @@ const IC = {
   download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
   trash: 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',
   plus: 'M12 5v14M5 12h14',
-  moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'
+  moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
+  sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4'
 };
 
 const svg = n => `<svg viewBox="0 0 24 24"><path d="${IC[n] || ''}"/></svg>`;
@@ -110,7 +111,12 @@ let lv = 'fresher';
 let timerOn = true;
 let ti = null;
 let left = 60;
-let P = { list: [], i: 0, cat: '', lv: 'fresher' };
+let P = { list: [], i: 0, cat: '', lv: 'fresher', one: null };
+// P.one = id of a single question (Question of the day): practice shows only that one, no swiping.
+const plist = () => {
+  const l = bank(P.cat, P.lv);
+  return P.one == null ? l : l.filter(x => String(x.i) === String(P.one));
+};
 let pcLv = 'fresher';
 let cs = 'home';
 let dep = 0;
@@ -284,7 +290,7 @@ const TABS = ['home', 'pcat', 'practice', 'mock', 'form'];
 function saveScr() {
   const id = cs;
   let o = { s: id };
-  if (id === 'practice') o = { s: id, cat: P.cat, lv: P.lv, i: P.i };
+  if (id === 'practice') o = { s: id, cat: P.cat, lv: P.lv, i: P.i, one: P.one };
   else if (id === 'interview') o = { s: id, cat, lv, idx, cur, answers };
   setItem('is_scr', o);
 }
@@ -353,10 +359,15 @@ function toggleTheme() {
   setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 }
 
-// The dark mode switch lives in Profile > Appearance (no theme button in the header).
+// The theme icon lives in the Profile hero (no theme button in the header).
+// It shows a moon in light mode and a sun in dark mode.
 function syncThemeSwitch() {
-  const sw = $('darkSw');
-  if (sw) sw.checked = document.documentElement.dataset.theme === 'dark';
+  const b = $('pTheme');
+  if (!b) return;
+  const dark = document.documentElement.dataset.theme === 'dark';
+  b.dataset.i = dark ? 'sun' : 'moon';
+  b.title = b.ariaLabel = dark ? 'Switch to light mode' : 'Switch to dark mode';
+  b.innerHTML = svg(b.dataset.i);
 }
 
 // Stats & Home Screen
@@ -385,8 +396,8 @@ function fillHx() {
 
   $('qotdBtn')?.addEventListener('click', () => {
     const { c, lv, q } = res.pick;
-    const i = bank(c, lv).findIndex(x => x.q === q);
-    pcGo(c, Math.max(i, 0), lv);
+    const it = bank(c, lv).find(x => x.q === q);
+    pcGo(c, 0, lv, it ? it.i : null);
   });
 }
 
@@ -588,7 +599,7 @@ function openForm(p, title) {
 
   $('pForm').classList.remove('hidden');
   $('pSumBox').classList.add('hidden');
-  ['pThemeBox', 'pHistBox', 'pProfBox', 'pPrefBox'].forEach(i => $(i).classList.add('hidden'));
+  ['pHistBox', 'pProfBox', 'pPrefBox'].forEach(i => $(i).classList.add('hidden'));
   show('form');
 }
 
@@ -608,13 +619,18 @@ function toggleHist() {
   renderIcons();
 }
 
+// Tapping the name in the Profile hero shows or hides the "About you" details.
 function toggleAbout() {
   playTapSound();
-  const k = $('pKv');
-  const h = k.classList.toggle('hidden');
-  $('pEye').dataset.i = h ? 'eye' : 'eyeoff';
-  $('pEye').title = $('pEye').ariaLabel = h ? 'Show details' : 'Hide details';
-  renderIcons();
+  setAbout($('pKv').classList.contains('hidden'));
+}
+
+function setAbout(open) {
+  $('pKv').classList.toggle('hidden', !open);
+  const w = $('pWho');
+  w.setAttribute('aria-expanded', String(open));
+  w.title = open ? 'Hide details' : 'Show details';
+  $('pMore').textContent = open ? 'Tap to hide details' : 'Tap to see details';
 }
 
 function showProfile() {
@@ -637,14 +653,13 @@ function showProfile() {
 
   renderHist();
   syncThemeSwitch();
-  $('pKv').classList.add('hidden');
-  $('pEye').dataset.i = 'eye';
+  setAbout(false);
   $('hList').classList.add('hidden');
   $('hEye').dataset.i = 'eye';
 
   $('pSumBox').classList.remove('hidden');
   $('pForm').classList.add('hidden');
-  ['pThemeBox', 'pHistBox', 'pProfBox', 'pPrefBox'].forEach(i => $(i).classList.remove('hidden'));
+  ['pHistBox', 'pProfBox', 'pPrefBox'].forEach(i => $(i).classList.remove('hidden'));
   show('form');
 }
 
@@ -754,11 +769,11 @@ function pcLevel(v) {
   fillPcat();
 }
 
-function pcGo(c, i, lv) {
+function pcGo(c, i, lv, one = null) {
   playTapSound();
   const v = LEVELS[lv] ? lv : pcLv;
-  const l = bank(c, v);
-  P = { cat: c, lv: v, list: l, i: 0 };
+  P = { cat: c, lv: v, list: [], i: 0, one };
+  const l = (P.list = plist());
   if (!l.length) {
     addQ();
     return;
@@ -807,7 +822,7 @@ function saveA() {
 
   setItem('is_edits', E);
   setItem('is_qedits', QE);
-  P.list = bank(P.cat, P.lv);
+  P.list = plist();
   pr();
 }
 
@@ -986,7 +1001,8 @@ function cancelA() {
   const has = P.list.length > 0;
   const last = P.i === P.list.length - 1;
   $('pCard').classList.toggle('hidden', !has);
-  ['pMicWrap', 'pEditBtn', 'pDots'].forEach(i => $(i).classList.toggle('hidden', !has));
+  ['pMicWrap', 'pEditBtn'].forEach(i => $(i).classList.toggle('hidden', !has));
+  $('pDots').classList.toggle('hidden', !has || P.one != null);
   $('pDone').classList.toggle('hidden', !has || !last);
   ['pEditQ', 'pEdit', 'pEditBtns', 'pEditMore'].forEach(i => $(i).classList.add('hidden'));
 }
@@ -1170,7 +1186,8 @@ function saveQ() {
   const kk = CK(P.cat, P.lv);
   C[kk] = [...(C[kk] || []), { i: 'u' + Date.now(), q, a: $('na').value.trim() }];
   setItem('is_custom', C);
-  P.list = bank(P.cat, P.lv);
+  P.one = null;
+  P.list = plist();
   P.i = P.list.length - 1;
   history.back();
 }
@@ -1199,7 +1216,7 @@ function _delQ() {
   setItem('is_custom', C);
   setItem('is_hidden', H);
   setItem('is_edits', E);
-  P.list = bank(P.cat, P.lv);
+  P.list = plist();
   pr();
 }
 
@@ -1217,7 +1234,7 @@ function resetA() {
   delete QE[k];
   setItem('is_edits', E);
   setItem('is_qedits', QE);
-  P.list = bank(P.cat, P.lv);
+  P.list = plist();
   pr();
 }
 
@@ -1704,9 +1721,6 @@ function setupSwipeGestures() {
 
 // Event Listeners Initialization
 function initEventListeners() {
-  $('x')?.addEventListener('click', back);
-  $('hStreak')?.addEventListener('click', streakToast);
-  $('hProf')?.addEventListener('click', showProfile);
 
   // Dialog buttons
   $('dYes')?.addEventListener('click', () => dlgRes && dlgRes(true));
@@ -1718,43 +1732,23 @@ function initEventListeners() {
   // Action sheet
   $('csPractice')?.addEventListener('click', () => csGo(0));
   $('csInterview')?.addEventListener('click', () => csGo(1));
-  $('csheet')?.addEventListener('click', e => {
-    if (e.target.id === 'csheet') closeCS();
-  });
 
   // Profile actions
   $('pEditProfBtn')?.addEventListener('click', editProfile);
   $('pEditAboutBtn')?.addEventListener('click', editProfile);
-  $('pEye')?.addEventListener('click', toggleAbout);
-  $('hEye')?.addEventListener('click', toggleHist);
   $('pCancelBtn')?.addEventListener('click', cancelProfile);
   $('pSaveBtn')?.addEventListener('click', saveProfile);
   $('pNewProfBtn')?.addEventListener('click', newProfile);
   $('pDelProfBtn')?.addEventListener('click', delProfile);
   $('pRestoreQBtn')?.addEventListener('click', restoreQ);
-  $('prof')?.addEventListener('change', e => {
-    setActive(e.target.value);
-    showProfile();
-  });
 
   // Practice actions
-  $('pQt')?.addEventListener('click', () => editA('pEditQ'));
-  $('pFav')?.addEventListener('click', toggleFav);
-  $('pEditBtn')?.addEventListener('click', () => editA());
-  $('pA')?.addEventListener('click', () => editA('pEdit'));
-  $('pMic')?.addEventListener('click', togglePMic);
-  $('pSpk')?.addEventListener('click', readA);
   $('pSaveABtn')?.addEventListener('click', saveA);
   $('pCancelABtn')?.addEventListener('click', cancelA);
   $('pAddQBtn')?.addEventListener('click', addQ);
-  $('pReset')?.addEventListener('click', resetA);
   $('pDelQBtn')?.addEventListener('click', delQ);
-  $('pEmpty')?.addEventListener('click', addQ);
-  $('pDone')?.addEventListener('click', home);
 
   // Mock setup actions
-  $('mcat')?.addEventListener('change', mSync);
-  $('mlvl')?.addEventListener('change', mSync);
   $('mStartBtn')?.addEventListener('click', startInterview);
 
   // Mock interview actions
@@ -1763,9 +1757,7 @@ function initEventListeners() {
     answers[idx] = e.target.value.trim();
     saveScr();
   });
-  $('mic')?.addEventListener('click', toggleMic);
   $('mPrevBtn')?.addEventListener('click', () => step(-1));
-  $('nBtn')?.addEventListener('click', () => step(1));
 
   // Feedback actions
   $('fbExportBtn')?.addEventListener('click', exportT);
@@ -1785,10 +1777,6 @@ function initEventListeners() {
   });
 
   // Bottom Navigation
-  $('nHome')?.addEventListener('click', home);
-  $('nPractice')?.addEventListener('click', startPractice);
-  $('nMock')?.addEventListener('click', startMock);
-  $('nProfile')?.addEventListener('click', showProfile);
 
   // History popstate
   window.addEventListener('popstate', e => {
@@ -1884,10 +1872,11 @@ async function initApp() {
   if (o && active && profiles[active]) {
     try {
       if (o.s === 'practice') {
-        const l = bank(o.cat, o.lv || 'fresher');
+        P = { cat: o.cat, lv: o.lv || 'fresher', list: [], i: 0, one: o.one ?? null };
+        const l = (P.list = plist());
         if (l.length) {
           history.pushState({ s: 'home', d: 0 }, '');
-          P = { cat: o.cat, lv: o.lv || 'fresher', list: l, i: Math.min(o.i || 0, l.length - 1) };
+          P.i = Math.min(o.i || 0, l.length - 1);
           show('practice');
         }
       } else if (o.s === 'form') {
