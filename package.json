@@ -10,7 +10,9 @@
     "android:prep": "npm run build && npx cap sync android",
     "policy:page": "node scripts/build-policy-page.mjs",
     "assets": "npx capacitor-assets generate --android",
-    "store:assets": "node scripts/make-store-assets.mjs"
+    "store:assets": "node scripts/make-store-assets.mjs",
+    "icon": "node scripts/make-icon.mjs",
+    "policy:check": "node scripts/check-policy-sync.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.2.1",

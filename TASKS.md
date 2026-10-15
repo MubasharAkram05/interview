@@ -45,19 +45,24 @@
 - [x] Merged manifest permissions checked. Extra ones come from the Google Mobile Ads SDK only: ACCESS_ADSERVICES_AD_ID / ATTRIBUTION / TOPICS (Android Privacy Sandbox ads), WAKE_LOCK and FOREGROUND_SERVICE (WorkManager used by the ads SDK), DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION (AndroidX internal). Kept on purpose: removing them can break ads. None needs a Play Console declaration form
 - [ ] Create upload keystore and add the 4 GitHub Secrets (GUIDE sections 1 and 2)
 - [ ] Get a run where `verify-report.txt` says `AAB signature: VERIFIED` (first run was UNSIGNED because the secrets are not added yet)
-- [ ] Put your real contact email in `PRIVACY_POLICY.md` (replace `[YOUR CONTACT EMAIL]`), run `npm run policy:page`
-- [ ] Decide on the demo profile in `src/data/questions.js` (`DEMO`): every new user sees "Mubashar Akram" with your university and internship. Consider a fictional sample name
+- [x] Contact email set in `PRIVACY_POLICY.md` (sussalproductions@gmail.com); `privacy-policy-site/index.html` regenerated
+- [x] Policy text identical in `PRIVACY_POLICY.md`, `privacy-policy-site/index.html` and the in-app screen (790 words each, `node scripts/check-policy-sync.mjs` exits 0)
+- [x] `PRIVACY_POLICY_URL` and the "View online version" button both use https://mubasharakram05.github.io/privacy_policy_interview_simulator/ ; no `.git` policy link anywhere
+- [x] Personal details removed from the app: demo profile is now fictional "Alex Khan, BS Computer Science, Example University"; the Customer Service "Tell me about yourself" answer now uses profile placeholders instead of a real name, city and university
+- [x] Store screenshots retaken with the fictional profile
+- [x] New launcher icon: white speech bubble + bold mic on indigo gradient, no text, art inside the adaptive icon safe zone; splash has no text
+- [x] Play Store icon 512x512 (32-bit PNG) and feature graphic 1024x500 (24-bit PNG, no alpha) regenerated in `store-assets/`
 - [ ] Voice and read-aloud tested on a real phone (online, offline, permission denied): **NOT CHECKED**
 
 ## Prepare for Play Console
 
-- [ ] Upload `privacy-policy-site/index.html` to the policy repo root and enable GitHub Pages (GUIDE section 12)
-- [ ] Open https://mubasharakram05.github.io/privacy_policy_interview_simulator/ in incognito and confirm it loads without login
+- [x] `index.html` pushed to the policy repo on branch `playstore-final` with a PR (also fixes the broken contact link, which had no `mailto:`)
+- [ ] Merge that PR in MubasharAkram05/privacy_policy_interview_simulator and make sure GitHub Pages is on (Settings > Pages > main > / root)
+- [ ] Open https://mubasharakram05.github.io/privacy_policy_interview_simulator/ in incognito and confirm it loads without login: **NOT CHECKED** (github.io is blocked in the build environment)
 - [ ] Create the app in Play Console (GUIDE section 6)
 - [ ] Fill store listing from `STORE_LISTING.md`
 - [ ] Replace draft screenshots with real phone screenshots (mic button only shows on a phone)
 - [ ] Fill App content and Data safety from `PLAY_CONSOLE_ANSWERS.md`
-- [ ] Optional: simpler launcher icon without small text
 
 ## Closed testing
 

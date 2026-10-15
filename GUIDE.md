@@ -178,7 +178,7 @@ After 14 days with 12+ opted-in testers:
 ## 12. Publish the policy on GitHub Pages
 
 1. Open https://github.com/MubasharAkram05/privacy_policy_interview_simulator
-2. **Add file > Upload files** > upload `privacy-policy-site/index.html` from this project to the repo **root** (file name must be `index.html`). Commit to `main`.
+2. Put `privacy-policy-site/index.html` from this project in the repo **root** as `index.html` on `main`. (For version 1.0 this is already done as a pull request from branch `playstore-final`: just merge it.) Later updates: **Add file > Upload files**, upload the new file, commit to `main`.
 3. Repo **Settings > Pages**:
    - Source: **Deploy from a branch**
    - Branch: **main**, folder: **/ (root)** > **Save**
