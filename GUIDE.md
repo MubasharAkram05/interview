@@ -50,7 +50,9 @@ If any secret is missing, the workflow still runs, but the .aab is **unsigned** 
 Workflow file: `.github/workflows/build-aab.yml`
 
 1. Go to the repo > **Actions** tab > **Build Android AAB** (left side).
-2. Click **Run workflow**, pick the branch, click the green **Run workflow** button. (It also runs on every push to the working branch.)
+2. Click **Run workflow**, pick the branch, click the green **Run workflow** button. (It also runs by itself on every push to `main`, so every merged PR gets a new build.)
+   - Do **not** use **Re-run jobs** on an old run to get new changes. A re-run builds the same old commit again. Always start a new run, or take the newest run whose commit matches the latest merge.
+   - In the debug APK, open Profile and check the footer: `Build <commit>` must match the newest commit on `main`.
 3. Wait about 5 to 10 minutes for a green tick.
 4. Open the finished run. Scroll to **Artifacts** and download:
    - `interview-simulator-release-aab` > contains `app-release.aab` (upload this to Play Console)
