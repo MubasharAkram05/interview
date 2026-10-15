@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Interview Simulator</string>
+    <string name="title_activity_main">Interview Simulator</string>
+    <string name="package_name">com.sussalproductions.interviewsimulator</string>
+    <string name="custom_url_scheme">com.sussalproductions.interviewsimulator</string>
+</resources>

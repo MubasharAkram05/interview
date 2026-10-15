@@ -1,0 +1,8 @@
+{
+  "name": "Remix Interview Simulator",
+  "description": "Offline interview simulator and practice app for multiple job roles with AdMob ads and UMP consent.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

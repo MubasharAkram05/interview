@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5"><meta name="apple-mobile-web-app-capable" content="yes">
+<title>Interview Simulator</title>
+  <script type="module" crossorigin src="./assets/index-BN6x1xfm.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-D2tMhw6B.css">
+</head>
+<body>
+<div class="app">
+<header class="bar"><button class="ic hidden" id="x" data-i="left" onclick="back()" aria-label="Back" title="Back"></button><h1 id="ttl">Interview Simulator</h1><button class="ic" id="hStreak" data-i="flame" onclick="streakToast()" aria-label="Streak" title="Streak"></button><button class="ic" id="hProf" data-i="user" onclick="showProfile()" aria-label="Profile" title="Profile"></button><button class="ic" data-i="moon" onclick="toggleTheme()" aria-label="Toggle light or dark theme" title="Theme"></button></header>
+<div id="dlg" class="dlg hidden" role="dialog" aria-modal="true"><div class="dcard"><div class="dem" id="dEm"></div><h3 id="dT"></h3><p id="dM"></p><div class="drow"><button id="dNo" class="dno"></button><button id="dYes" class="dyes"></button></div></div></div>
+<div id="csheet" class="dlg hidden" role="dialog" aria-modal="true" onclick="if(event.target.id==='csheet')closeCS()"><div class="dcard"><div class="dem">🎯</div><h3 id="csT"></h3><p>What do you want to do?</p><div class="drow"><button class="dno" onclick="csGo(0)">Practice</button><button class="dyes" onclick="csGo(1)">Start interview</button></div></div></div>
+<div id="toast" class="hidden"></div>
+<main id="main">
+
+<section class="scr" id="home">
+  <div class="hero"><div class="hh"><div><div class="eye" id="gr">Welcome</div><h2 id="hi">Ready to practice?</h2></div><div class="av" id="av"></div></div>
+  <div class="stats" style="grid-template-columns:1fr;margin-top:14px"><div style="padding:16px 8px"><b id="dFull" style="font-size:19px"></b></div></div></div>
+
+  <div id="hx"></div>
+  <div class="pseg" id="hSeg" style="margin-top:14px"></div>
+  <div id="hPath"></div>
+  <div id="favList"></div>
+  <div class="sec hidden"><h4>Select interview</h4><label class="l" for="cat" style="margin-top:0">Interview type</label><select id="cat" class="pf"></select><label class="l" for="lvl">Experience level</label><select id="lvl" class="pf"></select></div>
+</section>
+
+<section class="scr hidden" id="form">
+  <div id="pSumBox">
+    <div class="hero pcard"><div class="hh"><div class="psum"><div class="av" id="pAv"></div><div><b id="pNm"></b><div class="prole" id="pRl"></div></div></div><button class="pbtn" data-i="edit" onclick="editProfile()" aria-label="Edit profile" title="Edit profile"></button></div>
+    <div class="stats"><div><b id="pN">0</b><span>Sessions</span></div><div><b id="pB">-</b><span>Best score</span></div><div><b id="pAvg">-</b><span>Average</span></div></div></div>
+    <div class="sec"><div class="hh" style="align-items:center"><h4 style="margin:0">About you</h4><div style="display:flex;gap:8px"><button class="pbtn" data-i="edit" onclick="editProfile()" aria-label="Edit details" title="Edit details"></button><button class="pbtn" id="pEye" data-i="eye" onclick="toggleAbout()" aria-label="Show details" title="Show details"></button></div></div><div class="kv hidden" id="pKv"></div></div>
+  </div>
+  <div class="sec hidden" id="pForm"><h4 id="formTitle">Your details</h4><div id="fields"></div>
+  <div class="row"><button data-i="x" onclick="cancelProfile()" aria-label="Cancel" title="Cancel"></button><button class="ok" onclick="saveProfile()">Save profile</button></div></div>
+  <div class="sec" id="pHistBox"><div class="hh" style="align-items:center"><h4 style="margin:0">Interview history</h4><button class="pbtn" id="hEye" data-i="eye" onclick="toggleHist()" aria-label="Show history" title="Show history"></button></div><div id="hList" class="hidden"></div></div>
+  <div class="sec" id="pProfBox"><h4>Switch profile</h4><select id="prof" onchange="setActive(this.value);showProfile()"></select>
+  <div class="row"><button data-i="plus" onclick="newProfile()" aria-label="New profile" title="New profile"></button><button class="danger" data-i="trash" onclick="delProfile()" aria-label="Delete profile" title="Delete profile"></button></div></div>
+  <div class="sec" id="pPrefBox"><h4>Interview preferences</h4>
+  <label class="opt"><input type="checkbox" id="shuf" class="pf"> Shuffle questions</label>
+  <label class="opt"><input type="checkbox" id="rd" class="pf" checked> Read questions aloud</label>
+  <button class="full" onclick="restoreQ()">Restore deleted questions</button>
+  <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
+    <div><b>Privacy Policy</b><br><small style="color:var(--mute)">How data and ads are handled</small></div>
+    <button class="pbtn" style="width:auto;padding:8px 14px;border-radius:10px;background:var(--acc);color:#fff" onclick="openPrivacyPolicy()">View</button>
+  </div>
+  </div>
+</section>
+
+<section class="scr hidden" id="pcat">
+  <div class="pseg" id="pSeg"></div>
+  <div id="pPath"></div>
+</section>
+
+<section class="scr hidden" id="practice">
+  <div class="ptop"><span class="cnt" id="pCount"></span></div>
+  <div id="pCard">
+    <div class="q" id="pQ"><span id="pQt" onclick="editA('pEditQ')"></span><i class="qsp"></i><button class="pbtn eb" id="pFav" data-i="star" onclick="toggleFav()" aria-label="Add to favorites" title="Add to favorites"></button><button class="pbtn eb" id="pEditBtn" data-i="edit" onclick="editA()" aria-label="Edit question and answer" title="Edit question and answer"></button></div>
+    <div class="acard" id="pWrap"><div class="atools"><span class="tag hidden" id="pTag">Edited by you</span></div><div id="pA" onclick="editA('pEdit')"></div></div>
+  </div>
+  <div class="dots" id="pDots"></div>
+  <div class="micwrap" id="pMicWrap"><button class="mic" id="pMic" data-i="mic" onclick="togglePMic()" aria-label="Read aloud with mic" title="Read aloud with mic"></button><button class="pbtn" id="pSpk" data-i="speaker" onclick="readA()" aria-label="Listen" title="Listen"></button></div>
+  <textarea id="pEditQ" class="ft hidden" placeholder="Question"></textarea>
+  <textarea id="pEdit" class="hidden"></textarea>
+  <div class="row hidden" id="pEditBtns"><button class="ok" data-i="check" onclick="saveA()" aria-label="Save" title="Save"></button><button data-i="x" onclick="cancelA()" aria-label="Cancel" title="Cancel"></button></div>
+  <div class="row hidden" id="pEditMore"><button data-i="plus" onclick="addQ()" aria-label="Add question" title="Add question"></button><button class="hidden" id="pReset" data-i="undo" onclick="resetA()" aria-label="Reset to original" title="Reset to original"></button><button class="danger" data-i="trash" onclick="delQ()" aria-label="Delete question" title="Delete question"></button></div>
+  <button class="pri hidden" id="pEmpty" onclick="addQ()">Add a question</button>
+  <button class="pri hidden" id="pDone" onclick="home()">Finish</button>
+</section>
+
+<section class="scr hidden" id="mock">
+  <div class="sec" style="margin-top:0"><h4>Select interview</h4><label class="l" for="mcat" style="margin-top:0">Interview type</label><select id="mcat" onchange="mSync()"></select><label class="l" for="mlvl">Experience level</label><select id="mlvl" onchange="mSync()"></select></div>
+  <div class="sec"><h4>Interview tip</h4><div id="mtip"></div></div>
+  <button class="pri" onclick="startInterview()">Start mock interview</button>
+</section>
+
+<section class="scr hidden" id="interview">
+  <div class="qcard"><div class="qtop"><span class="cnt" id="qCount"></span></div><div class="bar"><i id="qBar"></i></div><div class="qbody"><button class="spk" data-i="speaker" onclick="reveal(cur[idx].q,true)" aria-label="Read question aloud" title="Read aloud"></button><div class="q" id="qText"></div></div></div>
+  <div id="tWrap" class="hidden" style="margin-top:12px"><div class="bar"><i id="tBar" style="width:100%;transition:width 1s linear"></i></div><div class="cnt" id="tText"></div></div>
+  <textarea id="ansBox" oninput="answers[idx]=this.value.trim();saveScr()" placeholder="Type or speak your answer..." spellcheck="true" style="margin-top:12px"></textarea>
+  <div class="dots" id="mDots"></div>
+  <div class="micwrap"><button class="mic" id="mic" data-i="mic" onclick="toggleMic()" aria-label="Speak to type" title="Speak to type"></button><div class="note" id="micSt"></div></div>
+  <div class="row"><button data-i="left" onclick="step(-1)" aria-label="Previous" title="Previous"></button><button class="ok" id="nBtn" data-i="right" onclick="step(1)" aria-label="Next" title="Next"></button></div>
+</section>
+
+<section class="scr hidden" id="feedback">
+  <h3>Interview feedback</h3>
+  <div class="score" id="score"></div>
+  <p id="fbText"></p>
+  <div class="box" id="tips"></div>
+  <div class="box">
+    <b>Your answers</b>
+    <div id="review"></div>
+  </div>
+  <button class="full" data-i="download" onclick="exportT()" aria-label="Download transcript" title="Download transcript"></button>
+  <button class="pri" onclick="home()">Back to home</button>
+</section>
+
+<section class="scr hidden" id="addq">
+  <div class="sec" style="margin-top:0"><h4>Add question</h4>
+  <label class="l" for="nq" style="margin-top:0">Question</label><textarea class="ft" id="nq" placeholder="e.g. Tell me about your internship"></textarea>
+  <label class="l" for="na">Your answer (optional)</label><textarea id="na"></textarea>
+  <p class="note">You can use {name}, {skills}, {project}, {strength} and similar tags to fill from your profile.</p>
+  <button class="pri" onclick="saveQ()">Save question</button></div>
+</section>
+
+</main>
+<nav id="nav"><button class="tab on" id="nHome" onclick="home()"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>Home</button><button class="tab" id="nPractice" onclick="startPractice()"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19a2 2 0 0 1 2-2h13"/></svg>Practice</button><button class="tab" id="nMock" onclick="startMock()"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Mock</button><button class="tab" id="nProfile" onclick="showProfile()"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Profile</button></nav>
+</div>
+
+</body>
+</html>
