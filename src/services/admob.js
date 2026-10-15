@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { Network } from '@capacitor/network';
 import {
   AdMob,
   AdmobConsentStatus,
@@ -11,30 +12,40 @@ import { ADS_CONFIG } from '../config/ads.js';
 
 /**
  * AdMob with Google UMP consent (EEA/UK).
+ *
+ * Banner: ONE standard 320x50 banner, created once and kept for the whole session,
+ * placed by the native SDK at TOP_CENTER just under the app header. The web page keeps a
+ * matching spacer (#adSlot) under the header, so the banner never covers any content.
+ *
  * Every call is wrapped so a failed or offline ad never blocks or crashes the app.
  */
 
 let ready = false; // SDK initialized and consent allows ads
 let privacyOptionsRequired = false;
-let bannerShown = false;
-let bannerWanted = false;
-let launchHold = true; // no ad of any kind until the user starts using the app
 let interstitialReady = false;
 let interstitialLoading = false;
 let lastInterstitial = Date.now() - ADS_CONFIG.interstitialCooldownMs + ADS_CONFIG.firstInterstitialDelayMs;
-let onBannerHeight = () => {};
-let bottomMargin = () => 0;
+
+// Banner state: 'off' (no banner), 'requested' (loading), 'loaded', 'failed'
+let bannerState = 'off';
+let bannerMargin = -1; // top margin (dp = CSS px) the current banner was created with
+let relayoutTimer = null;
+const suppressed = new Set(); // reasons the banner is hidden right now (dialog, consent form)
+
+// Callbacks from the page
+let getTopMargin = () => 0; // where the banner should start, measured from the WebView top
+let onBannerSpace = () => {}; // (heightPx) => reserve that much banner height (0 = collapse)
 
 const native = () => Capacitor.isNativePlatform();
 
 /**
- * Ask for consent (only shows a form where the law needs it), then start the SDK.
- * No ad is shown here. Call showBannerFor(screen) after navigation instead.
+ * Ask for consent (only shows a form where the law needs it), then start the SDK and
+ * the banner. No ad request is made before consent is resolved.
  */
-export async function initializeAdMob({ onBannerResize, getBottomMargin } = {}) {
+export async function initializeAdMob({ topMargin, onSpace } = {}) {
   if (!native()) return false;
-  if (onBannerResize) onBannerHeight = onBannerResize;
-  if (getBottomMargin) bottomMargin = getBottomMargin;
+  if (topMargin) getTopMargin = topMargin;
+  if (onSpace) onBannerSpace = onSpace;
 
   let canRequestAds = true;
   try {
@@ -47,28 +58,42 @@ export async function initializeAdMob({ onBannerResize, getBottomMargin } = {}) 
   } catch {
     // Offline or UMP error: the SDK can still start; Google decides what can be served.
   }
-  if (!canRequestAds) return false;
+  if (!canRequestAds) {
+    onBannerSpace(0);
+    return false;
+  }
 
   try {
     await AdMob.initialize({ initializeForTesting: ADS_CONFIG.isTesting });
   } catch {
+    onBannerSpace(0);
     return false;
   }
   ready = true;
   addListeners();
+  watchLayoutAndNetwork();
   preloadInterstitial();
-  if (bannerWanted) showBanner();
+  startBanner();
   return true;
 }
 
 function addListeners() {
   try {
     AdMob.addListener(BannerAdPluginEvents.SizeChanged, size => {
-      onBannerHeight(bannerShown && size ? size.height || 0 : 0);
+      // hideBanner() reports height 0; ignore it so the slot does not jump behind a dialog.
+      if (suppressed.size || bannerState === 'off' || bannerState === 'failed') return;
+      const h = size && size.height ? size.height : 0;
+      if (h > 0) onBannerSpace(h);
+    });
+    AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
+      bannerState = 'loaded';
+      if (suppressed.size) AdMob.hideBanner().catch(() => {});
     });
     AdMob.addListener(BannerAdPluginEvents.FailedToLoad, () => {
-      bannerShown = false;
-      onBannerHeight(0);
+      // The plugin destroys a banner that failed. Collapse the slot; retry when back online.
+      bannerState = 'failed';
+      bannerMargin = -1;
+      onBannerSpace(0);
     });
     AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
       interstitialReady = true;
@@ -91,41 +116,87 @@ function addListeners() {
   }
 }
 
-async function showBanner() {
-  if (!ready || !ADS_CONFIG.enableBanner || bannerShown) return;
-  bannerShown = true;
+async function isOnline() {
   try {
-    await AdMob.showBanner({
-      adId: ADS_CONFIG.bannerAdId,
-      adSize: BannerAdSize.ADAPTIVE_BANNER,
-      // Sits above the bottom tab bar; the page adds matching padding so nothing is covered.
-      position: BannerAdPosition.BOTTOM_CENTER,
-      margin: Math.round(bottomMargin()),
-      isTesting: ADS_CONFIG.isTesting
-    });
+    return (await Network.getStatus()).connected;
   } catch {
-    bannerShown = false;
-    onBannerHeight(0);
+    return true;
   }
 }
 
-async function removeBanner() {
-  if (!bannerShown) return;
-  bannerShown = false;
-  onBannerHeight(0);
+/** Create the one banner (only when consent allows, the SDK is ready and the phone is online). */
+async function startBanner() {
+  if (!ready || !ADS_CONFIG.enableBanner || bannerState === 'requested' || bannerState === 'loaded') return;
+  if (!(await isOnline())) {
+    bannerState = 'failed';
+    onBannerSpace(0);
+    return;
+  }
+  bannerState = 'requested';
+  bannerMargin = Math.max(0, Math.round(getTopMargin()));
+  onBannerSpace(ADS_CONFIG.bannerReserveHeight);
+  try {
+    await AdMob.showBanner({
+      adId: ADS_CONFIG.bannerAdId,
+      adSize: BannerAdSize.BANNER,
+      position: BannerAdPosition.TOP_CENTER,
+      margin: bannerMargin,
+      isTesting: ADS_CONFIG.isTesting
+    });
+    if (suppressed.size) AdMob.hideBanner().catch(() => {});
+  } catch {
+    bannerState = 'failed';
+    bannerMargin = -1;
+    onBannerSpace(0);
+  }
+}
+
+/**
+ * The banner margin is fixed when it is created. If the header bottom moves (rotation,
+ * notch side change), rebuild the banner at the new position. Keyboard open/close does not
+ * move the header, so it does not trigger a rebuild.
+ */
+async function relayoutBanner() {
+  if (bannerState !== 'loaded' && bannerState !== 'requested') return;
+  const m = Math.max(0, Math.round(getTopMargin()));
+  if (Math.abs(m - bannerMargin) < 1) return;
   try {
     await AdMob.removeBanner();
   } catch {
     // ignore
   }
+  bannerState = 'off';
+  startBanner();
 }
 
-/** Show the banner only on calm screens, hide it everywhere else. */
-export function showBannerFor(screen) {
+function watchLayoutAndNetwork() {
+  const schedule = () => {
+    clearTimeout(relayoutTimer);
+    relayoutTimer = setTimeout(relayoutBanner, 300);
+  };
+  window.addEventListener('resize', schedule);
+  window.addEventListener('orientationchange', schedule);
+  try {
+    Network.addListener('networkStatusChange', st => {
+      if (st.connected && bannerState === 'failed') startBanner();
+    });
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Hide the banner while something is drawn over the app (custom dialog, sheet, consent form),
+ * so taps can never land on the ad. The reserved slot stays, so nothing jumps.
+ */
+export function setBannerSuppressed(reason, on) {
   if (!native()) return;
-  bannerWanted = !launchHold && ADS_CONFIG.bannerScreens.includes(screen);
-  if (bannerWanted) showBanner();
-  else removeBanner();
+  const before = suppressed.size;
+  if (on) suppressed.add(reason);
+  else suppressed.delete(reason);
+  if (bannerState !== 'loaded' && bannerState !== 'requested') return;
+  if (!before && suppressed.size) AdMob.hideBanner().catch(() => {});
+  if (before && !suppressed.size) AdMob.resumeBanner().catch(() => {});
 }
 
 async function preloadInterstitial() {
@@ -160,21 +231,20 @@ export async function showInterstitialIfReady() {
   }
 }
 
-/** Called after the user's first navigation. Before this, the app shows no ads. */
-export function releaseLaunchHold() {
-  launchHold = false;
-}
-
 /** true when the user is in a region where a "Privacy choices" entry point is required (EEA/UK). */
 export function needsPrivacyOptions() {
   return privacyOptionsRequired;
 }
 
 export async function showPrivacyOptions() {
+  // Hide the banner so taps on the consent form never hit the ad.
+  setBannerSuppressed('consent', true);
   try {
     await AdMob.showPrivacyOptionsForm();
     return true;
   } catch {
     return false;
+  } finally {
+    setBannerSuppressed('consent', false);
   }
 }

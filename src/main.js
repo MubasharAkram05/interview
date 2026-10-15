@@ -35,12 +35,12 @@ import { PRIVACY_POLICY_URL } from './config/app.js';
 import {
   initializeAdMob,
   showInterstitialIfReady,
-  showBannerFor,
-  releaseLaunchHold,
+  setBannerSuppressed,
   needsPrivacyOptions,
   showPrivacyOptions
 } from './services/admob.js';
 import { requireOnline } from './services/online.js';
+import { ADS_CONFIG } from './config/ads.js';
 import {
   isVoiceAvailable,
   micPermission,
@@ -189,9 +189,11 @@ function ask(t, m, yes = 'OK', no = '', em = '🤔', danger = false) {
     $('dNo').classList.toggle('hidden', !no);
     dlgRes = v => {
       $('dlg').classList.add('hidden');
+      setBannerSuppressed('dialog', false);
       dlgRes = null;
       r(v);
     };
+    setBannerSuppressed('dialog', true);
     $('dlg').classList.remove('hidden');
     $('dYes').focus();
   });
@@ -199,6 +201,24 @@ function ask(t, m, yes = 'OK', no = '', em = '🤔', danger = false) {
 
 function customAlert(m) {
   ask('Just a moment', String(m), 'Got it', null, '💡');
+}
+
+// Banner slot under the header.
+// --ad-h = real banner height; #adSlot = gap above + banner + gap below (0 when there is no ad).
+function setAdSpace(h) {
+  const root = document.documentElement.style;
+  root.setProperty('--ad-h', `${h}px`);
+  root.setProperty('--ad-slot', h > 0 ? `${ADS_CONFIG.bannerGapTop + h + ADS_CONFIG.bannerGapBottom}px` : '0px');
+}
+
+// Native banner top margin in CSS px (= dp). The ad plugin adds the status bar / notch inset
+// itself for TOP_CENTER, so subtract the same inset the page uses (env() or Capacitor's CSS var).
+function bannerTopMargin() {
+  const header = document.querySelector('header.bar');
+  const bottom = header ? header.getBoundingClientRect().bottom : 0;
+  const probe = $('safeTopProbe');
+  const safeTop = probe ? probe.getBoundingClientRect().height : 0;
+  return Math.max(0, bottom + ADS_CONFIG.bannerGapTop - safeTop);
 }
 
 // Navigation & Screen Management
@@ -246,7 +266,6 @@ function render(id) {
     clearInterval(ti);
     stopMedia();
   }
-  showBannerFor(id);
 
   if (id === 'home') fillHome();
   if (id === 'practice') pr();
@@ -263,7 +282,6 @@ function render(id) {
 }
 
 function show(id, replace = false) {
-  releaseLaunchHold();
   if (id === 'home') {
     if (dep > 0) {
       history.go(-dep);
@@ -418,11 +436,13 @@ function homeLevel(v) {
 function openCS(c) {
   csC = c;
   $('csT').textContent = `${CATS[c]} · ${LEVELS[pcLv]}`;
+  setBannerSuppressed('sheet', true);
   $('csheet').classList.remove('hidden');
 }
 
 function closeCS() {
   $('csheet').classList.add('hidden');
+  setBannerSuppressed('sheet', false);
 }
 
 function csGo(m) {
@@ -1826,11 +1846,11 @@ async function initApp() {
     updateMicButtons();
   });
 
-  // Consent (EEA/UK) and AdMob start in the background. No ad is shown at launch.
-  initializeAdMob({
-    getBottomMargin: () => $('nav').offsetHeight,
-    onBannerResize: h => document.documentElement.style.setProperty('--ad-h', `${h}px`)
-  }).then(() => showBannerFor(cs));
+  // Consent (EEA/UK) first, then AdMob creates ONE banner under the header for the whole session.
+  // The space is reserved now (native only) so the content does not jump when the ad arrives;
+  // it collapses to 0 if there is no consent, no internet or no ad.
+  if (Capacitor.isNativePlatform() && ADS_CONFIG.enableBanner) setAdSpace(ADS_CONFIG.bannerReserveHeight);
+  initializeAdMob({ topMargin: bannerTopMargin, onSpace: setAdSpace });
 
   // Native platform configurations (Status bar, splash, hardware back button, pause/resume)
   if (Capacitor.isNativePlatform()) {

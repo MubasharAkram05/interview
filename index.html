@@ -10,6 +10,8 @@
 <body>
 <div class="app">
 <header class="bar"><button class="ic hidden" id="x" data-i="left" onclick="back()" aria-label="Back" title="Back"></button><h1 id="ttl">Interview Simulator</h1><button class="ic" id="hStreak" data-i="flame" onclick="streakToast()" aria-label="Streak" title="Streak"></button><button class="ic" id="hProf" data-i="user" onclick="showProfile()" aria-label="Profile" title="Profile"></button><button class="ic" data-i="moon" onclick="toggleTheme()" aria-label="Toggle light or dark theme" title="Theme"></button></header>
+<div id="adSlot" aria-hidden="true"></div>
+<div id="safeTopProbe" aria-hidden="true"></div>
 <div id="dlg" class="dlg hidden" role="dialog" aria-modal="true"><div class="dcard"><div class="dem" id="dEm"></div><h3 id="dT"></h3><p id="dM"></p><div class="drow"><button id="dNo" class="dno"></button><button id="dYes" class="dyes"></button></div></div></div>
 <div id="csheet" class="dlg hidden" role="dialog" aria-modal="true" onclick="if(event.target.id==='csheet')closeCS()"><div class="dcard"><div class="dem">🎯</div><h3 id="csT"></h3><p>What do you want to do?</p><div class="drow"><button class="dno" onclick="csGo(0)">Practice</button><button class="dyes" onclick="csGo(1)">Start interview</button></div></div></div>
 <div id="toast" class="hidden"></div>

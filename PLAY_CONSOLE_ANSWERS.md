@@ -27,6 +27,7 @@ Answers for Play Console > Policy and programs > **App content**. Every answer i
 ## 3. Ads
 
 - Does your app contain ads? **Yes, my app contains ads**
+- Ad placement (for your own reference, not asked by Play): one standard banner fixed under the header on every screen, in its own reserved space (it never covers content or buttons, and hides while dialogs are open); interstitial only after a finished mock interview, at most once every 3 minutes. No ads before consent where consent is required.
 
 ## 4. Advertising ID
 

@@ -23,14 +23,16 @@
 - [x] Read aloud: `@capacitor-community/text-to-speech` with clear message when no voice is installed
 - [x] One shared offline helper (`src/services/online.js`) for voice, policy link and ad privacy choices
 - [x] AdMob: all IDs in `src/config/ads.js` (Google test IDs); App ID in manifest; UMP consent for EEA/UK; "Ad privacy choices" entry when required
-- [x] AdMob: no ad at launch; banner only on Home and Results; interstitial only after a finished mock interview, preloaded, 3 min gap, not in first 2 min; failures and offline are silent
+- [x] AdMob: ONE standard 320x50 banner fixed under the header on every screen (created once, kept alive across screens, no reloads). A spacer `#adSlot` reserves 50px before the ad loads and pushes content down, so the banner never covers anything; it collapses to 0 with no consent, offline or no fill, and reloads when back online. Banner hides while a dialog, sheet or consent form is open. Interstitial unchanged: only after a finished mock interview, preloaded, 3 min gap, not in first 2 min; failures and offline are silent
 - [x] Back button handled (`@capacitor/app`): dialogs, leave-interview confirm, edit cancel, double back to exit
 - [x] Privacy Policy screen inside the app, rendered from `PRIVACY_POLICY.md` (same file), "View online version" button with offline message
 - [x] `PRIVACY_POLICY_URL` constant in `src/config/app.js`
 - [x] `privacy-policy-site/index.html` generated from the same `PRIVACY_POLICY.md`
 - [x] Transcript export fixed for Android (share sheet instead of blob download, which WebView cannot do)
 - [x] Fixed pre-existing bugs: header clipped to 8px, blank "Practice it" button, `answers is not defined` error from inline handler
-- [x] Mobile layout: tap targets 44px, body text 16px, toast wraps, safe-area padding, banner padding
+- [x] Mobile layout: tap targets 44px, body text 16px, toast wraps, safe-area padding (env() and Capacitor's --safe-area-inset-* vars)
+- [x] Banner layout checked in a 375px browser emulation on all 10 screens, with and without a 32px notch, and with the keyboard height: 0 overlaps with content, nav or mic, 18px clear to header buttons, 8px clear to content
+- [ ] Banner position checked on a real phone (notch, rotation, keyboard, dialogs): **NOT CHECKED**
 - [x] App icon, adaptive icon, splash (light and dark) generated with `@capacitor/assets` from `assets/`
 - [x] Store graphics: `store-assets/icon-512.png`, `store-assets/feature-graphic.png`, 4 draft screenshots
 - [x] GitHub Actions workflow `.github/workflows/build-aab.yml` (signed or unsigned AAB + debug APK, verify report)
