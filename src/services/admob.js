@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import {
   AdMob,
+  AdmobConsentStatus,
   BannerAdSize,
   BannerAdPosition,
   BannerAdPluginEvents,
@@ -8,178 +9,172 @@ import {
 } from '@capacitor-community/admob';
 import { ADS_CONFIG } from '../config/ads.js';
 
-let isInitialized = false;
-let isBannerActive = false;
-let isPreparingInterstitial = false;
-let lastInterstitialTimestamp = Date.now(); // Prevents ad on launch by starting cooldown now
+/**
+ * AdMob with Google UMP consent (EEA/UK).
+ * Every call is wrapped so a failed or offline ad never blocks or crashes the app.
+ */
+
+let ready = false; // SDK initialized and consent allows ads
+let privacyOptionsRequired = false;
+let bannerShown = false;
+let bannerWanted = false;
+let launchHold = true; // no ad of any kind until the user starts using the app
+let interstitialReady = false;
+let interstitialLoading = false;
+let lastInterstitial = Date.now() - ADS_CONFIG.interstitialCooldownMs + ADS_CONFIG.firstInterstitialDelayMs;
+let onBannerHeight = () => {};
+let bottomMargin = () => 0;
+
+const native = () => Capacitor.isNativePlatform();
 
 /**
- * Initialize AdMob SDK and handle Google UMP (User Messaging Platform) consent
+ * Ask for consent (only shows a form where the law needs it), then start the SDK.
+ * No ad is shown here. Call showBannerFor(screen) after navigation instead.
  */
-export async function initializeAdMob() {
-  if (!Capacitor.isNativePlatform()) {
-    console.log('[AdMob] Running in web/non-native environment - AdMob disabled');
-    return false;
-  }
+export async function initializeAdMob({ onBannerResize, getBottomMargin } = {}) {
+  if (!native()) return false;
+  if (onBannerResize) onBannerHeight = onBannerResize;
+  if (getBottomMargin) bottomMargin = getBottomMargin;
 
-  if (isInitialized) return true;
+  let canRequestAds = true;
+  try {
+    let info = await AdMob.requestConsentInfo();
+    if (info.isConsentFormAvailable && info.status === AdmobConsentStatus.REQUIRED) {
+      info = await AdMob.showConsentForm();
+    }
+    canRequestAds = info.canRequestAds !== false;
+    privacyOptionsRequired = info.privacyOptionsRequirementStatus === 'REQUIRED';
+  } catch {
+    // Offline or UMP error: the SDK can still start; Google decides what can be served.
+  }
+  if (!canRequestAds) return false;
 
   try {
-    // 1. Google UMP Consent flow for GDPR/Privacy regulations
-    try {
-      console.log('[AdMob] Requesting consent info...');
-      const consentInfo = await AdMob.requestConsentInfo();
-      console.log('[AdMob] Consent status:', consentInfo?.status);
-
-      // If form is available, present the Google consent dialog
-      if (consentInfo?.isConsentFormAvailable) {
-        await AdMob.showConsentForm();
-        console.log('[AdMob] Consent form completed');
-      }
-    } catch (consentError) {
-      // Consent error should never crash the app
-      console.warn('[AdMob] Consent request skipped or offline:', consentError);
-    }
-
-    // 2. Initialize MobileAds SDK
-    await AdMob.initialize({
-      initializeForTesting: ADS_CONFIG.isTesting,
-      testingDevices: []
-    });
-
-    isInitialized = true;
-    console.log('[AdMob] Initialized successfully');
-
-    // Setup listener logging for diagnostic purposes
-    setupAdListeners();
-
-    // If banner enabled, show banner
-    if (ADS_CONFIG.enableBanner) {
-      await showBottomBanner();
-    }
-
-    return true;
-  } catch (err) {
-    console.warn('[AdMob] Initialization failed (offline or service unavailable):', err);
+    await AdMob.initialize({ initializeForTesting: ADS_CONFIG.isTesting });
+  } catch {
     return false;
   }
+  ready = true;
+  addListeners();
+  preloadInterstitial();
+  if (bannerWanted) showBanner();
+  return true;
 }
 
-/**
- * Set up event listeners for banner and interstitial ads
- */
-function setupAdListeners() {
+function addListeners() {
   try {
-    AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
-      console.log('[AdMob] Banner loaded');
-      isBannerActive = true;
+    AdMob.addListener(BannerAdPluginEvents.SizeChanged, size => {
+      onBannerHeight(bannerShown && size ? size.height || 0 : 0);
     });
-
-    AdMob.addListener(BannerAdPluginEvents.FailedToLoad, (err) => {
-      console.warn('[AdMob] Banner failed to load (offline or no fill):', err);
-      isBannerActive = false;
+    AdMob.addListener(BannerAdPluginEvents.FailedToLoad, () => {
+      bannerShown = false;
+      onBannerHeight(0);
     });
-
     AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
-      console.log('[AdMob] Interstitial prepared');
-      isPreparingInterstitial = false;
+      interstitialReady = true;
+      interstitialLoading = false;
     });
-
-    AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, (err) => {
-      console.warn('[AdMob] Interstitial failed to load:', err);
-      isPreparingInterstitial = false;
+    AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, () => {
+      interstitialReady = false;
+      interstitialLoading = false;
     });
-
     AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
-      console.log('[AdMob] Interstitial dismissed');
-      lastInterstitialTimestamp = Date.now();
+      lastInterstitial = Date.now();
+      preloadInterstitial();
     });
-  } catch (e) {
-    console.warn('[AdMob] Error registering listeners:', e);
+    AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, () => {
+      interstitialReady = false;
+      preloadInterstitial();
+    });
+  } catch {
+    // Listener errors are not fatal.
   }
 }
 
-/**
- * Show a banner ad at the bottom of the screen (above the navigation bar)
- */
-export async function showBottomBanner() {
-  if (!Capacitor.isNativePlatform() || !ADS_CONFIG.enableBanner) return;
-
+async function showBanner() {
+  if (!ready || !ADS_CONFIG.enableBanner || bannerShown) return;
+  bannerShown = true;
   try {
     await AdMob.showBanner({
       adId: ADS_CONFIG.bannerAdId,
       adSize: BannerAdSize.ADAPTIVE_BANNER,
+      // Sits above the bottom tab bar; the page adds matching padding so nothing is covered.
       position: BannerAdPosition.BOTTOM_CENTER,
-      margin: 56, // Leave room for bottom navigation tabs
+      margin: Math.round(bottomMargin()),
       isTesting: ADS_CONFIG.isTesting
     });
-    isBannerActive = true;
-  } catch (e) {
-    // Fails safely if offline
-    console.warn('[AdMob] Banner show error (offline):', e);
+  } catch {
+    bannerShown = false;
+    onBannerHeight(0);
   }
 }
 
-/**
- * Hide banner ad
- */
-export async function hideBanner() {
-  if (!Capacitor.isNativePlatform() || !isBannerActive) return;
+async function removeBanner() {
+  if (!bannerShown) return;
+  bannerShown = false;
+  onBannerHeight(0);
   try {
-    await AdMob.hideBanner();
-  } catch (e) {
-    console.warn('[AdMob] Hide banner error:', e);
+    await AdMob.removeBanner();
+  } catch {
+    // ignore
   }
 }
 
-/**
- * Resume banner ad
- */
-export async function resumeBanner() {
-  if (!Capacitor.isNativePlatform() || !ADS_CONFIG.enableBanner) return;
+/** Show the banner only on calm screens, hide it everywhere else. */
+export function showBannerFor(screen) {
+  if (!native()) return;
+  bannerWanted = !launchHold && ADS_CONFIG.bannerScreens.includes(screen);
+  if (bannerWanted) showBanner();
+  else removeBanner();
+}
+
+async function preloadInterstitial() {
+  if (!ready || !ADS_CONFIG.enableInterstitial || interstitialReady || interstitialLoading) return;
+  interstitialLoading = true;
   try {
-    await AdMob.resumeBanner();
-  } catch (e) {
-    console.warn('[AdMob] Resume banner error:', e);
+    await AdMob.prepareInterstitial({ adId: ADS_CONFIG.interstitialAdId, isTesting: ADS_CONFIG.isTesting });
+  } catch {
+    interstitialLoading = false;
   }
 }
 
 /**
- * Show interstitial ad if cooldown has passed (e.g. after finishing an interview)
- * Ads must never freeze or crash the app if offline.
+ * Show an interstitial at a natural break (after a finished mock interview),
+ * only if one is already loaded and the cooldown has passed. Never waits for loading.
  */
 export async function showInterstitialIfReady() {
-  if (!Capacitor.isNativePlatform() || !ADS_CONFIG.enableInterstitial) {
+  if (!ready || !ADS_CONFIG.enableInterstitial) return false;
+  if (Date.now() - lastInterstitial < ADS_CONFIG.interstitialCooldownMs) return false;
+  if (!interstitialReady) {
+    preloadInterstitial();
     return false;
   }
-
-  const now = Date.now();
-  const timeSinceLast = now - lastInterstitialTimestamp;
-
-  if (timeSinceLast < ADS_CONFIG.interstitialCooldownMs) {
-    console.log(`[AdMob] Interstitial skipped: cooldown active (${Math.round((ADS_CONFIG.interstitialCooldownMs - timeSinceLast)/1000)}s remaining)`);
-    return false;
-  }
-
-  if (isPreparingInterstitial) return false;
-
+  interstitialReady = false;
   try {
-    isPreparingInterstitial = true;
-    console.log('[AdMob] Preparing interstitial ad...');
-    await AdMob.prepareInterstitial({
-      adId: ADS_CONFIG.interstitialAdId,
-      isTesting: ADS_CONFIG.isTesting
-    });
-
-    console.log('[AdMob] Showing interstitial ad...');
     await AdMob.showInterstitial();
-    lastInterstitialTimestamp = Date.now();
+    lastInterstitial = Date.now();
     return true;
-  } catch (err) {
-    // Offline or failed to load - ignore safely, app continues normally
-    console.warn('[AdMob] Interstitial could not be displayed (offline or no inventory):', err);
+  } catch {
+    preloadInterstitial();
     return false;
-  } finally {
-    isPreparingInterstitial = false;
+  }
+}
+
+/** Called after the user's first navigation. Before this, the app shows no ads. */
+export function releaseLaunchHold() {
+  launchHold = false;
+}
+
+/** true when the user is in a region where a "Privacy choices" entry point is required (EEA/UK). */
+export function needsPrivacyOptions() {
+  return privacyOptionsRequired;
+}
+
+export async function showPrivacyOptions() {
+  try {
+    await AdMob.showPrivacyOptionsForm();
+    return true;
+  } catch {
+    return false;
   }
 }

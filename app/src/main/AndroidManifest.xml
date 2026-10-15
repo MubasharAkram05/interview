@@ -1,11 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -14,21 +8,21 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MyApplication"
-        android:hardwareAccelerated="true">
-
-        <!-- Google AdMob App ID (Test ID, replaceable for production) -->
+        android:theme="@style/AppTheme">
+        <!-- AdMob App ID. This is Google's TEST App ID. Replace it with your real App ID
+             before the production release (keep it in sync with src/config/ads.js). -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-3940256099942544~3347511713"
+        />
 
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:exported="true"
-            android:label="@string/app_name"
+            android:label="@string/title_activity_main"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.MyApplication">
+            android:theme="@style/AppTheme.NoActionBarLaunch">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -36,4 +30,15 @@
         </activity>
     </application>
 
+    <!-- Permissions -->
+    <!-- Ads and voice recognition need internet. Network state lets the app detect offline mode. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Microphone, only used when the user taps the mic button for voice input. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Advertising ID for AdMob (also merged in by the Google Mobile Ads SDK). -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+
+    <!-- Microphone is optional, so devices without one can still install the app. -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 </manifest>

@@ -1,0 +1,171 @@
+name: Build Android AAB
+
+# Run by hand (Actions tab > Build Android AAB > Run workflow) or on every push to the working branch.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/gracious-darwin-jnnafh
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-aab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BUILD_TOOLS: "36.0.0"
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Capacitor 8 and its plugins compile with Java 21 (sourceCompatibility 21), so Java 17 cannot build them.
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # Default is "tools platform-tools"; the legacy "tools" package no longer exists in cmdline-tools 16+.
+          packages: platform-tools
+
+      - name: Install SDK platform 36 and build tools
+        run: sdkmanager --install "platforms;android-36" "build-tools;${BUILD_TOOLS}" "platform-tools"
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install npm packages
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      # Secrets are optional. Without all four, the workflow still builds an UNSIGNED .aab and a debug APK.
+      - name: Prepare release keystore (if secrets exist)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-keystore.jks"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload-keystore.jks" >> "$GITHUB_ENV"
+            echo "SIGNED=true" >> "$GITHUB_ENV"
+            echo "Release signing: ON"
+          else
+            echo "SIGNED=false" >> "$GITHUB_ENV"
+            echo "::warning::Signing secrets are missing. Building an UNSIGNED .aab (Play Console will not accept it)."
+          fi
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build release bundle and debug APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease assembleDebug --no-daemon --stacktrace
+
+      - name: Verify build (package, SDK, version, permissions, 16 KB, signing)
+        run: |
+          BT="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
+          AAB=$(ls app/build/outputs/bundle/release/*.aab | head -1)
+          APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          R=verify-report.txt
+          {
+            echo "AAB: $AAB ($(du -h "$AAB" | cut -f1), $(stat -c%s "$AAB") bytes)"
+            echo "Debug APK: $APK ($(du -h "$APK" | cut -f1))"
+            echo
+            echo "== Release merged manifest =="
+            M=$(find app/build/intermediates -path '*release*' -name AndroidManifest.xml | grep -i merged | head -1)
+            [ -z "$M" ] && M=/dev/null
+            echo "file: $M"
+            grep -o 'package="[^"]*"' "$M" || true
+            grep -o 'android:versionCode="[^"]*"' "$M" || true
+            grep -o 'android:versionName="[^"]*"' "$M" || true
+            grep -o 'android:minSdkVersion="[^"]*"' "$M" || true
+            grep -o 'android:targetSdkVersion="[^"]*"' "$M" || true
+            echo "-- permissions --"
+            grep -o 'uses-permission[^>]*android:name="[^"]*"' "$M" | sed 's/.*android:name=//' | sort -u
+            echo
+            echo "== Debug APK badging =="
+            "$BT/aapt2" dump badging "$APK" | grep -E "^package:|sdkVersion|targetSdkVersion|uses-permission" || true
+            echo
+            echo "== 16 KB page size check =="
+            mkdir -p so_check && unzip -q -o "$AAB" 'base/lib/*' -d so_check 2>/dev/null || true
+            SO_COUNT=$(find so_check -name '*.so' | wc -l)
+            echo "native libraries in AAB: $SO_COUNT"
+            BAD=0
+            for so in $(find so_check -name '*.so'); do
+              ALIGN=$(readelf -lW "$so" | awk '/LOAD/ {print $NF}' | sort -u | tr '\n' ' ')
+              echo "$so LOAD align: $ALIGN"
+              for a in $ALIGN; do
+                if [ $((a)) -lt 16384 ]; then BAD=1; echo "  NOT 16 KB aligned"; fi
+              done
+            done
+            if "$BT/zipalign" -c -P 16 -v 4 "$APK" > zipalign.txt 2>&1; then echo "zipalign -P 16 on debug APK: PASS"; else echo "zipalign -P 16 on debug APK: FAIL"; BAD=1; fi
+            [ "$BAD" = "0" ] && echo "16 KB page size: PASS" || echo "16 KB page size: FAIL"
+            echo
+            echo "== Signing =="
+            if [ "$SIGNED" = "true" ]; then
+              jarsigner -verify "$AAB" >/dev/null && echo "AAB signature: VERIFIED" || echo "AAB signature: FAILED"
+            else
+              echo "AAB is UNSIGNED (no secrets). Add the 4 secrets to get an upload-ready AAB."
+            fi
+            echo
+            echo "== Leftovers in web bundle =="
+            echo "console.log calls in app/src/main/assets/public: $(grep -o 'console\.log' -r app/src/main/assets/public | wc -l)"
+            echo "test ad IDs present (expected until you switch to real IDs): $(grep -o 'ca-app-pub-3940256099942544' -r app/src/main/assets/public | wc -l)"
+          } | tee $R
+          cat $R >> "$GITHUB_STEP_SUMMARY"
+          grep -q "16 KB page size: PASS" $R
+          grep -qE "targetSdkVersion(=\"|:')36" $R
+
+      - name: Upload release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: interview-simulator-release-aab
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: interview-simulator-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload verify report and R8 mapping
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            verify-report.txt
+            app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: ignore
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload-keystore.jks"

@@ -11,8 +11,8 @@ export function fireConfetti() {
       origin: { y: 0.7 },
       colors: ['#4f46e5', '#7c3aed', '#059669', '#f59e0b', '#db2777']
     });
-  } catch (e) {
-    console.warn('[celebration] Confetti error:', e);
+  } catch {
+    // Confetti is decoration only; ignore errors.
   }
 }
 

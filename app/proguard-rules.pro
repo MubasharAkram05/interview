@@ -1,28 +1,29 @@
-# Capacitor core and Webview JavascriptInterface
+# R8 keep rules for release builds.
+
+# Capacitor bridge calls plugin methods by reflection and uses a JavaScript interface.
 -keepattributes *Annotation*
 -keepattributes JavascriptInterface
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
-
 -keep class com.getcapacitor.** { *; }
 -keep interface com.getcapacitor.** { *; }
+-keep @com.getcapacitor.annotation.CapacitorPlugin public class * { *; }
+-keep class * extends com.getcapacitor.Plugin { *; }
 
-# Capacitor Plugins
+# Capacitor plugins used by this app
 -keep class com.getcapacitor.community.admob.** { *; }
--keep class com.capacitorjs.plugins.app.** { *; }
--keep class com.capacitorjs.plugins.statusbar.** { *; }
--keep class com.capacitorjs.plugins.splashscreen.** { *; }
+-keep class com.getcapacitor.community.speechrecognition.** { *; }
+-keep class com.getcapacitor.community.tts.** { *; }
+-keep class com.capacitorjs.plugins.** { *; }
 
-# Google Play Services Ads & UMP
--keep public class com.google.android.gms.ads.** {
-   public *;
-}
--keep public class com.google.ads.** {
-   public *;
-}
+# Cordova compatibility layer shipped with Capacitor
+-keep class org.apache.cordova.** { *; }
+
+# Google Mobile Ads and UMP ship their own consumer rules; these are extra safety.
+-keep class com.google.android.gms.ads.** { *; }
 -keep class com.google.android.ump.** { *; }
 
-# Preserve line numbers and source file for release crash reporting
+# Keep line numbers for readable crash reports in Play Console
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile

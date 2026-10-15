@@ -1,27 +1,33 @@
 /**
- * Centralized AdMob Ads Configuration
- * Keep all Ad Unit IDs and settings in this single file.
- * To use your live Google AdMob ads in production, replace the test IDs below with your real IDs.
+ * All AdMob IDs and ad settings live in this one file.
+ *
+ * These are Google's official TEST IDs. Before the production release, replace:
+ *   appId, bannerAdId, interstitialAdId  (and the APPLICATION_ID in app/src/main/AndroidManifest.xml)
+ * and set isTesting to false. See GUIDE.md > "Swap test ad IDs for real ones".
  */
 
 export const ADS_CONFIG = {
-  // Set to true to initialize SDK in test mode (safe for testing/Play Store review testing)
+  // true = test mode. Keep true until you switch to your real IDs.
   isTesting: true,
 
-  // AdMob Application ID (also declared in AndroidManifest.xml)
+  // AdMob App ID (must match com.google.android.gms.ads.APPLICATION_ID in AndroidManifest.xml)
   appId: 'ca-app-pub-3940256099942544~3347511713',
 
-  // Banner Ad Unit ID (Google Test Banner)
-  bannerAdId: 'ca-app-pub-3940256099942544/6300978111',
+  // Google test banner (adaptive)
+  bannerAdId: 'ca-app-pub-3940256099942544/9214589741',
 
-  // Interstitial Ad Unit ID (Google Test Interstitial)
+  // Google test interstitial
   interstitialAdId: 'ca-app-pub-3940256099942544/1033173712',
 
-  // Sensible interval (in milliseconds) between interstitial ads to avoid annoyance
-  // Defaults to 60 seconds (1 minute) minimum cooldown
-  interstitialCooldownMs: 60000,
+  // Minimum gap between two interstitials (3 minutes).
+  interstitialCooldownMs: 180000,
 
-  // Feature flags
+  // No interstitial in the first 2 minutes after the app opens.
+  firstInterstitialDelayMs: 120000,
+
+  // Show the banner only on these calm screens (no mic, typing or quick tapping there).
+  bannerScreens: ['home', 'feedback'],
+
   enableBanner: true,
   enableInterstitial: true
 };

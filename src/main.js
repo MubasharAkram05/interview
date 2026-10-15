@@ -27,7 +27,29 @@ import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
-import { initializeAdMob, showInterstitialIfReady } from './services/admob.js';
+import { Share } from '@capacitor/share';
+import { AppLauncher } from '@capacitor/app-launcher';
+import { marked } from 'marked';
+import policyMarkdown from '../PRIVACY_POLICY.md?raw';
+import { PRIVACY_POLICY_URL } from './config/app.js';
+import {
+  initializeAdMob,
+  showInterstitialIfReady,
+  showBannerFor,
+  releaseLaunchHold,
+  needsPrivacyOptions,
+  showPrivacyOptions
+} from './services/admob.js';
+import { requireOnline } from './services/online.js';
+import {
+  isVoiceAvailable,
+  micPermission,
+  requestMicPermission,
+  startListening,
+  stopListening,
+  isListening
+} from './services/voice.js';
+import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
 import { formatFullCurrentDate, formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
 import { playTapSound, playSuccessChime, playErrorBeep } from './services/sound.js';
@@ -97,10 +119,10 @@ let csC = '';
 let favOpen = false;
 let PW = [];
 let pRv = null;
-let rec = null;
-let isL = false;
 let base = '';
 let rv = null;
+let voiceOK = false; // phone has a speech recognition service
+let pSpoken = ''; // practice read-along text heard so far on this card
 
 const CK = (c, l) => (!l || l === 'fresher' ? c : `${c}@${l}`);
 const CL = (c, l) => `${CATS[c]} · ${LEVELS[l || 'fresher']}`;
@@ -188,7 +210,8 @@ const TT = {
   mock: 'Mock interview',
   interview: 'Mock interview',
   feedback: 'Results',
-  addq: 'Add question'
+  addq: 'Add question',
+  privacy: 'Privacy Policy'
 };
 
 const TB = {
@@ -199,7 +222,8 @@ const TB = {
   mock: 'nMock',
   interview: 'nMock',
   feedback: 'nMock',
-  addq: 'nPractice'
+  addq: 'nPractice',
+  privacy: 'nProfile'
 };
 
 const TABS = ['home', 'pcat', 'practice', 'mock', 'form'];
@@ -220,15 +244,15 @@ function render(id) {
 
   if (id !== 'interview') {
     clearInterval(ti);
-    clearInterval(rv);
-    if (isL && rec) rec.stop();
-    if (window.speechSynthesis) speechSynthesis.cancel();
+    stopMedia();
   }
+  showBannerFor(id);
 
   if (id === 'home') fillHome();
   if (id === 'practice') pr();
   if (id === 'pcat') fillPcat();
   if (id === 'mock') fillMock();
+  if (id === 'privacy') fillPrivacy();
 
   $('x').classList.toggle('hidden', id === 'home');
   $('ttl').textContent = TT[id] || 'Interview Simulator';
@@ -239,6 +263,7 @@ function render(id) {
 }
 
 function show(id, replace = false) {
+  releaseLaunchHold();
   if (id === 'home') {
     if (dep > 0) {
       history.go(-dep);
@@ -300,14 +325,14 @@ function fillHx() {
   const l = bank(c, pcLv || 'fresher');
   if (l.length) {
     const i = dn % l.length;
-    o += `<div class="sec"><h4>Question of the day</h4><div style="margin-bottom:10px">${esc(l[i].q)}</div><div class="hx"><small>${esc(CATS[c])}</small><button id="qotdBtn" data-c="${c}" data-i="${i}">Practice it</button></div></div>`;
+    o += `<div class="sec"><h4>Question of the day</h4><div style="margin-bottom:10px">${esc(l[i].q)}</div><div class="hx"><small>${esc(CATS[c])}</small><button id="qotdBtn" data-c="${c}" data-q="${i}">Practice it</button></div></div>`;
   }
   $('hx').innerHTML = o;
 
   $('retryLastBtn')?.addEventListener('click', () => retryLast());
   $('qotdBtn')?.addEventListener('click', e => {
     const btn = e.currentTarget;
-    pcGo(btn.dataset.c, parseInt(btn.dataset.i, 10));
+    pcGo(btn.dataset.c, parseInt(btn.dataset.q, 10));
   });
 }
 
@@ -784,15 +809,22 @@ function hlTo(k) {
   }
 }
 
-function stopMic() {
-  if (isL && rec) rec.stop();
+// Stop voice input, read aloud and word animations (screen change, app in background).
+function stopMedia() {
+  stopListening();
+  stopSpeaking();
   clearInterval(rv);
+  clearTimeout(rv);
   clearTimeout(pRv);
-  if (window.speechSynthesis) speechSynthesis.cancel();
+}
+
+function stopMic() {
+  stopMedia();
 }
 
 function pr() {
   stopMic();
+  pSpoken = '';
   const n = P.list.length;
   $('pEmpty').classList.toggle('hidden', !!n);
   $('pCard').classList.toggle('hidden', !n);
@@ -875,77 +907,126 @@ function cancelA() {
   ['pEditQ', 'pEdit', 'pEditBtns', 'pEditMore'].forEach(i => $(i).classList.add('hidden'));
 }
 
-function togglePMic() {
-  playTapSound();
-  const S = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!S) {
-    playErrorBeep();
-    toast('Mic is not supported here (requires speech recognition service)');
-    return;
-  }
-  if (isL && rec) {
-    rec.stop();
-    return;
-  }
-  if (window.speechSynthesis) speechSynthesis.cancel();
-  clearInterval(rv);
-  hlTo(0);
+const NO_VOICE_MSG = 'Voice input is not available on this phone (no speech recognition service). You can type instead.';
 
-  rec = new S();
-  rec.lang = 'en-US';
-  rec.continuous = true;
-  rec.interimResults = true;
-  rec.onstart = () => {
-    isL = true;
-    $('pMic').classList.add('on');
-  };
-  rec.onresult = e => {
-    let sp = '';
-    for (const r of e.results) sp += r[0].transcript + ' ';
-    let pos = 0;
-    for (const w of sp.split(/\s+/).map(nrm).filter(Boolean)) {
-      let seen = 0;
-      for (let k = pos; k < PW.length && seen < 4; k++) {
-        const nw = nrm(PW[k].textContent);
-        if (!nw) continue;
-        seen++;
-        if (nw === w) {
-          pos = k + 1;
-          break;
-        }
-      }
-    }
-    while (pos < PW.length && !nrm(PW[pos].textContent)) pos++;
-    hlTo(pos);
-    if (pos >= PW.length) {
-      playSuccessChime();
-      fireConfetti();
-      toast('Well done! You read it all 🎉');
-      rec.stop();
-    }
-  };
-  rec.onerror = e => toast('Mic error: ' + e.error);
-  rec.onend = () => {
-    isL = false;
-    $('pMic').classList.remove('on');
-  };
-  rec.start();
+// Everything that must pass before the mic starts: service, internet, permission.
+async function prepareVoice(notify) {
+  if (!voiceOK) voiceOK = await isVoiceAvailable();
+  if (!voiceOK) {
+    notify(NO_VOICE_MSG);
+    updateMicButtons();
+    return false;
+  }
+  if (!(await requireOnline('voice', notify))) return false;
+
+  let st = await micPermission();
+  if (st === 'granted') return true;
+  if (st === 'denied') {
+    await ask(
+      'Microphone is blocked',
+      'To use voice input, open Android Settings > Apps > Interview Simulator > Permissions > Microphone and choose Allow. You can still type your answer.',
+      'OK',
+      '',
+      '🎙️'
+    );
+    return false;
+  }
+  const go = await ask(
+    'Allow microphone?',
+    'The mic is used only while you tap record, to turn your speech into text. The app does not save your audio.',
+    'Continue',
+    'Not now',
+    '🎙️'
+  );
+  if (!go) return false;
+  st = await requestMicPermission();
+  if (st === 'granted') return true;
+  notify(
+    st === 'denied'
+      ? 'Microphone is blocked. Allow it in Android Settings > Apps > Interview Simulator > Permissions.'
+      : 'Microphone permission was not given. You can type your answer instead.'
+  );
+  return false;
 }
 
-function readA() {
+// Hide mic buttons when the phone has no speech recognition service.
+function updateMicButtons() {
+  $('pMic').classList.toggle('hidden', !voiceOK);
+  $('mic').classList.toggle('hidden', !voiceOK);
+  if (!voiceOK) $('micSt').textContent = 'Voice input is not available on this phone. Type your answer.';
+}
+
+function pHighlight(sp) {
+  let pos = 0;
+  for (const w of sp.split(/\s+/).map(nrm).filter(Boolean)) {
+    let seen = 0;
+    for (let k = pos; k < PW.length && seen < 4; k++) {
+      const nw = nrm(PW[k].textContent);
+      if (!nw) continue;
+      seen++;
+      if (nw === w) {
+        pos = k + 1;
+        break;
+      }
+    }
+  }
+  while (pos < PW.length && !nrm(PW[pos].textContent)) pos++;
+  hlTo(pos);
+  return pos;
+}
+
+// Practice: read the answer aloud and the app highlights the words it hears.
+async function togglePMic() {
   playTapSound();
-  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
-    playErrorBeep();
-    customAlert('Voice is not supported in this browser.');
+  if (isListening()) {
+    stopListening();
     return;
   }
-  if (speechSynthesis.speaking) {
-    speechSynthesis.cancel();
+  stopSpeaking();
+  clearInterval(rv);
+  if (!(await prepareVoice(toast))) return;
+  if (cs !== 'practice') return;
+
+  pFinish();
+  hlTo(0);
+  pSpoken = '';
+  let done = false;
+  $('pMic').classList.add('on');
+  toast('Listening... read the answer aloud');
+  const started = await startListening({
+    onText: t => {
+      if (done) return;
+      if (pHighlight(pSpoken + ' ' + t) >= PW.length) {
+        done = true;
+        playSuccessChime();
+        fireConfetti();
+        toast('Well done! You read it all 🎉');
+        stopListening();
+      }
+    },
+    onEnd: ({ text, reason }) => {
+      $('pMic').classList.remove('on');
+      if (text) pSpoken += ' ' + text;
+      else if (reason !== 'stopped') toast("Didn't catch that. Tap the mic and try again.");
+    }
+  });
+  if (!started) {
+    $('pMic').classList.remove('on');
+    toast('Could not start voice input. Please try again.');
+  }
+}
+
+// Practice: listen to the answer with the phone's text-to-speech voice.
+async function readA() {
+  playTapSound();
+  if (isSpeaking()) {
+    stopSpeaking();
     clearInterval(rv);
+    clearTimeout(rv);
     hlTo(0);
     return;
   }
-  if (isL && rec) rec.stop();
+  stopListening();
   pFinish();
 
   const w = PW.map(x => x.textContent);
@@ -956,32 +1037,35 @@ function readA() {
     c += x.length + 1;
   });
 
-  const u = new SpeechSynthesisUtterance(w.join(' '));
-  u.rate = 0.95;
   let got = false;
-  u.onboundary = e => {
-    if (e.name && e.name !== 'word') return;
-    got = true;
-    let k = 0;
-    while (k + 1 < st.length && st[k + 1] <= e.charIndex) k++;
-    hlTo(k + 1);
-  };
-  u.onend = () => {
-    clearInterval(rv);
-    setTimeout(() => hlTo(0), 500);
-  };
   hlTo(0);
-  speechSynthesis.speak(u);
-
   clearInterval(rv);
+  // If the engine does not report word positions, move the highlight with a timer.
   rv = setTimeout(() => {
-    if (got) return;
+    if (got || !isSpeaking()) return;
     let n = 0;
     rv = setInterval(() => {
       hlTo(++n);
       if (n >= w.length) clearInterval(rv);
     }, 340);
   }, 900);
+
+  const r = await speak(w.join(' '), {
+    onWord: charIndex => {
+      got = true;
+      let k = 0;
+      while (k + 1 < st.length && st[k + 1] <= charIndex) k++;
+      hlTo(k + 1);
+    }
+  });
+  clearInterval(rv);
+  clearTimeout(rv);
+  if (r.ok) setTimeout(() => hlTo(0), 500);
+  else if (r.reason !== 'stopped') {
+    hlTo(0);
+    playErrorBeep();
+    toast(TTS_MESSAGES[r.reason] || TTS_MESSAGES.error);
+  }
 }
 
 function addQ() {
@@ -1082,6 +1166,7 @@ function startInterview() {
 }
 
 function showQ() {
+  stopListening();
   $('qCount').textContent = `${idx + 1}/${cur.length}`;
   reveal(cur[idx].q, $('rd').checked);
   $('ansBox').value = answers[idx] || '';
@@ -1144,9 +1229,11 @@ function step(d) {
   saveScr();
 }
 
+// Show the question word by word. When sp is true, also read it aloud with the phone's voice.
 function reveal(t, sp) {
   clearInterval(rv);
-  if (window.speechSynthesis) speechSynthesis.cancel();
+  clearTimeout(rv);
+  stopSpeaking();
   const el = $('qText');
   const w = t.split(' ');
   el.innerHTML = w.map(x => `<span class="w">${esc(x)}</span>`).join(' ');
@@ -1157,16 +1244,16 @@ function reveal(t, sp) {
   };
   const timer = () => {
     clearInterval(rv);
+    clearTimeout(rv);
     rv = setInterval(() => {
       showWord(n);
       if (n >= S.length) clearInterval(rv);
     }, sp ? 320 : 140);
   };
-  if (!sp || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+  if (!sp) {
     timer();
     return;
   }
-  const u = new SpeechSynthesisUtterance(t);
   const st = [];
   let c = 0;
   let got = false;
@@ -1174,22 +1261,23 @@ function reveal(t, sp) {
     st.push(c);
     c += x.length + 1;
   });
-  u.rate = 0.95;
-  u.onboundary = e => {
-    if (e.name && e.name !== 'word') return;
-    got = true;
-    let k = 0;
-    while (k + 1 < st.length && st[k + 1] <= e.charIndex) k++;
-    showWord(k);
-  };
-  u.onend = () => {
-    clearInterval(rv);
-    showWord(S.length);
-  };
-  speechSynthesis.speak(u);
   rv = setTimeout(() => {
     if (!got) timer();
   }, 800);
+  speak(t, {
+    onWord: charIndex => {
+      got = true;
+      let k = 0;
+      while (k + 1 < st.length && st[k + 1] <= charIndex) k++;
+      showWord(k);
+    }
+  }).then(r => {
+    if (r.reason === 'stopped') return;
+    clearInterval(rv);
+    clearTimeout(rv);
+    showWord(S.length);
+    if (!r.ok) toast(TTS_MESSAGES[r.reason] || TTS_MESSAGES.error);
+  });
 }
 
 // Voice Speech to text for Interview answer
@@ -1224,53 +1312,49 @@ function fixTerms(t) {
   return t.replace(/(^\s*\w|[.!?]\s*\w)/g, c => c.toUpperCase());
 }
 
-function toggleMic() {
+// Mock interview: speak your answer and it is typed into the answer box.
+async function toggleMic() {
   playTapSound();
-  const S = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!S) {
-    playErrorBeep();
-    $('micSt').textContent = 'Mic is not supported here (requires speech recognition).';
+  if (isListening()) {
+    stopListening();
     return;
   }
-  if (isL && rec) {
-    rec.stop();
-    return;
-  }
-  if (window.speechSynthesis) speechSynthesis.cancel();
+  stopSpeaking();
   clearInterval(rv);
+  clearTimeout(rv);
   document.querySelectorAll('#qText .w').forEach(x => x.classList.add('in'));
+  const note = m => {
+    $('micSt').textContent = m;
+  };
+  if (!(await prepareVoice(note))) return;
+  if (cs !== 'interview') return;
 
-  rec = new S();
-  rec.lang = 'en-US';
-  rec.continuous = true;
-  rec.interimResults = true;
+  const myIdx = idx;
   base = $('ansBox').value;
   if (base && !base.endsWith(' ')) base += ' ';
+  $('mic').classList.add('on');
+  note('Listening... speak now. Tap the mic to stop.');
 
-  rec.onstart = () => {
-    isL = true;
-    $('mic').classList.add('on');
-    $('micSt').textContent = 'Listening...';
-  };
-  rec.onresult = e => {
-    let f = '';
-    let n = '';
-    for (const r of e.results) {
-      if (r.isFinal) f += r[0].transcript + ' ';
-      else n += r[0].transcript;
+  const started = await startListening({
+    onText: t => {
+      if (idx !== myIdx || cs !== 'interview') return;
+      $('ansBox').value = base + fixTerms(t);
+    },
+    onEnd: ({ text, reason }) => {
+      $('mic').classList.remove('on');
+      if (idx === myIdx && text) {
+        $('ansBox').value = base + fixTerms(text);
+        answers[myIdx] = $('ansBox').value.trim();
+        saveScr();
+      }
+      note(text || reason === 'stopped' ? '' : "Didn't catch that. Tap the mic and try again, or type your answer.");
+      base = $('ansBox').value;
     }
-    $('ansBox').value = base + fixTerms(f) + n;
-  };
-  rec.onerror = e => {
-    $('micSt').textContent = 'Mic error: ' + e.error;
-  };
-  rec.onend = () => {
-    isL = false;
+  });
+  if (!started) {
     $('mic').classList.remove('on');
-    $('micSt').textContent = '';
-    base = $('ansBox').value;
-  };
-  rec.start();
+    note('Could not start voice input. Please try again or type your answer.');
+  }
 }
 
 // Evaluation & Feedback Scoring
@@ -1341,7 +1425,7 @@ function mistakes(user, ref) {
 
 function finish() {
   clearInterval(ti);
-  if (isL && rec) rec.stop();
+  stopListening();
 
   const done = answers.filter(Boolean);
   const words = done.reduce((s, a) => s + a.split(/\s+/).length, 0);
@@ -1431,16 +1515,67 @@ function renderHist() {
   renderIcons();
 }
 
-function exportT() {
+async function exportT() {
   playTapSound();
   let t = `Interview Simulator Transcript\nCandidate: ${active}\nType: ${CL(cat, lv)}\nDate: ${formatExportDateTime()}\n${'='.repeat(40)}\n\n`;
   cur.forEach((q, i) => (t += `Q${i + 1}: ${q.q}\nA: ${answers[i] || '(no answer given)'}\n\n`));
+  // Android WebView cannot download blob files, so on the phone we open the share menu.
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await Share.share({ title: 'Interview transcript', text: t, dialogTitle: 'Save or share transcript' });
+    } catch {
+      // User closed the share menu: nothing to do.
+    }
+    return;
+  }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([t], { type: 'text/plain' }));
   a.download = `interview_${cat}_${lv}_${Date.now()}.txt`;
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+// Privacy policy: full text is bundled in the app (works offline), from PRIVACY_POLICY.md.
+let policyRendered = false;
+function fillPrivacy() {
+  if (!policyRendered) {
+    $('policyText').innerHTML = marked.parse(policyMarkdown);
+    policyRendered = true;
+  }
+  $('policyNote').textContent = '';
+  $('adPrivacyBox').classList.toggle('hidden', !needsPrivacyOptions());
+}
+
+function openPrivacyPolicy() {
+  playTapSound();
+  show('privacy');
+}
+
+// Open a web link in the phone's browser, or explain that the phone is offline.
+async function openExternal(url, notify) {
+  if (!(await requireOnline('policy', notify))) return;
+  try {
+    if (Capacitor.isNativePlatform()) await AppLauncher.openUrl({ url });
+    else window.open(url, '_blank', 'noopener');
+  } catch {
+    notify('Could not open the browser. The full policy is shown above.');
+  }
+}
+
+function viewOnlinePolicy() {
+  playTapSound();
+  const note = m => {
+    $('policyNote').textContent = m;
+  };
+  note('');
+  openExternal(PRIVACY_POLICY_URL, note);
+}
+
+async function adPrivacyChoices() {
+  playTapSound();
+  if (!(await requireOnline('generic', toast))) return;
+  if (!(await showPrivacyOptions())) toast('Ad privacy choices are not available right now.');
 }
 
 // Global Touch Gestures
@@ -1554,10 +1689,14 @@ function initEventListeners() {
   // Add question
   $('addqSaveBtn')?.addEventListener('click', saveQ);
 
-  // Privacy Policy link
-  $('pPrivacyBtn')?.addEventListener('click', () => {
-    playTapSound();
-    window.open('[PRIVACY_POLICY_URL]', '_blank');
+  // Links inside the bundled policy text open in the browser (with an offline message).
+  $('policyText')?.addEventListener('click', e => {
+    const a = e.target.closest('a');
+    if (!a) return;
+    e.preventDefault();
+    openExternal(a.href, m => {
+      $('policyNote').textContent = m;
+    });
   });
 
   // Bottom Navigation
@@ -1681,8 +1820,17 @@ async function initApp() {
     } catch {}
   }
 
-  // Initialize AdMob and UMP in the background
-  initializeAdMob();
+  // Voice input needs a speech recognition service on the phone. Hide the mic if there is none.
+  isVoiceAvailable().then(ok => {
+    voiceOK = ok;
+    updateMicButtons();
+  });
+
+  // Consent (EEA/UK) and AdMob start in the background. No ad is shown at launch.
+  initializeAdMob({
+    getBottomMargin: () => $('nav').offsetHeight,
+    onBannerResize: h => document.documentElement.style.setProperty('--ad-h', `${h}px`)
+  }).then(() => showBannerFor(cs));
 
   // Native platform configurations (Status bar, splash, hardware back button, pause/resume)
   if (Capacitor.isNativePlatform()) {
@@ -1690,14 +1838,14 @@ async function initApp() {
       await StatusBar.setStyle({ style: Style.Dark });
       await StatusBar.setBackgroundColor({ color: '#4f46e5' });
       await StatusBar.setOverlaysWebView({ overlay: false });
-    } catch (e) {
-      console.warn('[StatusBar] Init error:', e);
+    } catch {
+      // Status bar styling is optional.
     }
 
     try {
       await SplashScreen.hide();
-    } catch (e) {
-      console.warn('[SplashScreen] Hide error:', e);
+    } catch {
+      // Splash hides by itself after launchShowDuration.
     }
 
     // Android hardware back button handling via @capacitor/app
@@ -1748,14 +1896,11 @@ async function initApp() {
 
     // Pause / Resume: stop sound, speech, and timers when app goes to background
     App.addListener('pause', () => {
-      console.log('[App] Backgrounded: pause active media and timers');
-      stopMic();
+      stopMedia();
       clearInterval(ti);
-      if (window.speechSynthesis) speechSynthesis.cancel();
     });
 
     App.addListener('resume', () => {
-      console.log('[App] Resumed from background');
       if (cs === 'interview' && timerOn && left > 0) {
         clearInterval(ti);
         ti = setInterval(() => {
@@ -1768,10 +1913,6 @@ async function initApp() {
   }
 }
 
-function openPrivacyPolicy() {
-  playTapSound();
-  window.open('[PRIVACY_POLICY_URL]', '_blank');
-}
 
 // Bind all action methods to window for full inline HTML onclick compatibility
 Object.assign(window, {
@@ -1790,6 +1931,8 @@ Object.assign(window, {
   setActive,
   restoreQ,
   openPrivacyPolicy,
+  viewOnlinePolicy,
+  adPrivacyChoices,
   startPractice,
   startMock,
   startInterview,
