@@ -26,6 +26,7 @@ interview/
 │       ├── native-info.js              CAREFUL  Calls BuildInfoPlugin (debug flag, versions, real banner position)
 │       ├── storage.js                  CAREFUL  On-device storage (localforage + localStorage)
 │       ├── dates.js                    EDIT     Date formats and streak (dayjs)
+│       ├── qotd.js                     EDIT     Question of the day: 1 random question per local day, saved
 │       ├── sound.js                    EDIT     Tap/success sounds (Web Audio, offline)
 │       └── celebration.js              EDIT     Confetti effects
 ├── PRIVACY_POLICY.md                   EDIT     THE policy text. App and website both use this file
@@ -86,6 +87,7 @@ interview/
 | `npm run build` | Build the web app into `dist/` (release: no debug tools) |
 | `npm run build:debug` | Build the web app with the hidden ads status panel (used for the debug APK) |
 | `npm run test:ads` | Unit tests for the ad rules with mocked AdMob |
+| `npm run test:home` | Unit tests for the question of the day (same all day, new each day) |
 | `npx cap sync android` | Copy `dist/` into the Android app and update plugin lists |
 | `npm run android:prep` | build + cap sync together |
 | `npm run icon` | Draw icon and splash source images into `assets/` |

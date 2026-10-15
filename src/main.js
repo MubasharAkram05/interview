@@ -53,6 +53,7 @@ import {
 } from './services/voice.js';
 import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
+import { questionOfDay } from './services/qotd.js';
 import { formatFullCurrentDate, formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
 import { playTapSound, playSuccessChime, playErrorBeep } from './services/sound.js';
 import { fireConfetti, fireGrandCelebration } from './services/celebration.js';
@@ -341,12 +342,21 @@ function home() {
   show('home');
 }
 
-function toggleTheme() {
+function setTheme(target) {
   playTapSound();
-  const current = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
-  const target = current === 'dark' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = target;
-  setItem('is_theme', target);
+  document.documentElement.dataset.theme = target === 'dark' ? 'dark' : 'light';
+  setItem('is_theme', document.documentElement.dataset.theme);
+  syncThemeSwitch();
+}
+
+function toggleTheme() {
+  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+}
+
+// The dark mode switch lives in Profile > Appearance (no theme button in the header).
+function syncThemeSwitch() {
+  const sw = $('darkSw');
+  if (sw) sw.checked = document.documentElement.dataset.theme === 'dark';
 }
 
 // Stats & Home Screen
@@ -365,24 +375,18 @@ function fillHx() {
   hs.dataset.n = streak;
 
   let o = '';
-  const x = h[0];
-  if (x) {
-    o += `<div class="sec"><h4>Last session</h4><div class="hx"><div><b>${esc(x.c)}</b><br><small>${esc(x.d)} · Score ${x.s}/10</small></div><button id="retryLastBtn">Retry</button></div></div>`;
-  }
-  const csKeys = Object.keys(CATS);
-  const dn = Math.floor(Date.now() / 864e5);
-  const c = csKeys[dn % csKeys.length];
-  const l = bank(c, pcLv || 'fresher');
-  if (l.length) {
-    const i = dn % l.length;
-    o += `<div class="sec"><h4>Question of the day</h4><div style="margin-bottom:10px">${esc(l[i].q)}</div><div class="hx"><small>${esc(CATS[c])}</small><button id="qotdBtn" data-c="${c}" data-q="${i}">Practice it</button></div></div>`;
+  const res = questionOfDay({ saved: getItem('is_qotd', null), cats: Object.keys(CATS), lv: LEVELS[pcLv] ? pcLv : 'fresher', list: bank });
+  if (res) {
+    const { pick, changed } = res;
+    if (changed) setItem('is_qotd', pick);
+    o += `<div class="sec qotd"><h4>Question of the day</h4><div class="qotdq">${esc(pick.q)}</div><div class="hx"><small>${esc(CL(pick.c, pick.lv))}</small><button id="qotdBtn">Practice it</button></div></div>`;
   }
   $('hx').innerHTML = o;
 
-  $('retryLastBtn')?.addEventListener('click', () => retryLast());
-  $('qotdBtn')?.addEventListener('click', e => {
-    const btn = e.currentTarget;
-    pcGo(btn.dataset.c, parseInt(btn.dataset.q, 10));
+  $('qotdBtn')?.addEventListener('click', () => {
+    const { c, lv, q } = res.pick;
+    const i = bank(c, lv).findIndex(x => x.q === q);
+    pcGo(c, Math.max(i, 0), lv);
   });
 }
 
@@ -584,7 +588,7 @@ function openForm(p, title) {
 
   $('pForm').classList.remove('hidden');
   $('pSumBox').classList.add('hidden');
-  ['pHistBox', 'pProfBox', 'pPrefBox'].forEach(i => $(i).classList.add('hidden'));
+  ['pThemeBox', 'pHistBox', 'pProfBox', 'pPrefBox'].forEach(i => $(i).classList.add('hidden'));
   show('form');
 }
 
@@ -632,6 +636,7 @@ function showProfile() {
   }).join('');
 
   renderHist();
+  syncThemeSwitch();
   $('pKv').classList.add('hidden');
   $('pEye').dataset.i = 'eye';
   $('hList').classList.add('hidden');
@@ -639,7 +644,7 @@ function showProfile() {
 
   $('pSumBox').classList.remove('hidden');
   $('pForm').classList.add('hidden');
-  ['pHistBox', 'pProfBox', 'pPrefBox'].forEach(i => $(i).classList.remove('hidden'));
+  ['pThemeBox', 'pHistBox', 'pProfBox', 'pPrefBox'].forEach(i => $(i).classList.remove('hidden'));
   show('form');
 }
 
@@ -749,9 +754,9 @@ function pcLevel(v) {
   fillPcat();
 }
 
-function pcGo(c, i) {
+function pcGo(c, i, lv) {
   playTapSound();
-  const v = pcLv;
+  const v = LEVELS[lv] ? lv : pcLv;
   const l = bank(c, v);
   P = { cat: c, lv: v, list: l, i: 0 };
   if (!l.length) {
@@ -1700,7 +1705,6 @@ function setupSwipeGestures() {
 // Event Listeners Initialization
 function initEventListeners() {
   $('x')?.addEventListener('click', back);
-  $('hTheme')?.addEventListener('click', toggleTheme);
   $('hStreak')?.addEventListener('click', streakToast);
   $('hProf')?.addEventListener('click', showProfile);
 
@@ -1846,6 +1850,7 @@ async function initApp() {
 
   const savedTheme = getItem('is_theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = savedTheme;
+  syncThemeSwitch();
 
   profiles = getItem('is_profiles');
   if (!profiles || !Object.keys(profiles).length || (Object.keys(profiles).length === 1 && profiles['Ali Khan'])) {
@@ -2004,6 +2009,7 @@ Object.assign(window, {
   back,
   home,
   toggleTheme,
+  setTheme,
   streakToast,
   showProfile,
   editProfile,

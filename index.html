@@ -9,7 +9,7 @@
 </head>
 <body>
 <div class="app">
-<header class="bar"><button class="ic hidden" id="x" data-i="left" onclick="back()" aria-label="Back" title="Back"></button><h1 id="ttl">Interview Simulator</h1><button class="ic" id="hStreak" data-i="flame" onclick="streakToast()" aria-label="Streak" title="Streak"></button><button class="ic" id="hProf" data-i="user" onclick="showProfile()" aria-label="Profile" title="Profile"></button><button class="ic" data-i="moon" onclick="toggleTheme()" aria-label="Toggle light or dark theme" title="Theme"></button></header>
+<header class="bar"><button class="ic hidden" id="x" data-i="left" onclick="back()" aria-label="Back" title="Back"></button><span class="logo" id="hLogo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg></span><h1 id="ttl">Interview Simulator</h1><button class="ic" id="hStreak" data-i="flame" onclick="streakToast()" aria-label="Streak" title="Streak"></button><button class="ic" id="hProf" data-i="user" onclick="showProfile()" aria-label="Profile" title="Profile"></button></header>
 <div id="adSlot" aria-hidden="true"></div>
 <div id="safeTopProbe" aria-hidden="true"></div>
 <div id="dlg" class="dlg hidden" role="dialog" aria-modal="true"><div class="dcard"><div class="dem" id="dEm"></div><h3 id="dT"></h3><p id="dM"></p><div class="drow"><button id="dNo" class="dno"></button><button id="dYes" class="dyes"></button></div></div></div>
@@ -36,6 +36,7 @@
   </div>
   <div class="sec hidden" id="pForm"><h4 id="formTitle">Your details</h4><div id="fields"></div>
   <div class="row"><button data-i="x" onclick="cancelProfile()" aria-label="Cancel" title="Cancel"></button><button class="ok" onclick="saveProfile()">Save profile</button></div></div>
+  <div class="sec" id="pThemeBox"><h4>Appearance</h4><label class="opt"><input type="checkbox" id="darkSw" onchange="setTheme(this.checked ? 'dark' : 'light')"> Dark mode</label></div>
   <div class="sec" id="pHistBox"><div class="hh" style="align-items:center"><h4 style="margin:0">Interview history</h4><button class="pbtn" id="hEye" data-i="eye" onclick="toggleHist()" aria-label="Show history" title="Show history"></button></div><div id="hList" class="hidden"></div></div>
   <div class="sec" id="pProfBox"><h4>Switch profile</h4><select id="prof" onchange="setActive(this.value);showProfile()"></select>
   <div class="row"><button data-i="plus" onclick="newProfile()" aria-label="New profile" title="New profile"></button><button class="danger" data-i="trash" onclick="delProfile()" aria-label="Delete profile" title="Delete profile"></button></div></div>

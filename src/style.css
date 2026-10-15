@@ -205,3 +205,27 @@ header.bar{padding-top:calc(12px + max(env(safe-area-inset-top,0px),var(--safe-a
 nav{padding-bottom:calc(6px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
 @media(prefers-reduced-motion:reduce){#adSlot{transition:none}}
 
+
+/* ---- Header refresh: logo tile, glass bar, softer icon buttons ---- */
+header.bar{gap:10px;background:
+  radial-gradient(120% 140% at 0% 0%,color-mix(in srgb,var(--acc) 14%,transparent),transparent 60%),
+  radial-gradient(90% 120% at 100% 0%,color-mix(in srgb,#db2777 10%,transparent),transparent 55%),
+  color-mix(in srgb,var(--card) 92%,transparent);box-shadow:0 8px 24px rgba(79,70,229,.12)}
+header.bar .logo{width:40px;height:40px;flex:none;border-radius:13px;display:grid;place-items:center;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#4f46e5,#7c3aed 55%,#db2777);box-shadow:0 6px 16px rgba(124,58,237,.38),inset 0 1px 0 rgba(255,255,255,.35);animation:lpop .5s cubic-bezier(.2,1.2,.4,1) both}
+header.bar .logo::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);transform:translateX(-120%);animation:shine 4.5s ease-in-out 1s infinite}
+header.bar .logo svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+header.bar #x:not(.hidden)~.logo{display:none}
+header.bar h1{font-size:20px;letter-spacing:-.02em}
+header.bar .ic{border-radius:50%;background:color-mix(in srgb,var(--card) 70%,var(--accl));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--acc) 18%,transparent),0 4px 10px rgba(79,70,229,.10)}
+header.bar .ic:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+@keyframes lpop{from{opacity:0;transform:scale(.6) rotate(-12deg)}to{opacity:1;transform:none}}
+@keyframes shine{0%,70%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+@media(prefers-reduced-motion:reduce){header.bar .logo,header.bar .logo::after{animation:none}}
+
+/* Question of the day card */
+.qotd .qotdq{margin-bottom:12px;font-size:17px;font-weight:600;line-height:1.45}
+
+/* Mock interview: the question area only takes the space it needs (long questions scroll),
+   so there is no empty gap above the answer box. */
+#interview .qbody{height:auto;min-height:44px;max-height:150px}
