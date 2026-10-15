@@ -17,6 +17,12 @@ const homeText = await p.textContent('#home');
 check('home has no "Last session" card (history exists)', !/Last session/i.test(homeText) && (await p.locator('#retryLastBtn').count()) === 0);
 check('header has no theme button', (await p.locator('header.bar [data-i="moon"], header.bar [onclick*="Theme"]').count()) === 0);
 check('header shows logo on home', await p.isVisible('#hLogo'));
+check('home hero: title, 3 features, Get Started, date', (await p.textContent('.htitle')).includes('Simulator') && (await p.locator('.hfeat .hf').count()) === 3 && await p.isVisible('.hcta') && /\d{4}/.test(await p.textContent('#dFull')));
+await p.click('.hcta');
+await p.waitForTimeout(400);
+check('Get Started opens the Mock page', await p.isVisible('#mock'));
+await p.evaluate(() => window.home());
+await p.waitForTimeout(400);
 
 const q1 = await p.textContent('.qotdq');
 await p.click('#hSeg button:nth-child(3)');
@@ -42,6 +48,7 @@ check('a new day gives a different question', q2 !== q1);
 await p.click('#qotdBtn');
 await p.waitForTimeout(600);
 check('Practice it opens that question', (await p.textContent('#pQt')).trim() === q2.trim());
+check('bottom nav hidden on practice question screen', !(await p.isVisible('#nav')));
 check('Practice it shows only 1 question (1 / 1, no dots)', /· 1 \/ 1$/.test((await p.textContent('#pCount')).trim()) && !(await p.isVisible('#pDots')));
 await p.evaluate(() => window.pStep(1));
 await p.waitForTimeout(300);
@@ -53,6 +60,8 @@ check('favorite star works on one tap', await p.evaluate(() => document.getEleme
 
 await p.evaluate(() => window.showProfile());
 await p.waitForTimeout(400);
+check('Profile hero has one fixed color (no gradient, no animation)', await p.evaluate(() => { const c = getComputedStyle(document.querySelector('.pcard')); return c.backgroundImage === 'none' && c.animationName === 'none'; }));
+check('bottom nav visible on Profile', await p.isVisible('#nav'));
 check('About you card removed', !/About you/i.test(await p.textContent('#form')) || (await p.locator('#form .sec h4', { hasText: 'About you' }).count()) === 0);
 check('details hidden at first', !(await p.isVisible('#pKv')));
 await p.click('#pWho');
@@ -85,7 +94,7 @@ await p.click('#mSeg button:nth-child(2)');
 await p.waitForTimeout(300);
 const pickedC = await p.getAttribute('#mGrid .mt.on', 'data-c');
 check('tapping a tile selects it (one selected)', (await p.locator('#mGrid .mt.on').count()) === 1 && pickedC === (await p.getAttribute('#mGrid .mt:nth-child(2)', 'data-c')));
-check('selection shown on Start button', /Junior · \d+ questions?$/.test((await p.textContent('#mSel')).trim()));
+check('Start button says only "Start"', (await p.textContent('#mStart')).trim() === 'Start');
 const tiles = await p.$$eval('#mGrid .mt', bs => bs.map(b => b.getBoundingClientRect().height));
 check('tiles are big enough to tap (>= 44px)', tiles.every(h => h >= 44));
 await p.reload();
