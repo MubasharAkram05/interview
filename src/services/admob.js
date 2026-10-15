@@ -10,6 +10,7 @@ import {
 } from '@capacitor-community/admob';
 import { ADS_CONFIG } from '../config/ads.js';
 import { adsLog } from './debug.js';
+import { nativeAdLayout } from './native-info.js';
 
 /**
  * AdMob with Google UMP consent (EEA/UK).
@@ -17,31 +18,46 @@ import { adsLog } from './debug.js';
  * Banner: ONE standard 320x50 banner, created once and kept for the whole session,
  * placed by the native SDK at TOP_CENTER just under the app header. The web page keeps a
  * matching spacer (#adSlot) under the header, so the banner never covers any content.
+ * After it loads, the real native position is measured and corrected if needed.
  *
  * Every call is wrapped so a failed or offline ad never blocks or crashes the app.
  */
 
+const INTERSTITIAL_LOAD_TIMEOUT_MS = 45000; // a load that never answers counts as failed
+const INTERSTITIAL_OPEN_TIMEOUT_MS = 180000; // safety net if "dismissed" never arrives
+const BANNER_MAX_CORRECTIONS = 2;
+const BANNER_TOLERANCE_PX = 2;
+
 let ready = false; // SDK initialized and consent allows ads
 let privacyOptionsRequired = false;
+const consent = { status: 'not asked', canRequestAds: null, formShown: false, error: null };
 
 // Interstitial state
 const appStart = Date.now();
 let interstitialReady = false;
 let interstitialLoading = false;
 let interstitialOpen = false;
+let interstitialShownAt = 0;
 let lastInterstitialAt = 0; // when the last interstitial was shown (0 = never)
 let lastBreakShowedAd = false; // never show at two breaks in a row
 let retryIndex = 0;
 let retryTimer = null;
+let nextRetryAt = 0;
+let loadTimer = null;
+let openTimer = null;
+const istats = { prepared: 0, loaded: 0, failed: 0, shown: 0, lastErrorCode: null, lastSkip: null, lastBreak: null };
 
 // Banner state: 'off' (no banner), 'requested' (loading), 'loaded', 'failed'
 let bannerState = 'off';
 let bannerMargin = -1; // top margin (dp = CSS px) the current banner was created with
+let bannerAdjust = 0; // correction learned from the real native position
+let bannerCorrections = 0;
 let relayoutTimer = null;
-const suppressed = new Set(); // reasons the banner is hidden right now (dialog, consent form)
+const bstats = { errorCode: null, height: 0, headerBottom: null, safeTop: null, desiredTop: null, actualTop: null, native: null };
+const suppressed = new Set(); // reasons the banner is hidden right now (dialog, consent form, interstitial)
 
 // Callbacks from the page
-let getTopMargin = () => 0; // where the banner should start, measured from the WebView top
+let getLayout = () => ({ headerBottom: 0, safeTop: 0 }); // header bottom and top safe area, CSS px
 let onBannerSpace = () => {}; // (heightPx) => reserve that much banner height (0 = collapse)
 
 const native = () => Capacitor.isNativePlatform();
@@ -50,22 +66,28 @@ const native = () => Capacitor.isNativePlatform();
  * Ask for consent (only shows a form where the law needs it), then start the SDK and
  * the banner. No ad request is made before consent is resolved.
  */
-export async function initializeAdMob({ topMargin, onSpace } = {}) {
+export async function initializeAdMob({ layout, onSpace } = {}) {
   if (!native()) return false;
-  if (topMargin) getTopMargin = topMargin;
+  if (layout) getLayout = layout;
   if (onSpace) onBannerSpace = onSpace;
 
   let canRequestAds = true;
   try {
     let info = await AdMob.requestConsentInfo();
+    consent.status = info.status;
     if (info.isConsentFormAvailable && info.status === AdmobConsentStatus.REQUIRED) {
+      consent.formShown = true;
       info = await AdMob.showConsentForm();
+      consent.status = info.status;
     }
     canRequestAds = info.canRequestAds !== false;
     privacyOptionsRequired = info.privacyOptionsRequirementStatus === 'REQUIRED';
-  } catch {
+  } catch (e) {
     // Offline or UMP error: the SDK can still start; Google decides what can be served.
+    consent.error = 'consent request failed (offline or UMP error)';
   }
+  consent.canRequestAds = canRequestAds;
+  adsLog('consent', 'status=' + consent.status, 'canRequestAds=' + canRequestAds);
   if (!canRequestAds) {
     adsLog('skipped: consent does not allow ads');
     onBannerSpace(0);
@@ -75,15 +97,21 @@ export async function initializeAdMob({ topMargin, onSpace } = {}) {
   try {
     await AdMob.initialize({ initializeForTesting: ADS_CONFIG.isTesting });
   } catch {
+    adsLog('init failed');
     onBannerSpace(0);
     return false;
   }
   ready = true;
+  adsLog('init ok');
   addListeners();
   watchLayoutAndNetwork();
   preloadInterstitial();
   startBanner();
   return true;
+}
+
+function errCode(err) {
+  return err && err.code !== undefined ? err.code : '?';
 }
 
 function addListeners() {
@@ -92,30 +120,29 @@ function addListeners() {
       // hideBanner() reports height 0; ignore it so the slot does not jump behind a dialog.
       if (suppressed.size || bannerState === 'off' || bannerState === 'failed') return;
       const h = size && size.height ? size.height : 0;
-      if (h > 0) onBannerSpace(h);
+      if (h > 0) {
+        bstats.height = h;
+        onBannerSpace(h);
+      }
     });
     AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
       bannerState = 'loaded';
+      adsLog('banner loaded');
       if (suppressed.size) AdMob.hideBanner().catch(() => {});
+      setTimeout(checkBannerPosition, 300);
     });
-    AdMob.addListener(BannerAdPluginEvents.FailedToLoad, () => {
+    AdMob.addListener(BannerAdPluginEvents.FailedToLoad, err => {
       // The plugin destroys a banner that failed. Collapse the slot; retry when back online.
       bannerState = 'failed';
       bannerMargin = -1;
+      bstats.errorCode = errCode(err);
+      adsLog('banner failed', 'code=' + bstats.errorCode);
       onBannerSpace(0);
     });
-    AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
-      interstitialReady = true;
-      interstitialLoading = false;
-      retryIndex = 0;
-      adsLog('loaded');
-    });
+    AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => interstitialLoaded('event'));
     AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, err => {
       // Also fired by showInterstitial() when nothing was prepared (code -1).
-      interstitialReady = false;
-      interstitialLoading = false;
-      adsLog('failed', 'code=' + (err && err.code !== undefined ? err.code : '?'));
-      scheduleInterstitialRetry();
+      interstitialFailed(errCode(err));
     });
     AdMob.addListener(InterstitialAdPluginEvents.Showed, () => {
       adsLog('showed');
@@ -125,7 +152,8 @@ function addListeners() {
       interstitialClosed();
     });
     AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, err => {
-      adsLog('failed to show', 'code=' + (err && err.code !== undefined ? err.code : '?'));
+      istats.lastErrorCode = errCode(err);
+      adsLog('failed to show', 'code=' + istats.lastErrorCode);
       interstitialClosed();
     });
   } catch {
@@ -141,17 +169,38 @@ async function isOnline() {
   }
 }
 
+// ---------------------------------------------------------------- banner
+
+function bannerTargets() {
+  let l = { headerBottom: 0, safeTop: 0 };
+  try {
+    l = getLayout() || l;
+  } catch {
+    // keep defaults
+  }
+  const desiredTop = l.headerBottom + ADS_CONFIG.bannerGapTop;
+  // The plugin adds the top system-bar inset itself for TOP_CENTER, so subtract the same inset.
+  const margin = Math.max(0, Math.round(desiredTop - l.safeTop + bannerAdjust));
+  bstats.headerBottom = Math.round(l.headerBottom);
+  bstats.safeTop = Math.round(l.safeTop);
+  bstats.desiredTop = Math.round(desiredTop);
+  return { desiredTop, margin };
+}
+
 /** Create the one banner (only when consent allows, the SDK is ready and the phone is online). */
 async function startBanner() {
   if (!ready || !ADS_CONFIG.enableBanner || bannerState === 'requested' || bannerState === 'loaded') return;
   if (!(await isOnline())) {
     bannerState = 'failed';
+    bstats.errorCode = 'offline';
+    adsLog('banner skipped: offline');
     onBannerSpace(0);
     return;
   }
   bannerState = 'requested';
-  bannerMargin = Math.max(0, Math.round(getTopMargin()));
-  onBannerSpace(ADS_CONFIG.bannerReserveHeight);
+  bannerMargin = bannerTargets().margin;
+  onBannerSpace(bstats.height || ADS_CONFIG.bannerReserveHeight);
+  adsLog('banner requested', 'margin=' + bannerMargin);
   try {
     await AdMob.showBanner({
       adId: ADS_CONFIG.bannerAdId,
@@ -164,19 +213,14 @@ async function startBanner() {
   } catch {
     bannerState = 'failed';
     bannerMargin = -1;
+    bstats.errorCode = 'show rejected';
+    adsLog('banner failed', 'code=show rejected');
     onBannerSpace(0);
   }
 }
 
-/**
- * The banner margin is fixed when it is created. If the header bottom moves (rotation,
- * notch side change), rebuild the banner at the new position. Keyboard open/close does not
- * move the header, so it does not trigger a rebuild.
- */
-async function relayoutBanner() {
-  if (bannerState !== 'loaded' && bannerState !== 'requested') return;
-  const m = Math.max(0, Math.round(getTopMargin()));
-  if (Math.abs(m - bannerMargin) < 1) return;
+async function rebuildBanner(reason) {
+  adsLog('banner rebuild', reason);
   try {
     await AdMob.removeBanner();
   } catch {
@@ -186,25 +230,88 @@ async function relayoutBanner() {
   startBanner();
 }
 
+/**
+ * Measure where the native banner really is (BuildInfoPlugin.getAdLayout) and fix the
+ * margin if it is not just under the header. This covers phones where the window insets
+ * (edge-to-edge on Android 15/16, notches, older WebViews) do not match the CSS insets.
+ */
+async function checkBannerPosition() {
+  if (bannerState !== 'loaded' || suppressed.size) return;
+  const n = await nativeAdLayout();
+  bstats.native = n;
+  if (!n || !n.found || !n.visible) return;
+  bstats.actualTop = Math.round(n.top);
+  if (n.height > 0 && Math.abs(n.height - (bstats.height || 0)) > 1) {
+    bstats.height = Math.round(n.height);
+    onBannerSpace(bstats.height);
+  }
+  const { desiredTop } = bannerTargets();
+  const diff = desiredTop - n.top;
+  if (Math.abs(diff) <= BANNER_TOLERANCE_PX) return;
+  if (bannerCorrections >= BANNER_MAX_CORRECTIONS) {
+    adsLog('banner position off by', Math.round(diff) + 'px, no more corrections');
+    return;
+  }
+  bannerCorrections++;
+  bannerAdjust += diff;
+  rebuildBanner('position off by ' + Math.round(diff) + 'px');
+}
+
+/**
+ * The banner margin is fixed when it is created. If the header bottom moves (rotation,
+ * safe-area change after start-up, notch side change), rebuild the banner at the new
+ * position. Keyboard open/close does not move the header, so it does not trigger a rebuild.
+ */
+async function relayoutBanner() {
+  if (bannerState !== 'loaded' && bannerState !== 'requested') return;
+  const { margin } = bannerTargets();
+  if (Math.abs(margin - bannerMargin) < 1) {
+    if (bannerState === 'loaded') checkBannerPosition();
+    return;
+  }
+  rebuildBanner('header moved');
+}
+
+/** Ask for a re-measure soon (layout settled, safe-area vars changed, viewport changed). */
+export function requestBannerRelayout() {
+  clearTimeout(relayoutTimer);
+  relayoutTimer = setTimeout(relayoutBanner, 300);
+}
+
 function watchLayoutAndNetwork() {
-  const schedule = () => {
-    clearTimeout(relayoutTimer);
-    relayoutTimer = setTimeout(relayoutBanner, 300);
-  };
-  window.addEventListener('resize', schedule);
-  window.addEventListener('orientationchange', schedule);
+  window.addEventListener('resize', requestBannerRelayout);
+  window.addEventListener('orientationchange', requestBannerRelayout);
+  try {
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', requestBannerRelayout);
+  } catch {
+    // ignore
+  }
   try {
     Network.addListener('networkStatusChange', st => {
+      adsLog('network', st.connected ? 'online' : 'offline');
       if (st.connected && bannerState === 'failed') startBanner();
+      if (st.connected && !interstitialReady && !interstitialLoading) preloadInterstitial();
     });
   } catch {
     // ignore
   }
+  document.addEventListener('visibilitychange', () => {
+    // The interstitial is a separate screen: our page is hidden while it is open.
+    // If "dismissed" was lost, recover when the user is back on our screen.
+    if (document.visibilityState === 'visible' && interstitialOpen && Date.now() - interstitialShownAt > 1500) {
+      setTimeout(() => {
+        if (interstitialOpen && document.visibilityState === 'visible') {
+          adsLog('dismissed event missing, recovering');
+          interstitialClosed();
+        }
+      }, 1500);
+    }
+  });
 }
 
 /**
- * Hide the banner while something is drawn over the app (custom dialog, sheet, consent form),
- * so taps can never land on the ad. The reserved slot stays, so nothing jumps.
+ * Hide the banner while something is drawn over the app (custom dialog, sheet, consent form,
+ * interstitial), so taps can never land on the ad. The reserved slot stays, so nothing jumps.
  */
 export function setBannerSuppressed(reason, on) {
   if (!native()) return;
@@ -213,26 +320,60 @@ export function setBannerSuppressed(reason, on) {
   else suppressed.delete(reason);
   if (bannerState !== 'loaded' && bannerState !== 'requested') return;
   if (!before && suppressed.size) AdMob.hideBanner().catch(() => {});
-  if (before && !suppressed.size) AdMob.resumeBanner().catch(() => {});
+  if (before && !suppressed.size) {
+    AdMob.resumeBanner().catch(() => {});
+    setTimeout(checkBannerPosition, 300);
+  }
+}
+
+// ---------------------------------------------------------------- interstitial
+
+function interstitialLoaded(source) {
+  clearTimeout(loadTimer);
+  if (interstitialReady) return;
+  interstitialReady = true;
+  interstitialLoading = false;
+  retryIndex = 0;
+  nextRetryAt = 0;
+  istats.loaded++;
+  adsLog('loaded', '(' + source + ')');
+}
+
+function interstitialFailed(code) {
+  clearTimeout(loadTimer);
+  interstitialReady = false;
+  interstitialLoading = false;
+  istats.failed++;
+  istats.lastErrorCode = code;
+  adsLog('failed', 'code=' + code);
+  scheduleInterstitialRetry();
 }
 
 /** Load the next interstitial in the background (after consent, after each dismiss/failure). */
 async function preloadInterstitial() {
   if (!ready || !ADS_CONFIG.enableInterstitial || interstitialReady || interstitialLoading) return;
   clearTimeout(retryTimer);
+  nextRetryAt = 0;
   if (!(await isOnline())) {
     adsLog('prepare skipped: offline');
     scheduleInterstitialRetry();
     return;
   }
   interstitialLoading = true;
+  istats.prepared++;
   adsLog('prepare');
+  clearTimeout(loadTimer);
+  loadTimer = setTimeout(() => {
+    if (interstitialLoading) interstitialFailed('timeout');
+  }, INTERSTITIAL_LOAD_TIMEOUT_MS);
   try {
-    // Resolves when the ad has loaded (the Loaded event sets the state).
+    // The plugin resolves this only when the ad has loaded, so it also counts as "loaded"
+    // (in case the Loaded event is missed).
     await AdMob.prepareInterstitial({ adId: ADS_CONFIG.interstitialAdId, isTesting: ADS_CONFIG.isTesting });
+    if (interstitialLoading) interstitialLoaded('prepare resolved');
   } catch {
-    // FailedToLoad event already logged it and scheduled a retry.
-    interstitialLoading = false;
+    // The FailedToLoad event logs the code and schedules a retry. If it never came:
+    if (interstitialLoading) interstitialFailed('prepare rejected');
   }
 }
 
@@ -243,31 +384,65 @@ function scheduleInterstitialRetry() {
   const wait = steps[Math.min(retryIndex, steps.length - 1)];
   retryIndex++;
   clearTimeout(retryTimer);
+  nextRetryAt = Date.now() + wait;
   adsLog('retry in', Math.round(wait / 1000) + 's');
   retryTimer = setTimeout(preloadInterstitial, wait);
 }
 
 function interstitialClosed() {
+  clearTimeout(openTimer);
+  if (!interstitialOpen && !suppressed.has('interstitial')) return;
   interstitialOpen = false;
   setBannerSuppressed('interstitial', false);
   preloadInterstitial();
+}
+
+async function openInterstitial() {
+  interstitialReady = false;
+  interstitialOpen = true;
+  interstitialShownAt = Date.now();
+  lastInterstitialAt = interstitialShownAt;
+  istats.shown++;
+  setBannerSuppressed('interstitial', true);
+  clearTimeout(openTimer);
+  openTimer = setTimeout(() => {
+    if (interstitialOpen) {
+      adsLog('dismissed event missing after 180s, recovering');
+      interstitialClosed();
+    }
+  }, INTERSTITIAL_OPEN_TIMEOUT_MS);
+  try {
+    await AdMob.showInterstitial();
+    return true;
+  } catch {
+    // FailedToLoad/FailedToShow events log the code and reload.
+    interstitialOpen = false;
+    clearTimeout(openTimer);
+    setBannerSuppressed('interstitial', false);
+    if (!interstitialLoading) preloadInterstitial();
+    return false;
+  }
 }
 
 /** A break that the page itself rules out (recording, typing): log it and move on. */
 export function skipInterstitialBreak(breakName, reason) {
   adsLog('show requested', breakName);
   adsLog('skipped', breakName, 'reason=' + reason);
+  istats.lastBreak = breakName;
+  istats.lastSkip = reason;
   lastBreakShowedAd = false;
 }
 
 /**
- * Called at a natural break ('interview_finished' or 'practice_4th_question').
+ * Called at a natural break ('interview_finished' or 'practice_question_N').
  * Shows the interstitial only if every rule passes; otherwise skips silently and the
  * app continues. Never waits for an ad to load. Returns true if an ad was shown.
  */
 export async function showInterstitialAtBreak(breakName) {
+  istats.lastBreak = breakName;
   const skip = (reason, countsAsBreak = true) => {
     adsLog('skipped', breakName, 'reason=' + reason);
+    istats.lastSkip = reason;
     // A break the user saw without an ad lets the next break show one again.
     if (countsAsBreak) lastBreakShowedAd = false;
     return false;
@@ -278,35 +453,44 @@ export async function showInterstitialAtBreak(breakName) {
   if (!ready) return skip('ads not started (no consent yet, offline or init failed)');
   if (interstitialOpen) return skip('already open', false);
   if (document.visibilityState !== 'visible') return skip('app in background');
-  if (suppressed.size) return skip('dialog or form open');
+  if (suppressed.size) return skip('screen covered: ' + [...suppressed].join(','));
   const sinceLaunch = Date.now() - appStart;
   if (sinceLaunch < ADS_CONFIG.interstitialMinAfterLaunchMs) return skip('too soon after app start');
   if (lastBreakShowedAd) return skip('ad shown at previous break (never twice in a row)');
-  const sinceLast = Date.now() - lastInterstitialAt;
-  if (lastInterstitialAt && sinceLast < ADS_CONFIG.interstitialCooldownMs) {
-    return skip('cooldown ' + Math.ceil((ADS_CONFIG.interstitialCooldownMs - sinceLast) / 1000) + 's left');
-  }
+  const left = cooldownLeftMs();
+  if (left > 0) return skip('cooldown ' + Math.ceil(left / 1000) + 's left');
   if (!interstitialReady) {
     if (!interstitialLoading) preloadInterstitial();
     return skip(interstitialLoading ? 'still loading' : 'not loaded');
   }
-
-  interstitialReady = false;
-  interstitialOpen = true;
-  lastInterstitialAt = Date.now();
+  istats.lastSkip = null;
   lastBreakShowedAd = true;
-  setBannerSuppressed('interstitial', true);
-  try {
-    await AdMob.showInterstitial();
-    return true;
-  } catch {
-    // FailedToLoad/FailedToShow events log the code and reload.
-    interstitialOpen = false;
-    lastBreakShowedAd = false;
-    setBannerSuppressed('interstitial', false);
-    return false;
-  }
+  return openInterstitial();
 }
+
+/**
+ * Debug panel only: show an interstitial now, ignoring the cooldown, launch and
+ * "twice in a row" rules, but still respecting consent and load state.
+ */
+export async function forceInterstitialTest() {
+  adsLog('force test requested');
+  if (!native()) return 'not on a phone';
+  if (!ready) return 'ads not started (consent=' + consent.status + ', canRequestAds=' + consent.canRequestAds + ')';
+  if (interstitialOpen) return 'already open';
+  if (!interstitialReady) {
+    if (!interstitialLoading) preloadInterstitial();
+    return interstitialLoading ? 'not loaded yet (loading), try again in a few seconds' : 'not loaded, loading now';
+  }
+  const ok = await openInterstitial();
+  return ok ? 'shown' : 'show failed (see log)';
+}
+
+function cooldownLeftMs() {
+  if (!lastInterstitialAt) return 0;
+  return Math.max(0, ADS_CONFIG.interstitialCooldownMs - (Date.now() - lastInterstitialAt));
+}
+
+// ---------------------------------------------------------------- consent options
 
 /** true when the user is in a region where a "Privacy choices" entry point is required (EEA/UK). */
 export function needsPrivacyOptions() {
@@ -324,4 +508,53 @@ export async function showPrivacyOptions() {
   } finally {
     setBannerSuppressed('consent', false);
   }
+}
+
+// ---------------------------------------------------------------- debug state
+
+// Only Google's public test IDs are ever shown; a real ID is masked.
+const GOOGLE_TEST_PUBLISHER = 'ca-app-pub-3940256099942544';
+function safeId(id) {
+  return String(id || '').startsWith(GOOGLE_TEST_PUBLISHER + '/') ? id : '(real ID hidden)';
+}
+
+/** Snapshot for the debug panel. Contains no secrets; only Google test IDs can appear. */
+export function getAdsDebugState() {
+  const now = Date.now();
+  return {
+    native: native(),
+    ready,
+    consent: { ...consent, privacyOptionsRequired },
+    banner: {
+      state: bannerState,
+      errorCode: bstats.errorCode,
+      height: bstats.height,
+      marginTop: bannerMargin,
+      headerBottom: bstats.headerBottom,
+      safeTop: bstats.safeTop,
+      desiredTop: bstats.desiredTop,
+      actualTop: bstats.actualTop,
+      adjust: Math.round(bannerAdjust),
+      corrections: bannerCorrections,
+      hiddenFor: [...suppressed]
+    },
+    interstitial: {
+      ready: interstitialReady,
+      loading: interstitialLoading,
+      open: interstitialOpen,
+      ...istats,
+      nextRetryInS: nextRetryAt ? Math.max(0, Math.round((nextRetryAt - now) / 1000)) : null,
+      cooldownLeftS: Math.ceil(cooldownLeftMs() / 1000),
+      sinceLaunchS: Math.round((now - appStart) / 1000),
+      lastBreakShowedAd
+    },
+    config: {
+      isTesting: ADS_CONFIG.isTesting,
+      bannerAdId: safeId(ADS_CONFIG.bannerAdId),
+      interstitialAdId: safeId(ADS_CONFIG.interstitialAdId),
+      cooldownMs: ADS_CONFIG.interstitialCooldownMs,
+      minAfterLaunchMs: ADS_CONFIG.interstitialMinAfterLaunchMs,
+      practiceEvery: ADS_CONFIG.interstitialPracticeEvery
+    }
+  };
 }

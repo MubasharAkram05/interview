@@ -13,7 +13,8 @@
     "store:assets": "node scripts/make-store-assets.mjs",
     "icon": "node scripts/make-icon.mjs",
     "policy:check": "node scripts/check-policy-sync.mjs",
-    "test:ads": "node --import ./tests/ads/reg.mjs tests/ads/interstitial.test.mjs"
+    "test:ads": "node --import ./tests/ads/reg.mjs tests/ads/interstitial.test.mjs",
+    "build:debug": "vite build --mode debug"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.2.1",

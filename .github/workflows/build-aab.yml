@@ -9,6 +9,7 @@ on:
       - playstore-final
       - ads-top-banner
       - ads-interstitial
+      - ads-recheck
 
 permissions:
   contents: read
@@ -59,7 +60,7 @@ jobs:
       - name: Test ad rules (mocked AdMob)
         run: npm run test:ads
 
-      - name: Build web app
+      - name: Build web app (release, no debug tools)
         run: npm run build
 
       - name: Sync Capacitor Android
@@ -86,12 +87,43 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build release bundle and debug APK
+      - name: Build release bundle (.aab for Play)
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease assembleDebug --no-daemon --stacktrace
+        run: ./gradlew bundleRelease --no-daemon --stacktrace
+
+      # The debug APK gets the debug web build: same app plus the hidden ads status panel.
+      - name: Build web app (debug tools) and debug APK
+        run: |
+          npm run build:debug
+          npx cap copy android
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Check what is inside the APK and AAB
+        run: |
+          set -e
+          AAB=$(ls app/build/outputs/bundle/release/*.aab | head -1)
+          APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          rm -rf chk && mkdir -p chk/aab chk/apk
+          unzip -q -o "$AAB" 'base/assets/public/*' -d chk/aab
+          unzip -q -o "$APK" 'assets/public/*' -d chk/apk
+          SHA=$(git rev-parse --short HEAD)
+          has() { grep -rqF -- "$2" "$1"; }
+          R=apk-contents.txt
+          {
+            echo "Commit: $SHA"
+            for m in "ADS:" "interview_finished" "6300978111" "adSlot" "BuildInfo" "getAdLayout" "Copy report" "$SHA"; do
+              echo "debug APK contains '$m': $(has chk/apk "$m" && echo yes || echo NO)"
+            done
+            for m in "Copy report" "Force interstitial test" "dbgPanel"; do
+              echo "release AAB contains debug panel text '$m': $(has chk/aab "$m" && echo YES-BAD || echo no)"
+            done
+          } | tee $R
+          cat $R >> "$GITHUB_STEP_SUMMARY"
+          ! grep -q " NO$" $R
+          ! grep -q "YES-BAD" $R
 
       - name: Verify build (package, SDK, version, permissions, 16 KB, signing)
         run: |
@@ -169,6 +201,7 @@ jobs:
           name: build-reports
           path: |
             verify-report.txt
+            apk-contents.txt
             app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: ignore
 
