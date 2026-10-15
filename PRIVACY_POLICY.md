@@ -86,4 +86,4 @@ Online version: https://mubasharakram05.github.io/privacy_policy_interview_simul
 ## Contact
 
 Sussal Productions
-Email: [YOUR CONTACT EMAIL]
+Email: sussalproductions@gmail.com
