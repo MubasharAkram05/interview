@@ -7,6 +7,7 @@ on:
     branches:
       - claude/gracious-darwin-jnnafh
       - playstore-final
+      - ads-top-banner
 
 permissions:
   contents: read

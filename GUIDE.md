@@ -103,7 +103,7 @@ Play rejects an upload with a versionCode it has already seen.
 
 Do this only when you are ready for production. Never tap your own real ads.
 
-1. In https://admob.google.com create the app (Android, not yet listed or link it after Play publishing) and two ad units: **Banner** and **Interstitial**.
+1. In https://admob.google.com create the app (Android, not yet listed or link it after Play publishing) and two ad units: **Banner** (standard 320x50 banner, not adaptive) and **Interstitial**.
 2. Open `src/config/ads.js` and change:
    - `appId` to your AdMob App ID (`ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY`)
    - `bannerAdId` to your banner unit ID
@@ -213,7 +213,7 @@ Use the `app-debug.apk` from the workflow first, then the release build from the
 1. Phone: Settings > Security > allow "Install unknown apps" for your file manager or browser.
 2. Copy `app-debug.apk` to the phone and tap it to install. (Or with a PC: `adb install -r app-debug.apk`.)
 3. For the release build: join the closed test with the opt-in link and install from Play.
-4. Open the app. Check: splash shows, then Home. **No ad appears at launch.**
+4. Open the app. Check: splash shows, then Home. No interstitial at launch. A 50px space opens under the header and the test banner appears there once loaded (no full-screen ad).
 
 ### Online voice works
 1. Wi-Fi on. Mock tab > Start mock interview > tap the big mic.
@@ -257,10 +257,12 @@ Use the `app-debug.apk` from the workflow first, then the release build from the
 3. Reopen: you are on the same screen and typed answers are still there.
 
 ### Ad failure case
-1. Airplane mode on, open app, go Home and Results. Check: no banner, no empty gap, no freeze.
+1. Airplane mode on, open app, go Home and Results. Check: no banner, the space under the header closes (no empty gap), no freeze.
 2. Finish a mock interview offline. Check: results show, no ad, no error.
-3. Online: banner shows only on Home and Results (above the tab bar), never during practice or mock interview. Interstitial appears at most once every 3 minutes, only after finishing a mock interview, never in the first 2 minutes.
-4. EEA/UK test (optional): the consent form shows once. Profile > Privacy Policy shows "Ad privacy choices".
+3. Turn airplane mode off. Within a few seconds the banner space opens again and the test banner loads.
+4. Online: ONE banner sits right under the header on every screen (Home, Practice, Mock, Interview, Results, Profile, Add question, Privacy Policy). It never covers the header buttons, content, mic, text boxes or the bottom tab bar, and it does not reload or flicker when you change screens. Interstitial appears at most once every 3 minutes, only after finishing a mock interview, never in the first 2 minutes.
+5. Open any dialog (for example delete a question, or tap an interview type on Home): the banner disappears while the dialog is open and comes back after.
+6. EEA/UK test (optional): the consent form shows once, with no banner on top of it. Profile > Privacy Policy shows "Ad privacy choices"; the banner hides while that form is open.
 
 ### Low-end phone check
 1. Use an old or cheap phone (2 to 3 GB RAM, Android 8 or newer).

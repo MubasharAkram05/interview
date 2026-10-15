@@ -175,8 +175,7 @@ header.bar #hStreak{color:var(--mute)}header.bar #hStreak.on{color:#f97316;backg
 
 /* Play Store prep: mobile fixes */
 html,body{overflow-x:hidden}
-#main{padding-bottom:calc(24px + var(--ad-h,0px))}
-#toast{white-space:normal;max-width:calc(100% - 32px);width:max-content;text-align:center;line-height:1.4;bottom:calc(86px + var(--ad-h,0px) + env(safe-area-inset-bottom))}
+#toast{white-space:normal;max-width:calc(100% - 32px);width:max-content;text-align:center;line-height:1.4;bottom:calc(86px + env(safe-area-inset-bottom))}
 .app{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
 .bar .ic{width:44px;height:44px;min-height:44px}
 .pbtn{width:44px;height:44px}
@@ -194,3 +193,14 @@ html,body{overflow-x:hidden}
 /* Header reuses the .bar class of the progress bar; undo its 8px height so the header is not clipped. */
 header.bar{height:auto;min-height:56px;overflow:visible;margin:0;border-radius:0;flex:none}
 header.bar .ic{width:44px;height:44px;min-height:44px}
+
+/* Ad banner slot: the native AdMob banner sits on top of this spacer, right under the header.
+   Its height is set from JS (--ad-slot = 6px gap + banner height + 8px gap, or 0 with no ad),
+   so main shrinks and nothing is ever covered. */
+#adSlot{flex:none;height:var(--ad-slot,0px);background:var(--bg);transition:height .2s ease;pointer-events:none}
+/* Measures the top safe area (notch / status bar) in CSS px for the banner position. */
+#safeTopProbe{position:fixed;top:0;left:0;width:0;visibility:hidden;pointer-events:none;height:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px))}
+/* Use Capacitor's injected inset vars too (older Android WebViews have no env() insets). */
+header.bar{padding-top:calc(12px + max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px)))}
+nav{padding-bottom:calc(6px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
+@media(prefers-reduced-motion:reduce){#adSlot{transition:none}}
