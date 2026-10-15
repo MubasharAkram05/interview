@@ -79,6 +79,25 @@ check('header back button hides logo', await p.evaluate(() => { window.showProfi
 
 await p.evaluate(() => window.startMock());
 await p.waitForTimeout(400);
+check('mock page has level tabs and category tiles', (await p.locator('#mSeg button').count()) === 3 && (await p.locator('#mGrid .mt').count()) >= 4);
+await p.click('#mGrid .mt:nth-child(2)');
+await p.click('#mSeg button:nth-child(2)');
+await p.waitForTimeout(300);
+const pickedC = await p.getAttribute('#mGrid .mt.on', 'data-c');
+check('tapping a tile selects it (one selected)', (await p.locator('#mGrid .mt.on').count()) === 1 && pickedC === (await p.getAttribute('#mGrid .mt:nth-child(2)', 'data-c')));
+check('selection shown on Start button', /Junior · \d+ questions?$/.test((await p.textContent('#mSel')).trim()));
+const tiles = await p.$$eval('#mGrid .mt', bs => bs.map(b => b.getBoundingClientRect().height));
+check('tiles are big enough to tap (>= 44px)', tiles.every(h => h >= 44));
+await p.reload();
+await p.waitForTimeout(700);
+await p.evaluate(() => window.startMock());
+await p.waitForTimeout(400);
+check('mock choice is remembered', (await p.getAttribute('#mGrid .mt.on', 'data-c')) === pickedC && (await p.getAttribute('#mSeg button.on', 'data-lvl')) === 'junior');
+await p.click('#mStart');
+await p.waitForTimeout(1200);
+if (await p.isVisible('#dlg')) { await p.click('#dYes'); await p.waitForTimeout(1000); }
+check('Start uses the picked type and level', await p.evaluate(() => JSON.parse(localStorage.getItem('is_scr') || '{}').lv === 'junior'));
+await p.evaluate(() => { window.leaveOK = true; });
 await p.evaluate(() => window.startInterview());
 await p.waitForTimeout(1500);
 if (await p.isVisible('#dlg')) { await p.click('#dYes'); await p.waitForTimeout(1200); }
@@ -95,6 +114,8 @@ check(`mock: Next moves exactly 1 question (${c0} -> ${await p.textContent('#qCo
 await p.click('[onclick="step(-1)"]');
 await p.waitForTimeout(700);
 check(`mock: no empty space between question and answer box (${Math.round(gap.emptyBelowText)}px + ${Math.round(gap.gapToBox)}px)`, gap.emptyBelowText <= 2 && gap.gapToBox <= 12);
+const pad = await p.evaluate(() => { document.documentElement.classList.add('wv-below-bars'); const v = getComputedStyle(document.querySelector('header.bar')).paddingTop; document.documentElement.classList.remove('wv-below-bars'); return v; });
+check(`header: no status bar padding when WebView starts below it (${pad})`, pad === '6px');
 check('no horizontal scroll', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 check('no page errors', errors.length === 0);
 await b.close();

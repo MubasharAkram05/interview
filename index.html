@@ -72,9 +72,12 @@
 </section>
 
 <section class="scr hidden" id="mock">
-  <div class="sec" style="margin-top:0"><h4>Select interview</h4><label class="l" for="mcat" style="margin-top:0">Interview type</label><select id="mcat" onchange="mSync()"></select><label class="l" for="mlvl">Experience level</label><select id="mlvl" onchange="mSync()"></select></div>
-  <div class="sec"><h4>Interview tip</h4><div id="mtip"></div></div>
-  <button class="pri" onclick="startInterview()">Start mock interview</button>
+  <div class="hidden"><select id="mcat" onchange="mSync()" aria-label="Interview type"></select><select id="mlvl" onchange="mSync()" aria-label="Experience level"></select></div>
+  <div class="pseg mseg" id="mSeg" role="tablist" aria-label="Experience level"></div>
+  <p class="mhint">Pick an interview type</p>
+  <div class="mgrid" id="mGrid"></div>
+  <div class="sec mtipc"><h4><span aria-hidden="true">💡</span> Interview tip</h4><div id="mtip"></div></div>
+  <button class="pri mstart" id="mStart" onclick="startInterview()"><span>Start mock interview</span><small id="mSel"></small></button>
 </section>
 
 <section class="scr hidden" id="interview">
