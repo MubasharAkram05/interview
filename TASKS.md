@@ -38,7 +38,7 @@
 
 ## Fix before upload
 
-- [x] Gradle build passes on GitHub Actions (`bundleRelease` + `assembleDebug`, BUILD SUCCESSFUL in 4m 44s, R8 ran). AAB = `app-release.aab`, 8.1 MB (8,425,883 bytes)
+- [x] Gradle build passes on GitHub Actions (`bundleRelease` + `assembleDebug`, R8 ran). Latest run on `playstore-final`: AAB = `app-release.aab`, 6.3 MB (6,529,797 bytes), debug APK 9.7 MB
 - [x] 16 KB page size: PASS (0 native libraries in the AAB; `zipalign -c -P 16` on debug APK passes)
 - [x] Merged release manifest: package `com.sussalproductions.interviewsimulator`, versionCode 1, versionName 1.0, minSdk 24, targetSdk 36
 - [ ] Release R8 build works on a phone: **NOT CHECKED**. Install the release from the closed test and run the test script (GUIDE section 14)
