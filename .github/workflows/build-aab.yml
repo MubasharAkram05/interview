@@ -1,10 +1,12 @@
 name: Build Android AAB
 
-# Run by hand (Actions tab > Build Android AAB > Run workflow) or on every push to the working branch.
+# Runs on every push to main (so every merged PR gets a fresh APK/AAB), on pushes to the
+# working branches, or by hand (Actions tab > Build Android AAB > Run workflow).
 on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - claude/gracious-darwin-jnnafh
       - playstore-final
       - ads-top-banner
