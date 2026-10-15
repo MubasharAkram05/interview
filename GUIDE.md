@@ -103,6 +103,8 @@ Play rejects an upload with a versionCode it has already seen.
 
 Do this only when you are ready for production. Never tap your own real ads.
 
+First set `INTERSTITIAL_COOLDOWN_MS` in `src/config/ads.js` back to `180000` (it is `30000` for testing).
+
 1. In https://admob.google.com create the app (Android, not yet listed or link it after Play publishing) and two ad units: **Banner** (standard 320x50 banner, not adaptive) and **Interstitial**.
 2. Open `src/config/ads.js` and change:
    - `appId` to your AdMob App ID (`ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY`)
@@ -260,9 +262,29 @@ Use the `app-debug.apk` from the workflow first, then the release build from the
 1. Airplane mode on, open app, go Home and Results. Check: no banner, the space under the header closes (no empty gap), no freeze.
 2. Finish a mock interview offline. Check: results show, no ad, no error.
 3. Turn airplane mode off. Within a few seconds the banner space opens again and the test banner loads.
-4. Online: ONE banner sits right under the header on every screen (Home, Practice, Mock, Interview, Results, Profile, Add question, Privacy Policy). It never covers the header buttons, content, mic, text boxes or the bottom tab bar, and it does not reload or flicker when you change screens. Interstitial appears at most once every 3 minutes, only after finishing a mock interview, never in the first 2 minutes.
+4. Online: ONE banner sits right under the header on every screen (Home, Practice, Mock, Interview, Results, Profile, Add question, Privacy Policy). It never covers the header buttons, content, mic, text boxes or the bottom tab bar, and it does not reload or flicker when you change screens. It does not reload when you change screens.
 5. Open any dialog (for example delete a question, or tap an interview type on Home): the banner disappears while the dialog is open and comes back after.
 6. EEA/UK test (optional): the consent form shows once, with no banner on top of it. Profile > Privacy Policy shows "Ad privacy choices"; the banner hides while that form is open.
+
+### Interstitial (full-screen ad)
+Rules: Interstitial only at natural breaks: after a mock interview is finished (just before the results screen) and after every 4th Practice question the user moves forward to. Never on app launch, never within 10 s of opening the app, never while recording or typing, never on the back button or exit, never at two breaks in a row, and at least `INTERSTITIAL_COOLDOWN_MS` apart (30 s for testing now, 180 s for release). If no ad is loaded when a break comes, it is skipped silently; the app never waits. The banner hides while the interstitial is open.
+
+Use the **debug APK** for this test (it prints `ADS:` lines; the release build never does). With the phone connected by USB and USB debugging on, run on your PC:
+
+```
+adb logcat | findstr "ADS:"
+```
+(Mac/Linux: `adb logcat | grep "ADS:"`)
+
+1. Open the app online and wait 15 seconds. Log shows `ADS: prepare` then `ADS: loaded`.
+2. Start a mock interview right away and finish it within 10 s of opening the app (or just tap through). Log: `skipped ... reason=too soon after app start`. Results show normally.
+3. Wait until at least 10 s after opening the app, then finish a mock interview. A full-screen "Test Ad" opens; the results screen is underneath. The top banner is hidden while the ad is open.
+4. Close the ad. Log: `ADS: dismissed`, then `ADS: prepare` and `ADS: loaded` (next ad loads). The banner comes back.
+5. Go to Practice and swipe forward 4 questions. Log: `skipped ... reason=ad shown at previous break` (never twice in a row) or `cooldown Ns left`.
+6. Wait 30 s, swipe forward 4 more questions: a test ad opens.
+7. Start the mic in Practice, then swipe forward so you land on a 4th question while recording: log shows `reason=recording`, no ad.
+8. Airplane mode on, restart the app, finish a mock interview: no ad, no freeze. Log shows `prepare skipped: offline` and `retry in 15s`, `30s`, `60s`. Turn airplane mode off: within a minute `ADS: loaded`.
+9. Press back or exit on Home: never an ad.
 
 ### Low-end phone check
 1. Use an old or cheap phone (2 to 3 GB RAM, Android 8 or newer).

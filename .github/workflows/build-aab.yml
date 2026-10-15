@@ -8,6 +8,7 @@ on:
       - claude/gracious-darwin-jnnafh
       - playstore-final
       - ads-top-banner
+      - ads-interstitial
 
 permissions:
   contents: read
@@ -54,6 +55,9 @@ jobs:
 
       - name: Install npm packages
         run: npm ci
+
+      - name: Test ad rules (mocked AdMob)
+        run: npm run test:ads
 
       - name: Build web app
         run: npm run build

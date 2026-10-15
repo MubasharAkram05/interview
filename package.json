@@ -12,7 +12,8 @@
     "assets": "npx capacitor-assets generate --android",
     "store:assets": "node scripts/make-store-assets.mjs",
     "icon": "node scripts/make-icon.mjs",
-    "policy:check": "node scripts/check-policy-sync.mjs"
+    "policy:check": "node scripts/check-policy-sync.mjs",
+    "test:ads": "node --import ./tests/ads/reg.mjs tests/ads/interstitial.test.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.2.1",

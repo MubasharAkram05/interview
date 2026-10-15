@@ -34,7 +34,8 @@ import policyMarkdown from '../PRIVACY_POLICY.md?raw';
 import { PRIVACY_POLICY_URL } from './config/app.js';
 import {
   initializeAdMob,
-  showInterstitialIfReady,
+  showInterstitialAtBreak,
+  skipInterstitialBreak,
   setBannerSuppressed,
   needsPrivacyOptions,
   showPrivacyOptions
@@ -890,12 +891,39 @@ function slide(d) {
   c.classList.add(d > 0 ? 'sl' : 'sr');
 }
 
+// Practice: every Nth question the user moves forward to is a natural break for an interstitial.
+let practiceForwardMoves = 0;
+
 function pGo(k) {
   if (k === P.i || k < 0 || k >= P.list.length) return;
-  slide(k > P.i ? 1 : -1);
+  const forward = k > P.i;
+  // Read these before pr(), which stops the mic.
+  const wasRecording = isListening();
+  const wasTyping = !$('pEdit').classList.contains('hidden') || isTypingNow();
+  slide(forward ? 1 : -1);
   P.i = k;
   pr();
   saveScr();
+  if (forward && ++practiceForwardMoves % ADS_CONFIG.interstitialPracticeEvery === 0) {
+    practiceBreak(wasRecording, wasTyping);
+  }
+}
+
+function practiceBreak(wasRecording, wasTyping) {
+  const name = 'practice_question_' + practiceForwardMoves;
+  // Never while recording or typing; skip silently and continue.
+  if (wasRecording) return skipInterstitialBreak(name, 'recording');
+  if (wasTyping) return skipInterstitialBreak(name, 'typing');
+  showInterstitialAtBreak(name);
+}
+
+function isTypingNow() {
+  const a = document.activeElement;
+  return !!a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT');
+}
+
+function blurTyping() {
+  if (isTypingNow()) document.activeElement.blur();
 }
 
 function pStep(d) {
@@ -1488,12 +1516,17 @@ function finish() {
 
   $('tips').innerHTML = shuffle(TIPS).slice(0, 3).map(t => '• ' + t).join('<br>');
   renderReview();
-  show('feedback', true);
 
-  playSuccessChime();
-  if (sc >= 7) {
-    fireGrandCelebration();
-  }
+  // Natural break: the interview is over. The interstitial (if one is ready and allowed)
+  // opens now, and the results screen is drawn right under it. If no ad is ready it is
+  // skipped silently. The app never waits for an ad.
+  blurTyping();
+  showInterstitialAtBreak('interview_finished').then(shown => {
+    if (shown) return; // no chime or confetti behind a full-screen ad
+    playSuccessChime();
+    if (sc >= 7) fireGrandCelebration();
+  });
+  show('feedback', true);
 
   const h = getItem('is_hist', []) || [];
   h.unshift({
@@ -1508,9 +1541,6 @@ function finish() {
     n: active
   });
   setItem('is_hist', h.slice(0, 20));
-
-  // Sensible interstitial ad trigger on completing interview
-  showInterstitialIfReady();
 }
 
 function renderReview() {
