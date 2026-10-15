@@ -6,6 +6,19 @@
  * and set isTesting to false. See GUIDE.md > "Swap test ad IDs for real ones".
  */
 
+// Minimum time between two interstitials.
+// TESTING VALUE: 30 s. Set back to 180000 (3 minutes) before release (see TASKS.md).
+export const INTERSTITIAL_COOLDOWN_MS = 30000;
+
+// Never show an interstitial in the first 10 seconds after the app opens.
+export const INTERSTITIAL_MIN_AFTER_LAUNCH_MS = 10000;
+
+// In Practice, a break comes after every 4th question the user moves forward to.
+export const INTERSTITIAL_PRACTICE_EVERY = 4;
+
+// If an interstitial fails to load, try again after 15 s, then 30 s, then every 60 s.
+export const INTERSTITIAL_RETRY_MS = [15000, 30000, 60000];
+
 export const ADS_CONFIG = {
   // true = test mode. Keep true until you switch to your real IDs.
   isTesting: true,
@@ -19,11 +32,11 @@ export const ADS_CONFIG = {
   // Google test interstitial
   interstitialAdId: 'ca-app-pub-3940256099942544/1033173712',
 
-  // Minimum gap between two interstitials (3 minutes).
-  interstitialCooldownMs: 180000,
-
-  // No interstitial in the first 2 minutes after the app opens.
-  firstInterstitialDelayMs: 120000,
+  // Interstitial timing (see the constants above this object).
+  interstitialCooldownMs: INTERSTITIAL_COOLDOWN_MS,
+  interstitialMinAfterLaunchMs: INTERSTITIAL_MIN_AFTER_LAUNCH_MS,
+  interstitialPracticeEvery: INTERSTITIAL_PRACTICE_EVERY,
+  interstitialRetryMs: INTERSTITIAL_RETRY_MS,
 
   // One banner, fixed under the header on every screen.
   // Standard 320x50 size: its height is known in advance, so the app reserves exactly

@@ -9,6 +9,7 @@ import {
   InterstitialAdPluginEvents
 } from '@capacitor-community/admob';
 import { ADS_CONFIG } from '../config/ads.js';
+import { adsLog } from './debug.js';
 
 /**
  * AdMob with Google UMP consent (EEA/UK).
@@ -22,9 +23,16 @@ import { ADS_CONFIG } from '../config/ads.js';
 
 let ready = false; // SDK initialized and consent allows ads
 let privacyOptionsRequired = false;
+
+// Interstitial state
+const appStart = Date.now();
 let interstitialReady = false;
 let interstitialLoading = false;
-let lastInterstitial = Date.now() - ADS_CONFIG.interstitialCooldownMs + ADS_CONFIG.firstInterstitialDelayMs;
+let interstitialOpen = false;
+let lastInterstitialAt = 0; // when the last interstitial was shown (0 = never)
+let lastBreakShowedAd = false; // never show at two breaks in a row
+let retryIndex = 0;
+let retryTimer = null;
 
 // Banner state: 'off' (no banner), 'requested' (loading), 'loaded', 'failed'
 let bannerState = 'off';
@@ -59,6 +67,7 @@ export async function initializeAdMob({ topMargin, onSpace } = {}) {
     // Offline or UMP error: the SDK can still start; Google decides what can be served.
   }
   if (!canRequestAds) {
+    adsLog('skipped: consent does not allow ads');
     onBannerSpace(0);
     return false;
   }
@@ -98,18 +107,26 @@ function addListeners() {
     AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
       interstitialReady = true;
       interstitialLoading = false;
+      retryIndex = 0;
+      adsLog('loaded');
     });
-    AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, () => {
+    AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, err => {
+      // Also fired by showInterstitial() when nothing was prepared (code -1).
       interstitialReady = false;
       interstitialLoading = false;
+      adsLog('failed', 'code=' + (err && err.code !== undefined ? err.code : '?'));
+      scheduleInterstitialRetry();
+    });
+    AdMob.addListener(InterstitialAdPluginEvents.Showed, () => {
+      adsLog('showed');
     });
     AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
-      lastInterstitial = Date.now();
-      preloadInterstitial();
+      adsLog('dismissed');
+      interstitialClosed();
     });
-    AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, () => {
-      interstitialReady = false;
-      preloadInterstitial();
+    AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, err => {
+      adsLog('failed to show', 'code=' + (err && err.code !== undefined ? err.code : '?'));
+      interstitialClosed();
     });
   } catch {
     // Listener errors are not fatal.
@@ -199,34 +216,94 @@ export function setBannerSuppressed(reason, on) {
   if (before && !suppressed.size) AdMob.resumeBanner().catch(() => {});
 }
 
+/** Load the next interstitial in the background (after consent, after each dismiss/failure). */
 async function preloadInterstitial() {
   if (!ready || !ADS_CONFIG.enableInterstitial || interstitialReady || interstitialLoading) return;
+  clearTimeout(retryTimer);
+  if (!(await isOnline())) {
+    adsLog('prepare skipped: offline');
+    scheduleInterstitialRetry();
+    return;
+  }
   interstitialLoading = true;
+  adsLog('prepare');
   try {
+    // Resolves when the ad has loaded (the Loaded event sets the state).
     await AdMob.prepareInterstitial({ adId: ADS_CONFIG.interstitialAdId, isTesting: ADS_CONFIG.isTesting });
   } catch {
+    // FailedToLoad event already logged it and scheduled a retry.
     interstitialLoading = false;
   }
 }
 
+/** Retry a failed load after 15 s, 30 s, then every 60 s. */
+function scheduleInterstitialRetry() {
+  if (!ready || !ADS_CONFIG.enableInterstitial || interstitialReady) return;
+  const steps = ADS_CONFIG.interstitialRetryMs;
+  const wait = steps[Math.min(retryIndex, steps.length - 1)];
+  retryIndex++;
+  clearTimeout(retryTimer);
+  adsLog('retry in', Math.round(wait / 1000) + 's');
+  retryTimer = setTimeout(preloadInterstitial, wait);
+}
+
+function interstitialClosed() {
+  interstitialOpen = false;
+  setBannerSuppressed('interstitial', false);
+  preloadInterstitial();
+}
+
+/** A break that the page itself rules out (recording, typing): log it and move on. */
+export function skipInterstitialBreak(breakName, reason) {
+  adsLog('show requested', breakName);
+  adsLog('skipped', breakName, 'reason=' + reason);
+  lastBreakShowedAd = false;
+}
+
 /**
- * Show an interstitial at a natural break (after a finished mock interview),
- * only if one is already loaded and the cooldown has passed. Never waits for loading.
+ * Called at a natural break ('interview_finished' or 'practice_4th_question').
+ * Shows the interstitial only if every rule passes; otherwise skips silently and the
+ * app continues. Never waits for an ad to load. Returns true if an ad was shown.
  */
-export async function showInterstitialIfReady() {
-  if (!ready || !ADS_CONFIG.enableInterstitial) return false;
-  if (Date.now() - lastInterstitial < ADS_CONFIG.interstitialCooldownMs) return false;
-  if (!interstitialReady) {
-    preloadInterstitial();
+export async function showInterstitialAtBreak(breakName) {
+  const skip = (reason, countsAsBreak = true) => {
+    adsLog('skipped', breakName, 'reason=' + reason);
+    // A break the user saw without an ad lets the next break show one again.
+    if (countsAsBreak) lastBreakShowedAd = false;
     return false;
+  };
+  adsLog('show requested', breakName);
+  if (!native()) return skip('not on a phone');
+  if (!ADS_CONFIG.enableInterstitial) return skip('disabled in config');
+  if (!ready) return skip('ads not started (no consent yet, offline or init failed)');
+  if (interstitialOpen) return skip('already open', false);
+  if (document.visibilityState !== 'visible') return skip('app in background');
+  if (suppressed.size) return skip('dialog or form open');
+  const sinceLaunch = Date.now() - appStart;
+  if (sinceLaunch < ADS_CONFIG.interstitialMinAfterLaunchMs) return skip('too soon after app start');
+  if (lastBreakShowedAd) return skip('ad shown at previous break (never twice in a row)');
+  const sinceLast = Date.now() - lastInterstitialAt;
+  if (lastInterstitialAt && sinceLast < ADS_CONFIG.interstitialCooldownMs) {
+    return skip('cooldown ' + Math.ceil((ADS_CONFIG.interstitialCooldownMs - sinceLast) / 1000) + 's left');
   }
+  if (!interstitialReady) {
+    if (!interstitialLoading) preloadInterstitial();
+    return skip(interstitialLoading ? 'still loading' : 'not loaded');
+  }
+
   interstitialReady = false;
+  interstitialOpen = true;
+  lastInterstitialAt = Date.now();
+  lastBreakShowedAd = true;
+  setBannerSuppressed('interstitial', true);
   try {
     await AdMob.showInterstitial();
-    lastInterstitial = Date.now();
     return true;
   } catch {
-    preloadInterstitial();
+    // FailedToLoad/FailedToShow events log the code and reload.
+    interstitialOpen = false;
+    lastBreakShowedAd = false;
+    setBannerSuppressed('interstitial', false);
     return false;
   }
 }

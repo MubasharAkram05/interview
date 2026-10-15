@@ -23,7 +23,7 @@
 - [x] Read aloud: `@capacitor-community/text-to-speech` with clear message when no voice is installed
 - [x] One shared offline helper (`src/services/online.js`) for voice, policy link and ad privacy choices
 - [x] AdMob: all IDs in `src/config/ads.js` (Google test IDs); App ID in manifest; UMP consent for EEA/UK; "Ad privacy choices" entry when required
-- [x] AdMob: ONE standard 320x50 banner fixed under the header on every screen (created once, kept alive across screens, no reloads). A spacer `#adSlot` reserves 50px before the ad loads and pushes content down, so the banner never covers anything; it collapses to 0 with no consent, offline or no fill, and reloads when back online. Banner hides while a dialog, sheet or consent form is open. Interstitial unchanged: only after a finished mock interview, preloaded, 3 min gap, not in first 2 min; failures and offline are silent
+- [x] AdMob: ONE standard 320x50 banner fixed under the header on every screen (created once, kept alive across screens, no reloads). A spacer `#adSlot` reserves 50px before the ad loads and pushes content down, so the banner never covers anything; it collapses to 0 with no consent, offline or no fill, and reloads when back online. Banner hides while a dialog, sheet or consent form is open.
 - [x] Back button handled (`@capacitor/app`): dialogs, leave-interview confirm, edit cancel, double back to exit
 - [x] Privacy Policy screen inside the app, rendered from `PRIVACY_POLICY.md` (same file), "View online version" button with offline message
 - [x] `PRIVACY_POLICY_URL` constant in `src/config/app.js`
@@ -31,6 +31,9 @@
 - [x] Transcript export fixed for Android (share sheet instead of blob download, which WebView cannot do)
 - [x] Fixed pre-existing bugs: header clipped to 8px, blank "Practice it" button, `answers is not defined` error from inline handler
 - [x] Mobile layout: tap targets 44px, body text 16px, toast wraps, safe-area padding (env() and Capacitor's --safe-area-inset-* vars)
+- [x] Interstitial: Interstitial only at natural breaks: after a mock interview is finished (just before the results screen) and after every 4th Practice question the user moves forward to. Never on app launch, never within 10 s of opening the app, never while recording or typing, never on the back button or exit, never at two breaks in a row, and at least `INTERSTITIAL_COOLDOWN_MS` apart (30 s for testing now, 180 s for release). If no ad is loaded when a break comes, it is skipped silently; the app never waits. The banner hides while the interstitial is open. Preloaded after consent, reloaded after every dismiss or failure, retried with backoff 15 s, 30 s, 60 s. `ADS:` diagnostic logs print only in the debug APK (native `BuildInfo` plugin)
+- [x] Interstitial rules unit-tested with mocked AdMob (`npm run test:ads`, 20 checks, also run in CI)
+- [ ] Interstitial shown and dismissed on a real phone (GUIDE section 14, Interstitial): **NOT CHECKED**
 - [x] Banner layout checked in a 375px browser emulation on all 10 screens, with and without a 32px notch, and with the keyboard height: 0 overlaps with content, nav or mic, 18px clear to header buttons, 8px clear to content
 - [ ] Banner position checked on a real phone (notch, rotation, keyboard, dialogs): **NOT CHECKED**
 - [x] App icon, adaptive icon, splash (light and dark) generated with `@capacitor/assets` from `assets/`
@@ -76,6 +79,7 @@
 
 ## Production release
 
+- [ ] set INTERSTITIAL_COOLDOWN_MS back to 180000 before release (`src/config/ads.js`, now 30000 for testing)
 - [ ] Create AdMob app, real banner and interstitial units, publish GDPR message
 - [ ] Swap test IDs in `src/config/ads.js` and the manifest, set `isTesting: false` (GUIDE section 5)
 - [ ] Bump versionCode, build, upload

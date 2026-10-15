@@ -1,6 +1,15 @@
 package com.sussalproductions.interviewsimulator;
 
+import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
 
-// Capacitor registers all plugins from capacitor.plugins.json automatically.
-public class MainActivity extends BridgeActivity {}
+// Capacitor registers npm plugins from capacitor.plugins.json automatically.
+// Local plugins (inside this app) are registered here, before super.onCreate().
+public class MainActivity extends BridgeActivity {
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(BuildInfoPlugin.class);
+        super.onCreate(savedInstanceState);
+    }
+}
