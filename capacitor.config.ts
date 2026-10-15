@@ -4,6 +4,11 @@ const config: CapacitorConfig = {
   appId: 'com.sussalproductions.interviewsimulator',
   appName: 'Interview Simulator',
   webDir: 'dist',
+  // The Android Gradle project lives in the repo root (app/, settings.gradle.kts),
+  // not in the usual android/ folder.
+  android: {
+    path: '.'
+  },
   server: {
     androidScheme: 'https'
   },

@@ -43,7 +43,7 @@
   <button class="full" onclick="restoreQ()">Restore deleted questions</button>
   <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
     <div><b>Privacy Policy</b><br><small style="color:var(--mute)">How data and ads are handled</small></div>
-    <button class="pbtn" style="width:auto;padding:8px 14px;border-radius:10px;background:var(--acc);color:#fff" onclick="openPrivacyPolicy()">View</button>
+    <button class="pbtn" style="width:auto;padding:8px 16px;border-radius:12px;background:var(--acc);color:#fff" onclick="openPrivacyPolicy()">View</button>
   </div>
   </div>
 </section>
@@ -78,7 +78,7 @@
 <section class="scr hidden" id="interview">
   <div class="qcard"><div class="qtop"><span class="cnt" id="qCount"></span></div><div class="bar"><i id="qBar"></i></div><div class="qbody"><button class="spk" data-i="speaker" onclick="reveal(cur[idx].q,true)" aria-label="Read question aloud" title="Read aloud"></button><div class="q" id="qText"></div></div></div>
   <div id="tWrap" class="hidden" style="margin-top:12px"><div class="bar"><i id="tBar" style="width:100%;transition:width 1s linear"></i></div><div class="cnt" id="tText"></div></div>
-  <textarea id="ansBox" oninput="answers[idx]=this.value.trim();saveScr()" placeholder="Type or speak your answer..." spellcheck="true" style="margin-top:12px"></textarea>
+  <textarea id="ansBox" placeholder="Type or speak your answer..." spellcheck="true" style="margin-top:12px"></textarea>
   <div class="dots" id="mDots"></div>
   <div class="micwrap"><button class="mic" id="mic" data-i="mic" onclick="toggleMic()" aria-label="Speak to type" title="Speak to type"></button><div class="note" id="micSt"></div></div>
   <div class="row"><button data-i="left" onclick="step(-1)" aria-label="Previous" title="Previous"></button><button class="ok" id="nBtn" data-i="right" onclick="step(1)" aria-label="Next" title="Next"></button></div>
@@ -103,6 +103,13 @@
   <label class="l" for="na">Your answer (optional)</label><textarea id="na"></textarea>
   <p class="note">You can use {name}, {skills}, {project}, {strength} and similar tags to fill from your profile.</p>
   <button class="pri" onclick="saveQ()">Save question</button></div>
+</section>
+
+<section class="scr hidden" id="privacy">
+  <div class="sec policy" style="margin-top:0"><div id="policyText"></div></div>
+  <button class="pri" onclick="viewOnlinePolicy()">View online version</button>
+  <p class="note" id="policyNote" role="status" aria-live="polite"></p>
+  <div class="sec hidden" id="adPrivacyBox"><h4>Ads</h4><button class="full" onclick="adPrivacyChoices()">Ad privacy choices</button></div>
 </section>
 
 </main>
