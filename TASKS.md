@@ -38,12 +38,13 @@
 
 ## Fix before upload
 
-- [ ] Gradle build (`bundleRelease`, `assembleDebug`): **NOT CHECKED** here (Android SDK download blocked). Run the workflow and confirm a green run
-- [ ] 16 KB page size: **NOT CHECKED** here. Confirm `16 KB page size: PASS` in `verify-report.txt`
+- [x] Gradle build passes on GitHub Actions (`bundleRelease` + `assembleDebug`, BUILD SUCCESSFUL in 4m 44s, R8 ran). AAB = `app-release.aab`, 8.1 MB (8,425,883 bytes)
+- [x] 16 KB page size: PASS (0 native libraries in the AAB; `zipalign -c -P 16` on debug APK passes)
+- [x] Merged release manifest: package `com.sussalproductions.interviewsimulator`, versionCode 1, versionName 1.0, minSdk 24, targetSdk 36
 - [ ] Release R8 build works on a phone: **NOT CHECKED**. Install the release from the closed test and run the test script (GUIDE section 14)
-- [ ] Merged manifest has no extra permissions from libraries: **NOT CHECKED**. Read the permission list in `verify-report.txt`
+- [x] Merged manifest permissions checked. Extra ones come from the Google Mobile Ads SDK only: ACCESS_ADSERVICES_AD_ID / ATTRIBUTION / TOPICS (Android Privacy Sandbox ads), WAKE_LOCK and FOREGROUND_SERVICE (WorkManager used by the ads SDK), DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION (AndroidX internal). Kept on purpose: removing them can break ads. None needs a Play Console declaration form
 - [ ] Create upload keystore and add the 4 GitHub Secrets (GUIDE sections 1 and 2)
-- [ ] Get a run where `verify-report.txt` says `AAB signature: VERIFIED`
+- [ ] Get a run where `verify-report.txt` says `AAB signature: VERIFIED` (first run was UNSIGNED because the secrets are not added yet)
 - [ ] Put your real contact email in `PRIVACY_POLICY.md` (replace `[YOUR CONTACT EMAIL]`), run `npm run policy:page`
 - [ ] Decide on the demo profile in `src/data/questions.js` (`DEMO`): every new user sees "Mubashar Akram" with your university and internship. Consider a fictional sample name
 - [ ] Voice and read-aloud tested on a real phone (online, offline, permission denied): **NOT CHECKED**

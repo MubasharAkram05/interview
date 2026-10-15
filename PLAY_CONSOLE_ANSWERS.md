@@ -12,7 +12,8 @@ Answers for Play Console > Policy and programs > **App content**. Every answer i
 | Voice input: Android `SpeechRecognizer` via `@capacitor-community/speech-recognition`. The app does not record or save audio; it receives only text | `src/services/voice.js`, plugin `SpeechRecognition.java` |
 | Read aloud: Android text-to-speech via `@capacitor-community/text-to-speech` | `src/services/tts.js` |
 | Transcript sharing only through the Android share menu when the user taps it | `exportT()` in `src/main.js` |
-| Permissions: INTERNET, ACCESS_NETWORK_STATE, RECORD_AUDIO, AD_ID | `app/src/main/AndroidManifest.xml` |
+| Permissions you declare: INTERNET, ACCESS_NETWORK_STATE, RECORD_AUDIO, AD_ID | `app/src/main/AndroidManifest.xml` |
+| Extra permissions merged in by the Google Mobile Ads SDK: ACCESS_ADSERVICES_AD_ID, ACCESS_ADSERVICES_ATTRIBUTION, ACCESS_ADSERVICES_TOPICS, WAKE_LOCK, FOREGROUND_SERVICE | `verify-report.txt` from the CI build |
 
 ## 1. Privacy policy
 
@@ -115,7 +116,9 @@ Why this conservative answer: the app itself never records or uploads audio. It 
 ## 12. Other permission declarations
 
 - RECORD_AUDIO is a normal runtime permission. No special declaration form is needed.
-- No location, SMS, call log, storage, accessibility, foreground service or exact alarm permissions are used, so no other forms apply.
+- No location, SMS, call log, storage, accessibility or exact alarm permissions are used.
+- FOREGROUND_SERVICE and WAKE_LOCK come from the Google Mobile Ads SDK (it uses WorkManager). Play's foreground service declaration form is only needed for typed permissions like FOREGROUND_SERVICE_DATA_SYNC, which this app does not have.
+- ACCESS_ADSERVICES_* permissions come from the Google Mobile Ads SDK (Android Privacy Sandbox). They are covered by your Ads and Advertising ID answers.
 
 ## 13. Store settings
 
