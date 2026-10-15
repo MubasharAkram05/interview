@@ -39,7 +39,7 @@ Answers for Play Console > Policy and programs > **App content**. Every answer i
 
 ## 5. Content rating (IARC questionnaire)
 
-- Email: your contact email
+- Email: sussalproductions@gmail.com
 - Category: **All other app types** (it is not a game, not social, not a news app)
 - Answers:
   - Violence: **No**
@@ -123,5 +123,5 @@ Why this conservative answer: the app itself never records or uploads audio. It 
 ## 13. Store settings
 
 - App category: **Education**
-- Contact details: support email (required), website optional
+- Contact details: sussalproductions@gmail.com (required), website optional
 - External marketing: your choice

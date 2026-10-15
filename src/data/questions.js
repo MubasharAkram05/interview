@@ -43,17 +43,17 @@ export const DEF = {
 };
 
 export const DEMO = {
-  "Mubashar Akram": {
-    name: "Mubashar Akram",
-    degree: "BS Information Technology",
-    uni: "Virtual University of Pakistan",
-    role: "Cloud Engineer with a cloud security focus",
-    certs: "CCNA, Graphic Designing and Web Development Fundamentals",
-    skills: "AWS and cloud computing, networking (CCNA), React, Node.js and MySQL",
-    project: "the Online Medical Store Management System, a full-stack app built with React, Node.js and MySQL",
-    strength: "solving technical problems and learning new tools quickly",
+  "Alex Khan": {
+    name: "Alex Khan",
+    degree: "BS Computer Science",
+    uni: "Example University",
+    role: "Junior Software Developer",
+    certs: "an online web development course certificate",
+    skills: "JavaScript, HTML and CSS, SQL and basic cloud computing",
+    project: "a student task manager web app built with JavaScript and SQL",
+    strength: "solving problems and learning new tools quickly",
     weakness: "spending extra time perfecting small details",
-    achievement: "I completed the CSI619 Cloud Computing virtual internship at Internee.pk and built a full-stack medical store management system"
+    achievement: "I finished my final year project on time and presented it to my class"
   }
 };
 
@@ -211,7 +211,7 @@ export const MYM = {
 
 export const MYOV = {
   customer: {
-    0: ["Tell me about yourself.", "I am Mubashar from Lahore. I study BS Information Technology at Virtual University, and I completed an ADP in Computer Science before that. I recently finished a virtual internship where I worked with a supervisor and met deadlines. I am a quick learner and I like helping people with technical problems."],
+    0: ["Tell me about yourself.", "My name is {name}. I study {degree} at {uni}. I recently finished an internship where I worked with a supervisor and met deadlines. I am a quick learner and I like helping people with technical problems."],
     1: ["What are your strengths?", "• I am patient and I listen well. I let the customer finish before I answer.\n\n• I learn fast. In my internship I picked up new tools quickly.\n\n• I am good with technical topics, so I can explain things in simple words."],
     2: ["What is your weakness?", "I sometimes spend too long on small details. Now I set a time limit for each task so I stay fast."],
     4: ["How do you handle an angry customer?", "I stay calm and let them finish speaking. I say sorry for the problem, then I focus on fixing it. If I cannot solve it, I take it to a senior person and keep the customer updated."],

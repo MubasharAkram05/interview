@@ -53,16 +53,17 @@ Please note: this app is a practice tool. It does not guarantee a job offer, and
 - App or game: **App**
 - Category: **Education**
 - Tags (pick up to 5 in Play Console > Store settings > Tags): Education, Productivity, Business, Career (if listed), Learning (if listed)
-- Contact email: your support email (required, shown publicly)
-- Website: optional (you can use the privacy policy URL's GitHub page or leave empty)
+- Contact email: **sussalproductions@gmail.com** (required, shown publicly; same as the privacy policy)
+- Website: optional (leave empty)
+- Privacy policy URL: https://mubasharakram05.github.io/privacy_policy_interview_simulator/
 
 ## Graphics
 
 | Asset | Required size | File in this project | Status |
 |---|---|---|---|
-| App icon | 512 x 512 PNG, max 1 MB | `store-assets/icon-512.png` | Ready (made from `assets/icon.png`) |
-| Feature graphic | 1024 x 500 PNG or JPG | `store-assets/feature-graphic.png` | Placeholder, replace if you want a nicer design |
-| Phone screenshots | at least 2, 16:9 or 9:16, 320 to 3840 px | `store-assets/screenshots/1-home.png` to `4-mock-interview.png` (1080 x 1920) | Drafts from the web build. Replace with real phone screenshots (the mic button only shows on a real phone) |
+| App icon | 512 x 512, 32-bit PNG (with alpha), max 1 MB | `store-assets/icon-512.png` (512x512 RGBA, 22 KB) | Ready |
+| Feature graphic | 1024 x 500, JPG or 24-bit PNG (no alpha), max 15 MB | `store-assets/feature-graphic.png` (1024x500 RGB, 44 KB) | Ready |
+| Phone screenshots | at least 2 (max 8), PNG or JPG, 16:9 or 9:16, each side 320 to 3840 px | `store-assets/screenshots/1-home.png` to `4-mock-interview.png` (1080x1920) | Drafts from the web build with the fictional profile "Alex Khan". Replace with real phone screenshots (the mic button only shows on a real phone) |
 
 ### Screenshot list (take these on a real phone)
 
@@ -71,6 +72,6 @@ Please note: this app is a practice tool. It does not guarantee a job offer, and
 3. Mock interview setup (interview type and level)
 4. Mock interview screen with the mic button and an answer in progress
 5. Results screen with score and tips
-6. Profile screen (use a sample name, not your real personal data)
+6. Profile screen (keep the fictional "Alex Khan" profile, not your real personal data)
 
-Tip: the app icon contains small text ("INTERVIEW SIMULATOR / PRACTICE. PREPARE. SUCCEED.") that is not readable at launcher size. A simpler icon with only the mic and speech bubble would look sharper. Replace `assets/icon.png` and run `npm run assets` and `npm run store:assets`.
+To change the icon: edit `scripts/make-icon.mjs`, then run `npm run icon`, `npm run assets` and `npm run store:assets`.
