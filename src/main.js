@@ -337,7 +337,8 @@ function render(id) {
   $('x').classList.toggle('hidden', id === 'home');
   $('ttl').textContent = TT[id] || 'Interview Simulator';
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === TB[id]));
-  $('nav').classList.toggle('hidden', id === 'interview' || id === 'addq');
+  // Question screens (practice and mock interview) use the full height; the header back button leaves.
+  $('nav').classList.toggle('hidden', id === 'interview' || id === 'practice' || id === 'addq');
   $('main').scrollTop = 0;
   renderIcons();
 }
@@ -793,9 +794,6 @@ function renderMockPicker() {
   $('mGrid').querySelectorAll('.mt').forEach(btn => {
     btn.addEventListener('click', () => mPick(btn.dataset.c, $('mlvl').value));
   });
-
-  const n = bank(c0, l0).length;
-  $('mSel').textContent = `${CATS[c0] || ''} · ${LEVELS[l0] || ''} · ${n} question${n === 1 ? '' : 's'}`;
 }
 
 function mPick(c, l) {
