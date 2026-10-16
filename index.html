@@ -64,8 +64,6 @@
     <div class="stats"><div><b id="pN">0</b><span>Sessions</span></div><div><b id="pB">-</b><span>Best score</span></div><div><b id="pAvg">-</b><span>Average</span></div></div></div>
   </div>
   <div class="sec" id="pHistBox"><div class="hh" style="align-items:center"><h4 style="margin:0">Interview history</h4><button class="pbtn" id="hEye" data-i="eye" onclick="toggleHist()" aria-label="Show history" title="Show history"></button></div><div id="hList" class="hidden"></div></div>
-  <div class="sec" id="pProfBox"><h4>Switch profile</h4><select id="prof" onchange="setActive(this.value);showProfile()"></select>
-  <div class="row"><button data-i="plus" onclick="newProfile()" aria-label="New profile" title="New profile"></button><button class="danger" data-i="trash" onclick="delProfile()" aria-label="Delete profile" title="Delete profile"></button></div></div>
   <div class="sec" id="pVoiceBox"><h4>Voice</h4>
   <label class="vlab" for="vAccent">Voice accent</label>
   <select id="vAccent" onchange="saveVoiceAccent(this.value)"></select>
@@ -135,7 +133,7 @@
   <div class="row hidden" id="pEditBtns"><button class="ok" data-i="check" onclick="saveA()" aria-label="Save" title="Save"></button><button data-i="x" onclick="cancelA()" aria-label="Cancel" title="Cancel"></button></div>
   <div class="row hidden" id="pEditMore"><button data-i="plus" onclick="addQ()" aria-label="Add question" title="Add question"></button><button class="hidden" id="pReset" data-i="undo" onclick="resetA()" aria-label="Reset to original" title="Reset to original"></button><button class="danger" data-i="trash" onclick="delQ()" aria-label="Delete question" title="Delete question"></button></div>
   <button class="pri hidden" id="pEmpty" onclick="addQ()">Add a question</button>
-  <button class="pri hidden" id="pDone" onclick="home()">Finish</button>
+  <button class="pri hidden" id="pDone" onclick="pFinish1()">Finish</button>
 </section>
 
 <section class="scr hidden" id="mock">
@@ -149,13 +147,11 @@
 </section>
 
 <section class="scr hidden" id="interview">
-  <div class="pmodes mmodes" id="mModes" role="group" aria-label="Answer mode"><button type="button" data-m="free" onclick="setMMode('free')" aria-pressed="true">Free answer</button><button type="button" data-m="memory" onclick="setMMode('memory')" aria-pressed="false">From memory</button><button type="button" class="hintb hidden" id="mHint" onclick="mHint()">Hint</button></div>
   <div class="qcard"><div class="qtop"><span class="cnt" id="qCount"></span></div><div class="bar"><i id="qBar"></i></div><div class="qbody"><button class="spk" data-i="speaker" onclick="reveal(cur[idx].q,true)" aria-label="Read question aloud" title="Read aloud"></button><div class="q" id="qText"></div></div></div>
   <div id="tWrap" class="hidden" style="margin-top:12px"><div class="bar"><i id="tBar" style="width:100%;transition:width 1s linear"></i></div><div class="cnt" id="tText"></div></div>
-  <div class="vlive mhintt hidden" id="mHintT" aria-live="polite"></div>
-  <textarea id="ansBox" placeholder="Type or speak your answer..." spellcheck="true" style="margin-top:12px"></textarea>
-  <div class="vlive hidden" id="micLive" aria-live="polite"></div>
-  <div class="vchips hidden" id="vChips" aria-label="Your words"></div>
+  <div class="ansbox" id="ansBox" role="textbox" aria-readonly="true" aria-label="Your answer" aria-live="polite"></div>
+  <div class="wsug hidden" id="wSug" role="dialog" aria-label="Suggestions"></div>
+  <div class="mtools"><div class="vlive mhintt hidden" id="mHintT" aria-live="polite"></div><button type="button" class="hintb" id="mHint" onclick="mHint()">Hint</button><button type="button" class="hintb" id="mTypeB" onclick="mType()">Type</button><button type="button" class="hintb" onclick="mClear()">Clear</button></div>
   <div class="dots" id="mDots"></div>
   <div class="micwrap"><button class="mic" id="mic" data-i="mic" onclick="toggleMic()" aria-label="Speak to type" title="Speak to type"></button><div class="note" id="micSt" aria-live="polite"></div></div>
   <div class="row"><button data-i="left" onclick="step(-1)" aria-label="Previous" title="Previous"></button><button class="ok" id="nBtn" data-i="right" onclick="step(1)" aria-label="Next" title="Next"></button></div>

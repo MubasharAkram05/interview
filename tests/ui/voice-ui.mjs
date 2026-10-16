@@ -1,4 +1,4 @@
-// Browser check for setup, chips, Mock From memory and voice settings (no demo profile anywhere).
+// Browser check for setup, Mock From memory and voice settings (no demo profile anywhere).
 //   npm run build && npx vite preview --port 4173 &   then  node tests/ui/voice-ui.mjs
 const { chromium } = await import('playwright').catch(() => import('/opt/node-tools/node_modules/playwright/index.mjs'));
 const out = [];
@@ -87,7 +87,7 @@ check(`Practice "${q.slice(0, 30)}": generated answer from setup`, /introduce yo
 check('Practice: no From memory / mode buttons, answer shown', (await p.locator('#pModes, #pHint').count()) === 0 && (await p.isVisible('#pA')));
 check('Practice: result panel hidden before speaking', !(await p.isVisible('#pRes')));
 
-// Mock: Free answer / From memory, chips from the user's data
+// Mock: From memory only, no chips, bigger box; heard words aligned to the saved answer
 await p.evaluate(() => window.home());
 await wait(300);
 await p.evaluate(() => window.startMock());
@@ -101,31 +101,51 @@ if (await p.isVisible('#dlg')) {
   await p.click('#dYes');
   await wait(900);
 }
-check('Mock: Free answer is the default, Hint hidden', (await p.getAttribute('#mModes [data-m=free]', 'aria-pressed')) === 'true' && !(await p.isVisible('#mHint')));
-await p.click('#mModes [data-m=memory]');
-await wait(150);
-check('Mock: From memory shows Hint', (await p.getAttribute('#mModes [data-m=memory]', 'aria-pressed')) === 'true' && (await p.isVisible('#mHint')));
+check('Mock: no Free answer / From memory toggle, no chips', (await p.locator('#mModes, #vChips, #micLive').count()) === 0);
+const boxH = await p.$eval('#ansBox', e => e.getBoundingClientRect().height);
+check(`Mock: answer box is taller (${Math.round(boxH)}px)`, boxH >= 260);
+check('Mock: empty box explains what to do', /say your answer from memory/i.test(await p.textContent('#ansBox')));
 await p.click('#mHint');
 await wait(100);
 const hintT = (await p.textContent('#mHintT')).trim();
 check(`Mock: Hint shows the next 3 words of the saved answer ("${hintT}")`, (await p.isVisible('#mHintT')) && /^Next: \S+ \S+ \S+$/.test(hintT));
-const modeH = await p.$eval('#mModes button', e => e.getBoundingClientRect().height);
-check(`Mock: mode buttons >= 44px (${modeH}px)`, modeH >= 44);
-check('Mock: mode is remembered', (await p.evaluate(() => JSON.parse(localStorage.getItem('is_mmode')))) === 'memory');
-await p.click('#mModes [data-m=free]');
-const chips = await p.$$eval('#vChips .vchip:not(.kw)', c => c.map(x => x.textContent));
-check(`Mock chips: name and the user's own words (${chips.join(', ')})`, chips.join() === 'Mubashar,Akram,Pakpattan,AWS,DevOps,Linux');
-check('Mock chips: no Alex or Khan', !chips.some(c => /Alex|Khan/.test(c)));
-const ch = await p.$eval('#vChips .vchip', x => x.getBoundingClientRect().height);
-check(`Mock chips: tap target >= 44px (${ch}px)`, ch >= 44);
-await p.fill('#ansBox', 'I am from');
-await p.focus('#ansBox');
+const hintH = await p.$eval('#mHint', e => e.getBoundingClientRect().height);
+check(`Mock: Hint button >= 44px (${hintH}px)`, hintH >= 44);
+// What the phone heard (restored from storage): "Mubashir" is written as the saved "Mubashar",
+// "Python" is not in the answer and is red.
+const q0 = await p.textContent('#qText');
 await p.evaluate(() => {
-  const a = document.getElementById('ansBox');
-  a.setSelectionRange(a.value.length, a.value.length);
+  const o = JSON.parse(localStorage.getItem('is_scr'));
+  o.idx = 0;
+  o.heard = o.cur.map(() => []);
+  o.heard[0] = 'my name is Mubashir Akram Python I am'.split(' ').map(w => ({ w }));
+  localStorage.setItem('is_scr', JSON.stringify(o));
 });
-await p.tap('#vChips .vchip:nth-child(3)');
-check(`chip inserts at the cursor: "${await p.inputValue('#ansBox')}"`, (await p.inputValue('#ansBox')) === 'I am from Pakpattan');
+// The app reads IndexedDB first; drop it so the edited localStorage copy is used.
+await p.evaluate(() => new Promise(r => { const q = indexedDB.deleteDatabase('InterviewSimulator'); q.onsuccess = q.onerror = q.onblocked = () => r(); }));
+await p.reload();
+await wait(1200);
+const shown = (await p.textContent('#ansBox')).replace(/\s+/g, ' ').trim();
+const intro = /introduce yourself|tell me about yourself/i.test(q0);
+check(`Mock: heard words written with the saved spelling ("${shown}")`, intro ? shown.startsWith('My name is Mubashar Akram') : shown.length > 0);
+check('Mock: a word not in the answer is red', intro ? (await p.textContent('#ansBox .aw.bad')) === 'Python' : true);
+if (intro) {
+  await p.click('#ansBox .aw.bad');
+  await wait(200);
+  check('Mock: tap the red word: suggestions with Keep and Remove', (await p.isVisible('#wSug')) && /Keep/.test(await p.textContent('#wSug')) && /Remove/.test(await p.textContent('#wSug')));
+  await p.click('#wSug [data-a=del]');
+  await wait(200);
+  const after = (await p.textContent('#ansBox')).replace(/\s+/g, ' ').trim();
+  check(`Mock: Remove deletes it from the answer ("${after}")`, !/Python/.test(after) && (await p.locator('#ansBox .aw.bad').count()) === 0 && !(await p.isVisible('#wSug')));
+  const saved = await p.evaluate(() => JSON.parse(localStorage.getItem('is_scr')).answers[0]);
+  check(`Mock: answer saved for feedback ("${saved}")`, saved.startsWith('My name is Mubashar Akram') && !/Python/.test(saved));
+}
+await p.click('#mTypeB');
+await p.keyboard.type(' from Pakpatan');
+await p.click('#qText');
+await wait(200);
+const typed = await p.evaluate(() => JSON.parse(localStorage.getItem('is_scr')).answers[0]);
+check(`Mock: Type adds words, checked like spoken ones ("${typed}")`, intro ? /from Pakpattan\.?$/.test(typed) : typed.length > 0);
 await p.evaluate(() => window.editDetails());
 await wait(400);
 await p.fill('#sName', 'Sara Ali');
@@ -133,8 +153,7 @@ await p.click('#sNext');
 await wait(150);
 await p.click('#sNext');
 await wait(700);
-const chips2 = await p.$$eval('#vChips .vchip:not(.kw)', c => c.map(x => x.textContent));
-check(`Edit my details: name change updates the chips (${chips2.join(', ')})`, chips2.includes('Sara') && chips2.includes('Ali') && !chips2.includes('Mubashar'));
+check('Edit my details: only one profile is kept', await p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('is_profiles'))).join() === 'Sara Ali'));
 
 // Profile > Voice: accent and learned corrections (My words stay hidden)
 await p.evaluate(() => localStorage.setItem('is_voice_mem', JSON.stringify([{ prev: 'am', heard: 'officer', fix: 'Sara', at: 1 }])));

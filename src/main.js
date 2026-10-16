@@ -54,17 +54,15 @@ import {
   openAppSettings,
   notePractice
 } from './services/voice.js';
-import { voiceAccent, setAccentPref, corrections, addCorrection, removeCorrection, userVocab, chipWords } from './services/voice-prefs.js';
-import { correctText, hintWords, keywordsIn, learnFromEdit, rareWords, norm } from './services/vocab.js';
+import { voiceAccent, setAccentPref, corrections, removeCorrection, userVocab } from './services/voice-prefs.js';
+import { hintWords, rareWords, norm, similarity } from './services/vocab.js';
 import { alignToExpected, introTemplate, isIntroQuestion } from './services/expected.js';
 import { ROLES, EXPERIENCE, MAX_SKILLS, ROLE_SKILLS, nameError, cleanTags, buildProfile, setupDone, catToRole, autoWords, LEGACY_DEMO_NAMES } from './services/setup.js';
 import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
-import { pickCandidate } from './services/voice-filter.js';
 
 import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
 import { questionOfDay } from './services/qotd.js';
-import { joinSpoken } from './services/readalong.js';
 import { nativeAdLayout } from './services/native-info.js';
 import { formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
 import { playTapSound, playSuccessChime, playErrorBeep } from './services/sound.js';
@@ -339,7 +337,7 @@ function saveScr() {
   const id = cs;
   let o = { s: id };
   if (id === 'practice') o = { s: id, cat: P.cat, lv: P.lv, i: P.i, one: P.one };
-  else if (id === 'interview') o = { s: id, cat, lv, idx, cur, answers };
+  else if (id === 'interview') o = { s: id, cat, lv, idx, cur, answers, heard: mHeard };
   setItem('is_scr', o);
 }
 
@@ -361,8 +359,7 @@ function render(id) {
   if (id === 'privacy') fillPrivacy();
   if (id === 'setup') renderSetup();
   if (id === 'interview' && cur.length) {
-    renderChips(); // details may have changed (Edit my details)
-    applyMMode();
+    mRender(idx); // details may have changed (Edit my details)
   }
 
   // Mock interview session page: banner at the bottom (below Prev/Next); everywhere else at the top.
@@ -461,7 +458,9 @@ function fillHx() {
   if (res) {
     const { pick, changed } = res;
     if (changed) setItem('is_qotd', pick);
-    o += card('qotd', '💡', 'Question of the day', `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="pri sm" id="qotdBtn">Practice it</button>', `<small>${esc(CL(pick.c, pick.lv))}</small>`);
+    o += pick.done
+      ? card('qotd done', '✅', 'Question of the day', `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="sm" id="qotdBtn">Practice again</button>', '<small class="qdone">Done today</small>')
+      : card('qotd', '💡', 'Question of the day', `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="pri sm" id="qotdBtn">Practice it</button>', `<small>${esc(CL(pick.c, pick.lv))}</small>`);
   } else {
     o += card('qotd', '💡', 'Question of the day', '<p class="hce">No question today. Add your own in Practice.</p>', '<button class="sm" onclick="startPractice()">Open Practice</button>');
   }
@@ -472,6 +471,19 @@ function fillHx() {
     const it = bank(c, lv).find(x => x.q === q);
     pcGo(c, 0, lv, it ? it.i : null);
   });
+}
+
+// Question of the day: practised once (spoken in Practice, or Finish tapped on it) = done for today.
+function markQotd(c, lv, q) {
+  const s = getItem('is_qotd', null);
+  if (!s || s.done || s.c !== c || s.lv !== lv || s.q !== q) return;
+  setItem('is_qotd', { ...s, done: 1 });
+}
+
+function pFinish1() {
+  const it = P.list[P.i];
+  if (it) markQotd(P.cat, P.lv, it.q);
+  home();
 }
 
 function openHistory() {
@@ -632,13 +644,6 @@ function retryLast() {
 
 function fillHome() {
   stats();
-  const ps = Object.keys(profiles);
-  $('prof').innerHTML = ps.length
-    ? ps.map(n => `<option>${esc(n)}</option>`).join('')
-    : "<option value=''>No profile yet - tap New</option>";
-
-  if (profiles[active]) $('prof').value = active;
-
   if (!$('lvl').options.length) {
     $('lvl').innerHTML = Object.entries(LEVELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
   }
@@ -663,11 +668,6 @@ const ABOUT = [
   ['Experience', p => EXPERIENCE[p.exp]],
   ['Skills', p => p.skills]
 ];
-
-function newProfile() {
-  playTapSound();
-  openSetup(() => showProfile(), { fresh: true });
-}
 
 function toggleHist() {
   playTapSound();
@@ -723,29 +723,6 @@ function showProfile() {
 function editProfile() {
   playTapSound();
   openSetup(() => showProfile());
-}
-
-function delProfile() {
-  if (!active) return;
-  playTapSound();
-  ask('Delete this profile?', `"${active}" and its edited answers will be removed.`, 'Delete', 'Keep', '🗑️', true).then(
-    y => y && _delProfile()
-  );
-}
-
-function _delProfile() {
-  delete profiles[active];
-  Object.keys(E).forEach(k => {
-    if (k.startsWith(active + '|')) delete E[k];
-  });
-  Object.keys(QE).forEach(k => {
-    if (k.startsWith(active + '|')) delete QE[k];
-  });
-  setItem('is_qedits', QE);
-  setItem('is_profiles', profiles);
-  setItem('is_edits', E);
-  setActive(Object.keys(profiles)[0] || '');
-  showProfile();
 }
 
 // Mock and Practice need the setup details first. `go` runs after they are saved.
@@ -874,7 +851,7 @@ function saveSetup() {
     setItem('is_edits', E);
     setItem('is_qedits', QE);
   }
-  profiles[p.name] = p;
+  profiles = { [p.name]: p }; // one profile at a time
   setItem('is_profiles', profiles);
   setActive(p.name);
   setAccentPref(sData.accent);
@@ -1392,16 +1369,6 @@ function vocabFor() {
   return userVocab(profiles[active] || {});
 }
 
-// Mock n-best: the guess with the most of the user's own words wins, else the most confident one;
-// then safe name matching runs on that one guess. Guesses are never merged.
-function chooser(vocab) {
-  return cands => {
-    const c = pickCandidate(cands, vocab.keys) || cands[0];
-    const r = correctText(c.text, vocab);
-    return { text: r.text, index: c.index, changes: r.changes, why: c.why };
-  };
-}
-
 // ---- Practice: expected-text matching ----
 // The saved answer is shown; the phone's words are aligned to it and the saved words are written.
 const pBest = () => getItem('is_pbest', {}) || {};
@@ -1494,6 +1461,7 @@ async function togglePMic() {
   const finishAttempt = () => {
     const r = update(true);
     if (!r.matched) return toast('No words of your answer were heard. Tap the mic to try again.');
+    markQotd(P.cat, P.lv, it.q);
     const k = ekey(it);
     const all = pBest();
     if (all[k] == null || r.score > all[k]) {
@@ -1550,6 +1518,8 @@ async function togglePMic() {
     // Hints: the user's own words first, then the words of the saved answer (rare ones first).
     bias: hintWords(vocab, { first: [...rareWords(ref, 100), ...ref.split(/\s+/).map(w => w.replace(/[^\w'+#./-]/g, ''))], context: it.q }),
     choose,
+    // Live words that are mostly from the saved answer are kept even if the phone sends no final.
+    keepLive: t => alignToExpected(t, ref, { partial: true }).matched >= Math.max(1, Math.ceil(t.split(/\s+/).filter(w => norm(w)).length / 2)),
     onState: st => {
       if (!here() || finished) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
@@ -1739,20 +1709,21 @@ function startInterview() {
   }
   idx = 0;
   answers = new Array(cur.length).fill('');
+  mHeard = cur.map(() => []);
   show('interview');
   showQ();
 }
 
 function showQ() {
+  if ($('ansBox').isContentEditable) $('ansBox').blur(); // save typed words to their question
   mMicOn = false;
   $('mic').classList.remove('on');
   stopListening(); // the last phrase of the previous question is still saved to it
   $('qCount').textContent = `${idx + 1}/${cur.length}`;
   reveal(cur[idx].q, $('rd').checked);
-  $('ansBox').value = answers[idx] || '';
-  ansCursor = null; // new question: spoken text goes to the end until the user moves the cursor
-  mockLive('');
-  renderChips();
+  $('wSug').classList.add('hidden');
+  $('mHintT').classList.add('hidden');
+  mRender(idx);
   $('qBar').style.width = ((idx + 1) / cur.length) * 100 + '%';
   $('nBtn').dataset.i = idx === cur.length - 1 ? 'check' : 'right';
   mDots();
@@ -1793,7 +1764,6 @@ function mDots() {
 
 function mGo(k) {
   if (k === idx || k < 0 || k >= cur.length) return;
-  answers[idx] = $('ansBox').value.trim();
   idx = k;
   showQ();
   saveScr();
@@ -1801,7 +1771,6 @@ function mGo(k) {
 
 function step(d) {
   playTapSound();
-  answers[idx] = $('ansBox').value.trim();
   if (d > 0 && idx === cur.length - 1) {
     finish();
     return;
@@ -1863,38 +1832,6 @@ function reveal(t, sp) {
   });
 }
 
-// Voice Speech to text for Interview answer
-const FIX = {
-  'get hub': 'GitHub',
-  'java script': 'JavaScript',
-  'type script': 'TypeScript',
-  'rest api': 'REST API',
-  'my sequel': 'MySQL',
-  'no sequel': 'NoSQL',
-  'sequel': 'SQL',
-  'node js': 'Node.js',
-  'python': 'Python',
-  'aws': 'AWS',
-  'html': 'HTML',
-  'css': 'CSS',
-  'api': 'API',
-  'seo': 'SEO',
-  'kpi': 'KPI',
-  'kpis': 'KPIs',
-  'crm': 'CRM',
-  'roi': 'ROI',
-  'linked in': 'LinkedIn',
-  'power bi': 'Power BI',
-  'cv': 'CV'
-};
-
-function fixTerms(t) {
-  for (const w in FIX) {
-    t = t.replace(new RegExp('\\b' + w + '\\b', 'gi'), FIX[w]);
-  }
-  return t.replace(/(^\s*\w|[.!?]\s*\w)/g, c => c.toUpperCase());
-}
-
 // Mock interview: speak your answer and it is typed into the answer box.
 let mMicOn = false; // mock interview: keep listening through pauses until the user taps stop
 
@@ -1902,165 +1839,134 @@ function mockNote(m) {
   $('micSt').textContent = m || '';
 }
 
-// Live words while speaking: shown under the box, never written into it until they are final.
-function mockLive(t) {
-  const el = $('micLive');
-  el.textContent = t || '';
-  el.classList.toggle('hidden', !t);
+// ---- Mock: From memory ----
+// The user says the saved answer from memory. Words show in the answer box while speaking: each
+// heard word is aligned to the saved answer (src/services/expected.js) and the saved spelling is
+// written. Words that are not in the saved answer are red; tap one for suggestions.
+// mHeard[i]: heard words of question i ({ w, keep }), the source of the box and of answers[i].
+let mHeard = [];
+const mWords = t => String(t || '').split(/\s+/).filter(w => norm(w));
+
+function mAlign(i, live = '') {
+  const H = mHeard[i] || [];
+  return { H, r: alignToExpected([...H.map(x => x.w), ...mWords(live)].join(' '), refText(cur[i]), { partial: true }) };
 }
 
-// Where spoken text goes in the answer box: the cursor (tracked while the box is used), else the end.
-let ansCursor = null;
-let lastDictation = { at: 0, i: -1 };
-
-// Toast with an Undo button (learned corrections).
-function toastUndo(m, onUndo) {
-  const t = $('toast');
-  t.innerHTML = `<span>${esc(m)}</span> <button class="tundo" type="button">Undo</button>`;
-  t.classList.remove('hidden');
-  t.querySelector('.tundo').onclick = () => {
-    onUndo();
-    t.classList.add('hidden');
-  };
-  clearTimeout(toastT);
-  toastT = setTimeout(() => t.classList.add('hidden'), 5000);
-}
-
-// Insert a final phrase into the answer of question `i` at the cursor, with correct spaces and
-// capitals. The rest of the box is never replaced.
-function addSpoken(i, text, keepCase, info) {
-  const box = idx === i && cs === 'interview' ? $('ansBox') : null;
-  const v = box ? box.value : answers[i] || '';
-  const pos = box && ansCursor !== null ? Math.min(ansCursor, v.length) : v.length;
-  const pre = v.slice(0, pos);
-  const post = v.slice(pos);
-  const joined = joinSpoken(pre, fixTerms(text), keepCase);
-  const sep = post && !/^[\s.,!?;:]/.test(post) ? ' ' : '';
-  const nv = joined + sep + post;
-  answers[i] = nv.trim();
-  if (box) {
-    box.value = nv;
-    ansCursor = joined.length;
-    editSnap = nv; // edits after this are compared with the dictated text (correction memory)
-  }
-  lastDictation = { at: Date.now(), i };
-  saveScr();
-  const mem = ((info && info.changes) || []).filter(c => c.why === 'learned from your edit');
-  if (mem.length) {
-    const c = mem[0];
-    toastUndo(`Changed "${c.from}" to "${c.to}"`, () => {
-      const b2 = idx === i ? $('ansBox') : null;
-      const cur2 = b2 ? b2.value : answers[i] || '';
-      const k = cur2.lastIndexOf(c.to);
-      if (k < 0) return;
-      const nv2 = cur2.slice(0, k) + c.from + cur2.slice(k + c.to.length);
-      answers[i] = nv2.trim();
-      if (b2) b2.value = nv2;
-      saveScr();
-    });
-  }
-}
-
-// Chips under the answer box: the user's name and My words, then keywords of this question.
-// Only the user's own saved data (and this question's keywords); hidden when empty.
-function renderChips() {
-  const el = $('vChips');
-  const p = profiles[active] || {};
-  const mine = chipWords(p);
-  const it = cur[idx];
-  const keys = it ? keywordsIn(refText(it), 4).filter(k => !mine.some(m => m.toLowerCase() === k.toLowerCase())) : [];
-  const chip = (w, cls) => `<button type="button" class="vchip${cls}" data-w="${esc(w)}">${esc(w)}</button>`;
-  el.innerHTML = mine.map(w => chip(w, '')).join('') + (keys.length ? `<span class="vkl">Keywords</span>${keys.map(w => chip(w, ' kw')).join('')}` : '');
-  el.classList.toggle('hidden', !mine.length && !keys.length);
-  el.querySelectorAll('.vchip').forEach(b => {
-    // Keep the text box focused and its cursor where it is.
-    b.addEventListener('pointerdown', e => e.preventDefault());
-    b.addEventListener('click', () => insertAtCursor($('ansBox'), b.dataset.w));
-  });
-}
-
-function insertAtCursor(box, word) {
-  playTapSound();
-  const v = box.value;
-  const s0 = box.selectionStart ?? v.length;
-  const e0 = box.selectionEnd ?? v.length;
-  const pre = v.slice(0, s0);
-  const post = v.slice(e0);
-  const a = pre && !/\s$/.test(pre) ? ' ' : '';
-  const z = post && !/^[\s.,!?]/.test(post) ? ' ' : '';
-  box.value = pre + a + word + z + post;
-  const pos = (pre + a + word + z).length;
-  box.setSelectionRange(pos, pos);
-  ansCursor = pos;
-  answers[idx] = box.value.trim();
-  saveScr();
-}
-
-// Track the cursor, and learn from the user's own fixes: when one word of dictated text is
-// changed by hand right after dictation (within 2 minutes), remember "wrong -> right".
-let editSnap = '';
-const LEARN_WINDOW_MS = 120000;
-function watchAnswerCursor() {
+function mRender(i, live = '') {
+  if (i !== idx || cs !== 'interview') return;
   const box = $('ansBox');
-  const track = () => (ansCursor = box.selectionEnd ?? null);
-  ['click', 'keyup', 'select', 'input'].forEach(e => box.addEventListener(e, track));
-  box.addEventListener('focus', () => {
-    if (Date.now() - lastDictation.at > LEARN_WINDOW_MS) editSnap = box.value;
-  });
-  box.addEventListener('change', () => {
-    if (lastDictation.i !== idx || Date.now() - lastDictation.at > LEARN_WINDOW_MS) {
-      editSnap = box.value;
-      return;
-    }
-    const pair = learnFromEdit(editSnap, box.value);
-    editSnap = box.value;
-    if (!pair) return;
-    addCorrection(pair);
-    toastUndo(`Learned: "${pair.heard}" means "${pair.fix}"`, () => {
-      const list = corrections();
-      const k = list.findIndex(m => m.prev === pair.prev && m.heard === pair.heard);
-      if (k >= 0) removeCorrection(k);
-    });
-  });
+  const H = mHeard[i] || [];
+  if (!H.length && !live) {
+    box.innerHTML = answers[i] ? esc(answers[i]) : '<span class="aph">Tap the mic and say your answer from memory. Your words appear here.</span>';
+    return;
+  }
+  if (!refText(cur[i])) {
+    box.textContent = [...H.map(x => x.w), ...mWords(live)].join(' ');
+    return;
+  }
+  const { r } = mAlign(i, live);
+  box.innerHTML = r.ops
+    .map(o => {
+      if (o.type === 'missed' || o.type === 'pending') return '';
+      const lv = o.i >= H.length ? ' lv' : '';
+      if (o.type !== 'extra') return `<span class="aw${lv}${o.type === 'fix' ? ' fx' : ''}">${esc(o.expected)}</span>`;
+      if (lv || H[o.i].keep) return `<span class="aw${lv}">${esc(o.heard)}</span>`;
+      return `<button type="button" class="aw bad" data-h="${o.i}" aria-label="Not in your answer: ${esc(o.heard)}. Tap for suggestions">${esc(o.heard)}</button>`;
+    })
+    .filter(Boolean)
+    .join(' ');
+  box.scrollTop = box.scrollHeight;
 }
 
-// ---- Mock: Free answer / From memory ----
-// From memory: the phone's words are aligned to the saved answer and the saved words are written.
-// Hint shows the next 3 words not said yet.
-let mMode = 'free';
-let mMem = null; // { i, heard: [], said } while a From memory attempt runs
+// Write what was heard into answers[i] (saved words, extras as heard) and redraw.
+function mCommit(i) {
+  const H = mHeard[i] || [];
+  const ref = refText(cur[i]);
+  answers[i] = !ref ? H.map(x => x.w).join(' ') : alignToExpected(H.map(x => x.w).join(' '), ref).text;
+  saveScr();
+  mRender(i);
+}
 
-function setMMode(m) {
+// Tap a red word: the nearest answer words not said yet (closest spelling first), Remove, Keep.
+function mSuggest(hi, btn) {
   playTapSound();
-  mMode = m === 'memory' ? 'memory' : 'free';
-  setItem('is_mmode', mMode);
-  applyMMode();
-}
-
-function applyMMode() {
-  const mem = mMode === 'memory';
-  $('mHint').classList.toggle('hidden', !mem);
-  $('mHintT').classList.add('hidden');
-  document.querySelectorAll('#mModes button').forEach(b => {
-    const on = b.dataset.m === mMode;
-    b.classList.toggle('on', on);
-    b.setAttribute('aria-pressed', String(on));
+  const i = idx;
+  const { H, r } = mAlign(i);
+  const k = r.ops.findIndex(o => o.type === 'extra' && o.i === hi);
+  if (k < 0 || !H[hi]) return;
+  const heard = H[hi].w;
+  const near = [];
+  r.ops.forEach((o, n) => {
+    if ((o.type === 'missed' || o.type === 'pending') && Math.abs(n - k) <= 4) near.push({ w: o.expected, d: Math.abs(n - k), s: similarity(norm(heard), norm(o.expected)) });
   });
+  const opts = [...new Map(near.sort((x, y) => y.s - x.s || x.d - y.d).map(x => [x.w.toLowerCase(), x.w])).values()].slice(0, 3);
+  const el = $('wSug');
+  el.innerHTML = `<p class="wsh">Heard "<b>${esc(heard)}</b>"${opts.length ? '. Did you mean:' : ''}</p><div class="wso">${opts
+    .map(w => `<button type="button" class="pri sm" data-w="${esc(w)}">${esc(w)}</button>`)
+    .join('')}<button type="button" class="sm" data-a="keep">Keep</button><button type="button" class="sm danger" data-a="del">Remove</button></div>`;
+  el.classList.remove('hidden');
+  const bx = $('ansBox').getBoundingClientRect();
+  const b = btn.getBoundingClientRect();
+  el.style.top = `${Math.min(b.bottom - bx.top + $('ansBox').offsetTop + 6, $('ansBox').offsetTop + $('ansBox').offsetHeight - 10)}px`;
+  el.onclick = e => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    playTapSound();
+    if (t.dataset.w) H[hi] = { w: t.dataset.w };
+    else if (t.dataset.a === 'keep') H[hi] = { w: heard, keep: 1 };
+    else H.splice(hi, 1);
+    el.classList.add('hidden');
+    mCommit(i);
+  };
 }
 
 function mHint() {
   playTapSound();
   const it = cur[idx];
-  if (!it) return;
-  const ref = refText(it).split(/\s+/).filter(Boolean);
+  const ref = it ? mWords(refText(it)) : [];
   if (!ref.length) return toast('No saved answer for this question yet.');
-  const said = mMem && mMem.i === idx ? mMem.said : 0;
-  const next = ref.slice(said, said + 3).join(' ');
+  const { r } = mAlign(idx);
+  const last = Math.max(-1, ...r.ops.filter(o => o.type === 'match' || o.type === 'fix').map(o => o.j));
+  const next = ref.slice(last + 1, last + 4).join(' ');
   const el = $('mHintT');
   el.textContent = next ? `Next: ${next}` : 'You said it all.';
   el.classList.remove('hidden');
   clearTimeout(mHint.t);
   mHint.t = setTimeout(() => el.classList.add('hidden'), 3000);
+}
+
+// Type: the box becomes editable; the typed words are checked like spoken ones when done.
+function mType() {
+  playTapSound();
+  if (mMicOn || isListening()) return;
+  const box = $('ansBox');
+  $('wSug').classList.add('hidden');
+  box.textContent = answers[idx] || '';
+  box.contentEditable = 'plaintext-only';
+  if (box.contentEditable !== 'plaintext-only') box.contentEditable = 'true';
+  box.classList.add('typing');
+  box.focus();
+  const sel = getSelection();
+  sel.selectAllChildren(box);
+  sel.collapseToEnd();
+  const i = idx;
+  box.onblur = () => {
+    box.onblur = null;
+    box.contentEditable = 'false';
+    box.classList.remove('typing');
+    mHeard[i] = mWords(box.innerText).map(w => ({ w }));
+    mCommit(i);
+  };
+}
+
+async function mClear() {
+  playTapSound();
+  if (!(mHeard[idx] || []).length && !answers[idx]) return;
+  if (!(await ask('Clear answer?', 'Clear this answer and start again?', 'Clear', 'Cancel', '🧹', true))) return;
+  mHeard[idx] = [];
+  answers[idx] = '';
+  saveScr();
+  mRender(idx);
 }
 
 async function toggleMic() {
@@ -2069,101 +1975,77 @@ async function toggleMic() {
     mMicOn = false;
     $('mic').classList.remove('on');
     mockNote('Finishing...');
-    stopListening(); // stops now; the last final still arrives and is added
+    stopListening(); // stops now; the last phrase still arrives and is added
     return;
   }
   stopSpeaking(); // the question must not be read into the mic
   clearInterval(rv);
   clearTimeout(rv);
   document.querySelectorAll('#qText .w').forEach(x => x.classList.add('in'));
+  $('wSug').classList.add('hidden');
+  $('ansBox').blur(); // finish typing first
   if (!(await prepareVoice(mockNote))) return;
   if (cs !== 'interview') return;
 
   const myIdx = idx;
   const it = cur[myIdx];
-  const vocab = vocabFor();
-  const keepCase = [...Object.values(FIX), ...[...vocab.targets.values()].map(t => t.text)];
+  const ref = refText(it);
+  const H = (mHeard[myIdx] = mHeard[myIdx] || []);
+  const before = H.length;
   const here = () => idx === myIdx && cs === 'interview';
-  const mem = mMode === 'memory' && it ? refText(it) : '';
   let readyOnce = false;
-  if (mem) {
-    // The attempt's text goes where the cursor is; the rest of the box stays.
-    const box = $('ansBox');
-    const v = box.value;
-    const pos = ansCursor !== null ? Math.min(ansCursor, v.length) : v.length;
-    mMem = { i: myIdx, heard: [], said: 0, pre: v.slice(0, pos), post: v.slice(pos), r: null };
-  } else mMem = null;
-  const memWrite = final => {
-    const m = mMem;
-    if (!m || m.i !== myIdx) return null;
-    const r = alignToExpected(m.heard.join(' '), mem, { partial: !final });
-    m.r = r;
-    m.said = r.ops.reduce((n, o) => (o.j != null && (o.type === 'match' || o.type === 'fix') ? Math.max(n, o.j + 1) : n), 0);
-    const a = m.pre && r.text && !/\s$/.test(m.pre) ? ' ' : '';
-    const z = m.post && r.text && !/^[\s.,!?]/.test(m.post) ? ' ' : '';
-    const nv = m.pre + a + r.text + z + m.post;
-    answers[myIdx] = nv.trim();
-    if (here()) {
-      $('ansBox').value = nv;
-      ansCursor = (m.pre + a + r.text).length;
-    }
-    saveScr();
-    return r;
-  };
-  const memDone = () => {
-    const m = mMem;
-    if (!m || m.i !== myIdx || !m.heard.length) return;
-    const r = memWrite(true);
-    mMem = null;
-    if (!here() || !r) return;
-    toast(!r.matched ? 'No words of your saved answer were heard.' : r.missed ? `${r.score}% matched. ${r.missed} word${r.missed === 1 ? '' : 's'} missed.` : `${r.score}% matched. Well done!`);
-  };
   mMicOn = true;
   $('mic').classList.add('on');
   mockNote('Getting the mic ready...');
 
   const started = await startListening({
-    bias: mem ? hintWords(vocab, { first: [...rareWords(mem, 100), ...mem.split(/\s+/).map(w => w.replace(/[^\w'+#./-]/g, ''))], context: it.q }) : hintWords(vocab, { context: it && it.q }),
-    choose: mem ? cands => {
+    // Hints: the user's own words, then the words of the saved answer (rare ones first).
+    bias: hintWords(vocabFor(), { first: [...rareWords(ref, 100), ...mWords(ref).map(w => w.replace(/[^\w'+#./-]/g, ''))], context: it.q }),
+    // N-best: the guess that matches the most words of the saved answer wins.
+    choose: cands => {
       let best = cands[0];
       let bestN = -1;
       cands.forEach(c => {
-        const n = alignToExpected([...mMem.heard, c.text].join(' '), mem, { partial: true }).matched;
+        const n = ref ? alignToExpected([...H.map(x => x.w), c.text].join(' '), ref, { partial: true }).matched : 0;
         if (n > bestN) {
           best = c;
           bestN = n;
         }
       });
       return { text: best.text, index: best.index, changes: [], why: `best fit to your answer (${bestN} words)` };
-    } : chooser(vocab),
+    },
+    // Live words that are mostly from the saved answer are kept even if the phone sends no final.
+    keepLive: t => !!ref && alignToExpected(t, ref, { partial: true }).matched >= Math.max(1, Math.ceil(mWords(t).length / 2)),
     onState: st => {
       if (!here()) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
-      mockNote(st === 'ready' || st === 'listening' ? (mem ? 'Speak now. Say your answer from memory.' : 'Speak now. Tap the mic when you finish.') : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : st === 'stopping' ? 'Finishing...' : '');
+      mockNote(st === 'ready' || st === 'listening' ? 'Speak now. Say your answer from memory.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : st === 'stopping' ? 'Finishing...' : '');
     },
     onLevel: db => micLevel($('mic'), db),
-    onPartial: text => here() && mockLive(text), // grey live bar only
-    onFinal: (text, info) => {
-      if (mem && mMem && mMem.i === myIdx) {
-        mMem.heard.push(text);
-        memWrite(false);
-      } else addSpoken(myIdx, text, keepCase, info);
-      if (here()) mockLive('');
+    onPartial: text => mRender(myIdx, text), // shown in the box at once, saved when final
+    onFinal: text => {
+      H.push(...mWords(text).map(w => ({ w })));
+      mCommit(myIdx);
     },
     onEnd: ({ reason, message }) => {
       $('mic').style.removeProperty('--lvl');
       mMicOn = false;
       $('mic').classList.remove('on');
-      mockLive('');
-      if (mem) memDone();
+      mRender(myIdx);
       if (!here()) return;
+      if (H.length > before && ref) {
+        const r = alignToExpected(H.map(x => x.w).join(' '), ref, { partial: true });
+        const bad = r.ops.filter(o => o.type === 'extra' && !H[o.i].keep).length;
+        mockNote('');
+        return toast(`${r.score}% of your answer said.${bad ? ` Tap the red word${bad === 1 ? '' : 's'} to fix ${bad === 1 ? 'it' : 'them'}.` : ''}`);
+      }
       mockNote(reason === 'cancelled' ? '' : message);
     }
   });
   if (!started && mMicOn) {
     mMicOn = false;
     $('mic').classList.remove('on');
-    mockNote('Could not start voice input. Please try again or type your answer.');
+    mockNote('Could not start voice input. Please try again.');
   }
 }
 
@@ -2427,8 +2309,6 @@ function setupSwipeGestures() {
     if (!ok) return;
     const dx = e.changedTouches[0].clientX - mx;
     const dy = e.changedTouches[0].clientY - my;
-    const a = $('ansBox');
-    if (a.selectionStart !== a.selectionEnd) return;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2 && Date.now() - mt < 600) {
       mGo(idx + (dx < 0 ? 1 : -1));
     }
@@ -2450,8 +2330,6 @@ function initEventListeners() {
   $('csInterview')?.addEventListener('click', () => csGo(1));
 
   // Profile actions
-  $('pNewProfBtn')?.addEventListener('click', newProfile);
-  $('pDelProfBtn')?.addEventListener('click', delProfile);
   $('pRestoreQBtn')?.addEventListener('click', restoreQ);
 
   // Practice actions
@@ -2465,9 +2343,9 @@ function initEventListeners() {
 
   // Mock interview actions
   $('qSpkBtn')?.addEventListener('click', () => reveal(cur[idx].q, true));
-  $('ansBox')?.addEventListener('input', e => {
-    answers[idx] = e.target.value.trim();
-    saveScr();
+  $('ansBox')?.addEventListener('click', e => {
+    const b = e.target.closest('.aw.bad');
+    if (b && !$('ansBox').isContentEditable) mSuggest(Number(b.dataset.h), b);
   });
   $('mPrevBtn')?.addEventListener('click', () => step(-1));
 
@@ -2548,7 +2426,6 @@ function loadPreferences() {
 async function initApp() {
   await initStorage();
   setVoiceAccent(voiceAccent());
-  watchAnswerCursor();
   initSetup();
   $('hLogo').innerHTML = logoSvg();
 
@@ -2574,13 +2451,24 @@ async function initApp() {
   if (!profiles[active]) {
     active = Object.keys(profiles)[0] || '';
   }
+  // One profile at a time: older versions allowed several; keep the active one and its answers.
+  if (Object.keys(profiles).length > 1) {
+    Object.keys(profiles).forEach(n => {
+      if (n === active) return;
+      delete profiles[n];
+      [E, QE].forEach(o => Object.keys(o).forEach(k => k.startsWith(n + '|') && delete o[k]));
+    });
+    setItem('is_profiles', profiles);
+    setItem('is_edits', E);
+    setItem('is_qedits', QE);
+    setItem('is_active', active);
+  }
   // My words are made from the details (hidden from the user); refresh them for saved profiles.
   Object.values(profiles).forEach(p => p && p.setup && (p.words = autoWords(p)));
   ['is_voice_smart', 'is_voice_words'].forEach(k => removeItem(k));
   H = getItem('is_hidden', {}) || {};
   C = getItem('is_custom', {}) || {};
   pcLv = getItem('is_pclv', 'fresher') || 'fresher';
-  mMode = getItem('is_mmode', 'free') === 'memory' ? 'memory' : 'free';
 
   initEventListeners();
   setupSwipeGestures();
@@ -2612,6 +2500,7 @@ async function initApp() {
         lv = o.lv;
         cur = o.cur;
         answers = o.answers;
+        mHeard = Array.isArray(o.heard) ? o.heard : cur.map(() => []);
         idx = Math.min(o.idx, cur.length - 1);
         show('interview');
         showQ();
@@ -2759,8 +2648,7 @@ Object.assign(window, {
   editDetails,
   setupStep,
   toggleAbout,
-  newProfile,
-  delProfile,
+  pFinish1,
   toggleHist,
   setActive,
   restoreQ,
@@ -2789,8 +2677,9 @@ Object.assign(window, {
   saveVoiceAccent,
   delVoiceMemory,
   openHistory,
-  setMMode,
   mHint,
+  mClear,
+  mType,
   homeLevel,
   pcLevel,
   pcGo,

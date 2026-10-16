@@ -149,6 +149,11 @@
 - [x] Categories first: the setup form opens after a category is picked; the role comes from it and that category opens after saving
 - [x] Setup is 2 steps; My words removed from the UI and made automatically (name, city, skills, role, education); Profile > Voice shows only the accent and learned corrections
 - [x] Home hero like the reference, horizontal (text, 3 features, Get Started left; picture right); only the Question of the day card below
+- [x] Mock: spoken words were not written when the phone sent no final (or a low-confidence one): live words that match the saved answer are now kept (`keepLive`)
+- [x] Mock: From memory only (Free answer removed); words appear while speaking; wrong words red with tap suggestions (Keep, Remove); Hint, Type, Clear; no chips; taller box
+- [x] Home hero smaller; Question of the day marked "Done today" after practice
+- [x] One profile at a time (Switch / New / Delete profile removed; older phones keep only the active profile)
+- [ ] Mock From memory with real speech on a phone (live words, red words, suggestions): **NOT CHECKED**
 - [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
 - [ ] Bottom banner position on a real phone (gesture bar, 3-button bar): **NOT CHECKED**
 - [ ] Practice matching with real speech (voice report: expected, heard, alignment, score): **NOT CHECKED**

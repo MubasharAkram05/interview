@@ -226,6 +226,34 @@ check('replay: the name comes out right', b.value.includes('I am Mubashar Akram'
 check('replay: no phrase written twice', (b.value.match(/I am from Pakistan/g) || []).length === 1, b.value);
 check('replay: mic stopped after the noise session (no loop)', !isListening() && b.ends.length === 1);
 
+// keepLive: the screen trusts live words that match the saved answer
+reset();
+if (isListening()) cancelListening();
+b = box();
+await startListening(b.opts({ keepLive: t => /my name is/i.test(t) }));
+emit('ready');
+part('my name is Mubashir');
+stopListening();
+await wait(60);
+check('keepLive: stopped without a final, trusted live words are written', b.value.toLowerCase() === 'my name is mubashir', b.value);
+b = box();
+await startListening(b.opts({ keepLive: t => /my name is/i.test(t) }));
+emit('ready');
+part('my name is Akram');
+fin(['my name is Akram'], { scores: [0.1] });
+end('done');
+await wait(20);
+check('keepLive: low confidence final is kept when the live words were trusted', b.value.toLowerCase() === 'my name is akram', b.value);
+stopListening();
+await wait(60);
+b = box();
+await startListening(b.opts({ keepLive: t => /my name is/i.test(t) }));
+emit('ready');
+part('Python amritsar');
+stopListening();
+await wait(60);
+check('keepLive: untrusted live words are still never written', b.value === '', b.value);
+
 console.log(out.join('\n'));
 console.log(`${out.filter(l => l.startsWith('PASS')).length}/${out.length} passed`);
 if (out.some(l => l.startsWith('FAIL'))) process.exit(1);
