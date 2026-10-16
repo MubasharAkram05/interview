@@ -946,6 +946,9 @@ function stopMedia() {
   pMicOn = false;
   mMicOn = false;
   cancelListening();
+  $('pMic').classList.remove('on');
+  $('mic').classList.remove('on');
+  pMicNote('');
   stopSpeaking();
   clearInterval(rv);
   clearTimeout(rv);
@@ -1050,7 +1053,7 @@ function editA(f) {
   pFinish();
   $('pEdit').value = ansText(P.list[P.i]);
   $('pEditQ').value = P.list[P.i].q;
-  ['pCard', 'pMicWrap', 'pEditBtn', 'pDots', 'pDone'].forEach(i => $(i).classList.add('hidden'));
+  ['pCard', 'pMicWrap', 'pMicSt', 'pEditBtn', 'pDots', 'pDone'].forEach(i => $(i).classList.add('hidden'));
   ['pEditQ', 'pEdit', 'pEditBtns', 'pEditMore'].forEach(i => $(i).classList.remove('hidden'));
   if (typeof f === 'string') {
     const t = $(f);
@@ -1064,6 +1067,7 @@ function cancelA() {
   const last = P.i === P.list.length - 1;
   $('pCard').classList.toggle('hidden', !has);
   ['pMicWrap', 'pEditBtn'].forEach(i => $(i).classList.toggle('hidden', !has));
+  $('pMicSt').classList.toggle('hidden', !has || !voiceOK);
   $('pDots').classList.toggle('hidden', !has || P.one != null);
   $('pDone').classList.toggle('hidden', !has || !last);
   ['pEditQ', 'pEdit', 'pEditBtns', 'pEditMore'].forEach(i => $(i).classList.add('hidden'));
@@ -1114,6 +1118,7 @@ async function prepareVoice(notify) {
 // Hide mic buttons when the phone has no speech recognition service.
 function updateMicButtons() {
   $('pMic').classList.toggle('hidden', !voiceOK);
+  $('pMicSt').classList.toggle('hidden', !voiceOK);
   $('mic').classList.toggle('hidden', !voiceOK);
   if (!voiceOK) $('micSt').textContent = 'Voice input is not available on this phone. Type your answer.';
 }
@@ -1151,6 +1156,12 @@ function micLevel(el, db) {
   el.style.setProperty('--lvl', v.toFixed(2));
 }
 
+const PMIC_IDLE = 'Tap the mic and read the answer aloud';
+function pMicNote(m) {
+  const el = $('pMicSt');
+  if (el) el.textContent = m || PMIC_IDLE;
+}
+
 function pSummary(state) {
   const said = state.filter(x => x === 'ok').length;
   if (!said) return null;
@@ -1167,6 +1178,7 @@ async function togglePMic() {
   if (pMicOn || isListening()) {
     pMicOn = false;
     $('pMic').classList.remove('on');
+    pMicNote('');
     stopListening(); // the last phrase still arrives, then onEnd shows the result
     return;
   }
@@ -1185,7 +1197,7 @@ async function togglePMic() {
   let finished = false;
   const here = () => cs === 'practice' && P.i === card;
   $('pMic').classList.add('on');
-  toast('Listening... read the answer aloud');
+  pMicNote('Listening... read at your own pace. Pauses are fine.');
 
   const show = (alts = []) => {
     const r = bestAlignment(target, pSpoken, alts);
@@ -1197,11 +1209,13 @@ async function togglePMic() {
     finished = true;
     pMicOn = false;
     $('pMic').classList.remove('on');
+    pMicNote('');
     stopListening();
     const sm = pSummary(show().state) || { pct: 0, missed: 0 };
     if (sm.pct >= 80) {
-      playSuccessChime();
       fireConfetti();
+      // Sound is muted while the mic is on (no beeps); play the chime once it is back.
+      setTimeout(playSuccessChime, 800);
     }
     toast(sm.missed ? `Finished! ${sm.pct}% correct. ${sm.missed} word${sm.missed === 1 ? '' : 's'} missed (orange).` : 'Perfect! You read it all 🎉');
   };
@@ -1209,6 +1223,7 @@ async function togglePMic() {
   const started = await startListening({
     bias: biasFor(text),
     silenceMs: 3500,
+    maxEmpty: 4, // about 20 s of silence before it gives up; it stops by itself at the last word
     onLevel: db => micLevel($('pMic'), db),
     onPartial: alts => {
       if (!here() || finished) return;
@@ -1230,6 +1245,7 @@ async function togglePMic() {
       }
       pMicOn = false;
       $('pMic').classList.remove('on');
+      pMicNote('');
       if (reason === 'error') return toast(voiceErrorText(code));
       if (!heard && !pSpoken.length) return toast("Didn't catch that. Tap the mic and try again.");
       const sm = pSummary(show().state);
@@ -1239,6 +1255,7 @@ async function togglePMic() {
   if (!started) {
     pMicOn = false;
     $('pMic').classList.remove('on');
+    pMicNote('');
     toast('Could not start voice input. Please try again.');
   }
 }
@@ -1589,6 +1606,7 @@ async function toggleMic() {
   const started = await startListening({
     bias: [...mockBias(), ...biasFor(cur[myIdx] && cur[myIdx].q)],
     silenceMs: 4000,
+    maxEmpty: 6, // about 30 s of thinking time; tap the mic when the answer is done
     onLevel: db => micLevel($('mic'), db),
     onPartial: alts => write(join(kept, fixTerms(alts[0]))),
     onSegment: alts => {
