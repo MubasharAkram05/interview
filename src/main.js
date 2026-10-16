@@ -2142,7 +2142,7 @@ async function initApp() {
   if (Capacitor.isNativePlatform()) {
     try {
       await StatusBar.setStyle({ style: Style.Dark });
-      await StatusBar.setBackgroundColor({ color: '#4f46e5' });
+      await StatusBar.setBackgroundColor({ color: '#2a45b5' });
       await StatusBar.setOverlaysWebView({ overlay: false });
     } catch {
       // Status bar styling is optional.

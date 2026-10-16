@@ -69,6 +69,9 @@ jobs:
       - name: Test voice (read-along matching, session manager)
         run: npm run test:voice
 
+      - name: Check app icons (512 Play icon, all launcher sizes, themed icon)
+        run: npm run icon:check
+
       - name: Build web app (release, no debug tools)
         run: npm run build
 

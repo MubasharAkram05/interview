@@ -9,9 +9,9 @@
     "cap:sync": "npx cap sync android",
     "android:prep": "npm run build && npx cap sync android",
     "policy:page": "node scripts/build-policy-page.mjs",
-    "assets": "npx capacitor-assets generate --android",
     "store:assets": "node scripts/make-store-assets.mjs",
     "icon": "node scripts/make-icon.mjs",
+    "icon:check": "node scripts/check-icons.mjs",
     "policy:check": "node scripts/check-policy-sync.mjs",
     "test:ads": "node --import ./tests/ads/reg.mjs tests/ads/interstitial.test.mjs",
     "test:home": "node tests/home/qotd.test.mjs",
@@ -31,12 +31,15 @@
     "@capacitor/status-bar": "^8.0.4",
     "canvas-confetti": "^1.9.4",
     "dayjs": "^1.11.23",
+    "double-metaphone": "^2.0.1",
+    "fastest-levenshtein": "^1.0.16",
     "localforage": "^1.10.0",
     "marked": "^18.1.1"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.3",
-    "vite": "^8.3.4"
+    "sharp": "^0.34.4",
+    "vite": "^8.3.4",
+    "wordlist-english": "^1.2.1"
   }
 }

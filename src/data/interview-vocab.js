@@ -1,0 +1,72 @@
+// Interview vocabulary for voice input (src/services/vocab.js). One array per category; edit freely.
+// Spelling and capitals here are what the app writes. Matching is lowercase.
+// Used for: speech hints (Android 13+, after the user's own words), protected words (the name
+// matcher never replaces them, so "Python" never becomes "Pakistan"), and skill suggestions in setup.
+// Keep this file under 10 KB.
+
+export const SELF_INTRO = [
+  'introduce', 'introduction', 'myself', 'background', 'hometown', 'family', 'student', 'graduate', 'graduated',
+  'degree', 'bachelor', 'bachelors', 'masters', 'university', 'college', 'school', 'final year', 'semester', 'CGPA',
+  'GPA', 'major', 'department', 'fresher', 'experience', 'years of experience', 'internship', 'intern', 'volunteer',
+  'freelance', 'freelancer', 'hobby', 'hobbies', 'interests', 'strengths', 'weaknesses', 'goals', 'ambition',
+  'passion', 'passionate', 'motivated', 'dedicated', 'hardworking', 'reliable', 'punctual'
+];
+
+export const PK_PLACES = [
+  'Pakpattan', 'Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta',
+  'Sialkot', 'Gujranwala', 'Bahawalpur', 'Sahiwal', 'Okara', 'Sargodha', 'Punjab', 'Sindh', 'Khyber Pakhtunkhwa',
+  'Balochistan', 'Pakistan', 'Virtual University of Pakistan'
+];
+
+export const PK_NAMES = [
+  'Mubashar', 'Muhammad', 'Ahmed', 'Ahmad', 'Ali', 'Hassan', 'Hussain', 'Usman', 'Bilal', 'Hamza', 'Hamid', 'Imran',
+  'Kashif', 'Faisal', 'Zeeshan', 'Asad', 'Saad', 'Talha', 'Waqas', 'Adnan', 'Fahad', 'Sajid', 'Nadeem', 'Akram',
+  'Akhtar', 'Malik', 'Butt', 'Chaudhry', 'Sheikh', 'Qureshi', 'Siddiqui', 'Raza', 'Iqbal', 'Aisha', 'Fatima',
+  'Ayesha', 'Sana', 'Hina', 'Saima', 'Maryam', 'Zainab', 'Khadija'
+];
+
+export const WORKPLACE = [
+  'position', 'role', 'job', 'vacancy', 'company', 'organization', 'team', 'department', 'manager', 'supervisor',
+  'colleague', 'client', 'customer', 'stakeholder', 'deadline', 'project', 'task', 'responsibility',
+  'responsibilities', 'achievement', 'achievements', 'accomplishment', 'skills', 'skill set', 'qualification',
+  'certification', 'resume', 'CV', 'portfolio', 'salary', 'benefits', 'remote', 'onsite', 'hybrid', 'full time',
+  'part time', 'contract', 'probation', 'promotion', 'career growth', 'work environment', 'work culture',
+  'work life balance', 'notice period', 'relocate', 'overtime', 'shift'
+];
+
+export const SOFT_SKILLS = [
+  'communication', 'leadership', 'teamwork', 'collaboration', 'problem solving', 'critical thinking',
+  'time management', 'adaptability', 'flexibility', 'creativity', 'initiative', 'accountability',
+  'attention to detail', 'multitasking', 'prioritize', 'conflict', 'resolve', 'handle pressure', 'under pressure',
+  'challenge', 'challenging', 'mistake', 'learned', 'improve', 'feedback', 'mentor', 'mentoring', 'decision making',
+  'negotiation', 'customer service', 'work ethic', 'positive attitude', 'self motivated', 'fast learner',
+  'quick learner', 'team player'
+];
+
+export const PHRASES = [
+  'tell me about yourself', 'why should we hire you', 'what are your strengths', 'what are your weaknesses',
+  'where do you see yourself in five years', 'why do you want this job', 'why do you want to work here',
+  'describe a challenge you faced', 'tell me about a time', 'how do you handle stress', 'how do you handle conflict',
+  'what motivates you', 'why did you leave your last job', 'what is your expected salary',
+  'do you have any questions for us', 'thank you for the opportunity', 'I am a quick learner', 'I am a team player',
+  'I have experience in', 'I am passionate about', 'I am looking forward to', 'in my previous role',
+  'in my last project', 'I worked on', 'I was responsible for', 'I managed', 'I developed', 'I designed',
+  'I implemented', 'my greatest strength', 'my biggest weakness', 'long term goal', 'short term goal'
+];
+
+export const TECH = [
+  'AWS', 'Azure', 'Google Cloud', 'GCP', 'DevOps', 'CI/CD', 'Docker', 'Kubernetes', 'Terraform', 'Ansible', 'Jenkins',
+  'GitHub', 'GitLab', 'Git', 'Linux', 'Kali Linux', 'Ubuntu', 'Bash', 'Python', 'Java', 'JavaScript', 'TypeScript',
+  'React', 'Node.js', 'Express', 'Angular', 'Vue', 'HTML', 'CSS', 'SQL', 'MySQL', 'PostgreSQL', 'MongoDB', 'Oracle',
+  'PL/SQL', 'REST API', 'API', 'JSON', 'microservices', 'serverless', 'Lambda', 'EC2', 'S3', 'IAM', 'VPC',
+  'CloudWatch', 'CloudFormation', 'load balancer', 'auto scaling', 'cloud security', 'cybersecurity', 'networking',
+  'CCNA', 'TCP/IP', 'DNS', 'firewall', 'VPN', 'encryption', 'authentication', 'authorization', 'database',
+  'frontend', 'backend', 'full stack', 'Android', 'Capacitor', 'Flutter', 'Firebase', 'Agile', 'Scrum', 'Jira',
+  'unit testing', 'debugging', 'deployment', 'monitoring', 'scalability', 'algorithm', 'data structure',
+  'object oriented programming', 'OOP', 'machine learning', 'artificial intelligence', 'AI', 'data analysis'
+];
+
+// Order of the "rest of the list" in speech hints.
+export const INTERVIEW_VOCAB = [SELF_INTRO, WORKPLACE, SOFT_SKILLS, TECH, PHRASES, PK_PLACES, PK_NAMES];
+// Skill suggestions in the setup screen.
+export const SKILL_SUGGESTIONS = [...TECH, ...SOFT_SKILLS];
