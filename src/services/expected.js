@@ -32,7 +32,8 @@ function pairSim(h, e, cfg) {
  * Time O(n x m), space O(n x m) for n heard and m expected words.
  *
  * Returns {
- *   ops: [{ type: 'match' | 'fix' | 'extra' | 'missed' | 'pending', heard, expected, j }],
+ *   ops: [{ type: 'match' | 'fix' | 'extra' | 'missed' | 'pending', heard, expected, j, i }],
+ *        (i = index of the heard word, j = index of the expected word)
  *   text: what is written (expected words for every pair, heard words for extras; nothing for
  *         missed words: an expected word is never written without a heard word next to it),
  *   matched, total, extra, missed, score (percent of expected words matched)
@@ -65,11 +66,11 @@ export function alignToExpected(heardText, expectedText, { partial = false, cfg 
   while (i > 0 || j > 0) {
     const s = i > 0 && j > 0 ? sims[i - 1][j - 1] : -1;
     if (i > 0 && j > 0 && s >= 0 && Math.abs(cost[i][j] - (cost[i - 1][j - 1] + (1 - s))) < 1e-9) {
-      ops.push({ type: norm(H[i - 1]) === norm(X[j - 1]) ? 'match' : 'fix', heard: H[i - 1], expected: X[j - 1], j: j - 1, sim: s });
+      ops.push({ type: norm(H[i - 1]) === norm(X[j - 1]) ? 'match' : 'fix', heard: H[i - 1], expected: X[j - 1], j: j - 1, i: i - 1, sim: s });
       i--;
       j--;
     } else if (i > 0 && Math.abs(cost[i][j] - (cost[i - 1][j] + cfg.gap)) < 1e-9) {
-      ops.push({ type: 'extra', heard: H[i - 1] });
+      ops.push({ type: 'extra', heard: H[i - 1], i: i - 1 });
       i--;
     } else {
       ops.push({ type: 'missed', expected: X[j - 1], j: j - 1 });

@@ -13,12 +13,13 @@ await p.evaluate(() => {
   localStorage.setItem('is_hist', JSON.stringify([{ c: 'Software Developer', d: '10/14/2026', s: 7, ts: Date.now() - 864e5 }]));
   // A user who finished setup (the app has no demo profile any more).
   const me = { name: 'Test User', role: 'Software Engineer', roleKey: 'Software Engineer', edu: 'BS IT student', degree: 'BS IT student', city: 'Testcity', exp: 'fresher', skillTags: ['JavaScript'], skills: 'JavaScript', words: ['Test', 'User', 'Testcity'], setup: 1 };
-  localStorage.setItem('is_profiles', JSON.stringify({ 'Test User': me }));
+  localStorage.setItem('is_profiles', JSON.stringify({ 'Test User': me, 'Other Person': { ...me, name: 'Other Person' } }));
   localStorage.setItem('is_active', JSON.stringify('Test User'));
 });
 await p.reload();
 await p.waitForTimeout(900);
 
+check('older phones with several profiles keep only the active one', await p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('is_profiles'))).join() === 'Test User'));
 const homeText = await p.textContent('#home');
 check('home has no "Last session" card (history exists)', !/Last session/i.test(homeText) && (await p.locator('#retryLastBtn').count()) === 0);
 check('header has no theme button', (await p.locator('header.bar [data-i="moon"], header.bar [onclick*="Theme"]').count()) === 0);
@@ -76,11 +77,18 @@ check('Finish button shown', await p.isVisible('#pDone'));
 await p.click('#pFav');
 await p.waitForTimeout(200);
 check('favorite star works on one tap', await p.evaluate(() => document.getElementById('pFav').classList.contains('on')));
+await p.click('#pDone');
+await p.waitForTimeout(500);
+check('Question of the day marked done after practice', (await p.locator('#hCards .hcard.done').count()) === 1 && /Done today/.test(await p.textContent('#hCards')) && /Practice again/.test(await p.textContent('#qotdBtn')));
+await p.reload();
+await p.waitForTimeout(800);
+check('done mark is kept after restart', (await p.locator('#hCards .hcard.done').count()) === 1);
 
 await p.evaluate(() => window.showProfile());
 await p.waitForTimeout(400);
 check('Profile hero has one fixed color (no gradient, no animation)', await p.evaluate(() => { const c = getComputedStyle(document.querySelector('.pcard')); return c.backgroundImage === 'none' && c.animationName === 'none'; }));
 check('bottom nav visible on Profile', await p.isVisible('#nav'));
+check('no Switch profile / New profile (one profile at a time)', (await p.locator('#prof, #pProfBox').count()) === 0);
 check('About you card removed', !/About you/i.test(await p.textContent('#form')) || (await p.locator('#form .sec h4', { hasText: 'About you' }).count()) === 0);
 check('details hidden at first', !(await p.isVisible('#pKv')));
 await p.click('#pWho');

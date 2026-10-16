@@ -164,6 +164,11 @@ function setState(s, st) {
 
 function finish(s, reason, code = 0, message = '') {
   if (session !== s) return;
+  if (reason !== 'cancelled' && s.run && !s.run.final && keepLive(s)) {
+    // Stopped before the phone sent a final: write the last live words.
+    voiceLog('no final, using the live words', JSON.stringify(s.run.partial));
+    onFinal(s, { matches: [s.run.partial], maxRms: s.run.maxRms });
+  }
   session = null;
   clearTimeout(s.timer);
   clearTimeout(s.stopTimer);
@@ -218,23 +223,43 @@ async function begin(s) {
   }
 }
 
+// The screen may trust the live words (keepLive(text) -> true, e.g. they match the saved answer):
+// then they are written even when the phone sends no final or a low-confidence one.
+const keepLive = s => {
+  const t = s.run && s.run.partial;
+  if (!t || !s.o.keepLive) return false;
+  try {
+    return !!s.o.keepLive(t);
+  } catch {
+    return false;
+  }
+};
+
 // One final result: gates, then hand it to the screen once.
 function onFinal(s, d) {
   const run = s.run;
   if (!run || run.final) return; // a session commits at most one final
   run.final = true;
-  const matches = (d.matches || []).filter(Boolean);
+  let matches = (d.matches || []).filter(Boolean);
+  // The user already saw live words: an empty final must not lose them.
+  if (!matches.length && keepLive(s)) matches = [run.partial];
   run.maxRms = typeof d.maxRms === 'number' ? d.maxRms : s.levelMax;
   run.nbest = matches.map((t, i) => ({ text: t, score: d.scores && typeof d.scores[i] === 'number' ? Math.round(d.scores[i] * 100) / 100 : null }));
-  const noise = noiseGate(run.maxRms, s.o.filter);
+  const noise = keepLive(s) ? '' : noiseGate(run.maxRms, s.o.filter); // live words the screen trusts = real speech
   if (noise) {
     run.dropped.push({ text: matches[0], why: noise });
     voiceLog('dropped', noise, JSON.stringify(matches[0]));
     return;
   }
   run.speech = true;
-  const { cands, dropped } = confidenceFilter(matches, d.scores, s.o.filter);
+  let { cands, dropped } = confidenceFilter(matches, d.scores, s.o.filter);
   run.dropped.push(...dropped);
+  // Low confidence on every guess, but the live words were shown: keep the top guess, so what
+  // the user saw is written (accents and names often get low scores).
+  if (!cands.length && keepLive(s)) {
+    cands = [{ text: String(matches[0]).trim(), score: null, index: 0 }];
+    run.dropped.push({ text: matches[0], why: 'kept: low confidence but shown live' });
+  }
   if (!cands.length) {
     voiceLog('dropped: low confidence', JSON.stringify(matches[0]));
     return;
@@ -261,6 +286,11 @@ function onFinal(s, d) {
 }
 
 function onEnd(s, d) {
+  // No final came (some phones skip it after Stop): write the last live words.
+  if (s.run && !s.run.final && keepLive(s)) {
+    voiceLog('no final, using the live words', JSON.stringify(s.run.partial));
+    onFinal(s, { matches: [s.run.partial], maxRms: s.run.maxRms });
+  }
   const reason = (d && d.reason) || 'done';
   const code = (d && d.code) || 0;
   if (s.run) {
@@ -300,6 +330,8 @@ function next(s, ms) {
  *  bias: hint strings (Android 13+). choose(cands) -> { text, index, changes, why }: picks and
  *  corrects one of the guesses ({ text, score, index }). onState(state), onPartial(text) (show
  *  only), onFinal(text, info) (write it), onLevel(db), onEnd({ reason, code, heard, message }).
+ *  keepLive(text) -> bool: live words the screen trusts (they match the saved answer); they are
+ *  written even when no final comes or its confidence is low.
  *  filter: overrides for VOICE_FILTER (tests).
  * Resolves true when the first session started.
  */
@@ -336,6 +368,7 @@ export async function startListening(o = {}) {
     Voice.addListener('partial', mine(d => {
       const t = (d.matches || []).filter(Boolean)[0];
       if (!t) return;
+      if (s.run) s.run.partial = t;
       if (s.state !== 'listening' && s.state !== 'stopping') setState(s, 'listening');
       s.o.onPartial && s.o.onPartial(t); // live bar only, never the answer box
     })),
