@@ -32,7 +32,7 @@ let p = pickCandidate(
   ],
   targets
 );
-check('n-best: most My words / name overlap wins', p.index === 1 && p.overlap === 2, JSON.stringify(p));
+check('n-best: most profile name overlap wins', p.index === 1 && p.overlap === 2, JSON.stringify(p));
 p = pickCandidate(
   [
     { text: 'I know AWS', score: 0.6, index: 0 },

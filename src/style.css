@@ -327,18 +327,10 @@ header.bar{min-height:0;padding-top:calc(4px + max(env(safe-area-inset-top,0px),
 .mst{text-align:center;margin:2px 0 0;min-height:20px}
 #pMicSt{transition:color .2s}
 #pMic.on~#pMicSt,#pMicWrap:has(#pMic.on)+#pMicSt{color:var(--acc);font-weight:600}
-/* Voice: live words, My words chips, Undo toast, Profile > Voice */
+/* Voice: live words, Profile > Voice */
 .vlive{margin-top:6px;padding:8px 12px;border-radius:12px;background:var(--line);color:var(--mute);font-size:14px;font-style:italic;line-height:1.4;animation:vfade .2s ease}
-.vchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.vchip{min-height:44px;min-width:44px;padding:0 14px;border-radius:22px;border:1px solid var(--line);background:var(--card,transparent);color:inherit;font-size:14px;cursor:pointer;transition:transform .15s,background .15s}
-.vchip:active{transform:scale(.95);background:var(--line)}
-.vchip:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-#toast .tundo{margin-left:8px;min-height:32px;padding:0 12px;border-radius:16px;border:0;background:var(--acc);color:#fff;font-weight:600;cursor:pointer}
 .vlab{display:block;font-size:13px;color:var(--mute);margin:12px 0 6px}.vlab small{font-size:11.5px}
 #vAccent{width:100%;min-height:44px}
-.vwords{width:100%;min-height:90px;margin-bottom:8px}
-.vmem{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
-.vmrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;font-size:14px}.vmrow .pbtn{min-width:44px;min-height:44px}
 .vempty{display:block;color:var(--mute);margin-top:6px;line-height:1.4}
 @keyframes vfade{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.vlive{animation:none}.vchip{transition:none}}
+@media (prefers-reduced-motion:reduce){.vlive{animation:none}}

@@ -72,10 +72,7 @@
   <div class="sec" id="pVoiceBox"><h4>Voice</h4>
   <label class="vlab" for="vAccent">Voice accent</label>
   <select id="vAccent" onchange="saveVoiceAccent(this.value)"></select>
-  <label class="opt"><input type="checkbox" id="vSmart" onchange="saveSmart(this.checked)"> Smart name matching</label>
-  <label class="vlab" for="vWords">My words <small>Add names and rare words here, one per line (for example Mubashar, Pakpattan, Kubernetes)</small></label>
-  <textarea id="vWords" class="vwords" spellcheck="false" maxlength="4000" placeholder="Add names and rare words here" oninput="saveMyWords()"></textarea>
-  <div class="vmem"><b>Learned corrections</b><div id="vMem"></div></div>
+  <small class="vempty">English (India) works best for Pakistani English. Change it if words are often wrong.</small>
   </div>
   <div class="sec" id="pPrefBox"><h4>Interview preferences</h4>
   <label class="opt"><input type="checkbox" id="shuf" class="pf"> Shuffle questions</label>
@@ -123,7 +120,6 @@
   <div id="tWrap" class="hidden" style="margin-top:12px"><div class="bar"><i id="tBar" style="width:100%;transition:width 1s linear"></i></div><div class="cnt" id="tText"></div></div>
   <textarea id="ansBox" placeholder="Type or speak your answer..." spellcheck="true" style="margin-top:12px"></textarea>
   <div class="vlive hidden" id="micLive" aria-live="polite"></div>
-  <div class="vchips hidden" id="vChips" aria-label="My words"></div>
   <div class="dots" id="mDots"></div>
   <div class="micwrap"><button class="mic" id="mic" data-i="mic" onclick="toggleMic()" aria-label="Speak to type" title="Speak to type"></button><div class="note" id="micSt" aria-live="polite"></div></div>
   <div class="row"><button data-i="left" onclick="step(-1)" aria-label="Previous" title="Previous"></button><button class="ok" id="nBtn" data-i="right" onclick="step(1)" aria-label="Next" title="Next"></button></div>

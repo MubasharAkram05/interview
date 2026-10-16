@@ -347,8 +347,7 @@ The phone (not the app) turns speech into text with Android's speech service (us
 4. **Final result.** When the session ends, the phone gives up to 5 guesses with confidence scores. Before anything is written:
    - **Noise gate:** if the loudest moment of the session (max RMS) never reached a speaking level (5 dB), the text is dropped. This stops invented words from silence or noise.
    - **Confidence:** guesses with a known confidence below 0.4 are dropped.
-   - **Pick one guess:** the one with the most My words / profile name words, else the most confident. Guesses are never merged.
-   - **Name matching** (below) runs on that one guess.
+   - **Pick one guess:** the one with your profile name in it, else the most confident. Guesses are never merged or changed.
    - **Duplicates:** text already written in the last 5 seconds is dropped; if it starts with that text, only the new words are kept.
    - The text is inserted **at the cursor** with correct spaces. The rest of the box is never replaced.
 5. **Next session.** Another session starts only if this one had real speech. If a session has no real speech, the mic stops and shows "Tap the mic to continue". There is no restart loop.
@@ -356,32 +355,29 @@ The phone (not the app) turns speech into text with Android's speech service (us
 
 Pauses: the app asks for 4 s complete silence, 3 s possibly complete and 15 s minimum length, so a 3 to 4 second pause should not end the session. Google's service may ignore these on some phones; the voice report shows how long each session ran.
 
-### Smart name matching (safe)
+### No word changes
 
-- Candidates are only: **My words**, your **profile name**, and words you **corrected before**.
-- A heard word is replaced only when it is close in spelling (edit distance at most 0.35) or sounds the same (double metaphone), and it is **not a common English word**.
-- A common word is replaced only in a name slot: after "my name is", or a capitalized word after "I am", "I'm", "this is", "myself".
-- Countries and cities are never changed (Pakpattan never becomes Pakistan, and the other way round). Numbers and short words never change. At most 3 changes per sentence.
-- If you fix one word right after dictation, the app remembers "wrong to right" (Undo in the toast; see or delete in Profile > Voice > Learned corrections).
-- The demo profile ("Alex Khan") is sample data: its name is never used for chips, hints or matching. Use your own profile, or add your name under My words.
-- Hints (Android 13+): My words, profile name, then a short tech list (AWS, DevOps, Kubernetes, Docker, React, Node.js, JavaScript, Python, SQL, API, CI/CD, GitHub, Linux). Turn off Smart name matching to send none.
+The app writes exactly what the phone heard. There is no vocabulary system: no My words, no name matching, no learned corrections and no chips. The only ways the app helps:
+
+- **Hints** (Android 13+): your profile name, then a short tech list (AWS, DevOps, Kubernetes, Docker, React, Node.js, JavaScript, Python, SQL, API, CI/CD, GitHub, Linux). The list is `TECH_HINTS` in `src/config/app.js`.
+- **Picking a guess:** if one of the phone's 5 guesses contains your profile name, that guess wins.
+- The demo profile ("Alex Khan") is sample data: its name is never used. Use your own profile so your name is sent as a hint.
 
 ### Cost
 
-- Name matching uses sound-code and length buckets: about O(words x bucket size) per sentence instead of O(words x vocabulary). Under 1 ms per sentence with 300 My words on a PC.
-- Dedupe and n-best: O(guesses x words).
+- Dedupe and picking a guess: O(guesses x words), a fraction of a millisecond.
 
 ### If voice is still wrong
 
-Use the debug APK. Hold the app title 1 s > **Copy voice report**. For each session it lists: language, hints sent, max RMS, every guess with its confidence, which guess was picked and why, what was dropped and why, what was replaced and why, and the text written. Send it with what you really said.
+Use the debug APK. Hold the app title 1 s > **Copy voice report**. For each session it lists: language, hints sent, max RMS, every guess with its confidence, which guess was picked and why, what was dropped and why, and the text written. Send it with what you really said.
 
 ### Phone test (start each test with an empty box)
 
 1. Tap the mic and stay silent for 10 seconds. The box stays empty; "I did not catch that. Tap the mic to continue."
 2. Say "I am from Pakistan" once. It appears once.
-3. Say "My name is Mubashar" (with your name in the profile or My words).
+3. Say "My name is Mubashar" (with your name in your profile).
 4. Say "My name is Mubashar Akram", pause 3 seconds, "I am a student from Pakpattan". Both parts appear once, Pakpattan stays Pakpattan.
 5. Say "I know AWS and DevOps".
 6. Airplane mode: tap the mic, see the offline message, typing works. Deny the mic permission twice: the dialog has an **Open settings** button.
-7. Tap a chip (inserts at the cursor). Dictate, then fix one wrong word by hand: an Undo toast shows; next time that word is fixed automatically.
+7. Put the cursor in the middle of typed text and dictate: the words go in at the cursor; the rest of the box stays.
 Then copy the voice report from the debug panel.

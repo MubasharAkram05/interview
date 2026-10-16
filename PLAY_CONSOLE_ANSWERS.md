@@ -9,7 +9,7 @@ Answers for Play Console > Policy and programs > **App content**. Every answer i
 | No account, no login, no own server, no `fetch`/XHR/WebSocket calls in app code | searched `src/` and `index.html` |
 | Profile, answers, history, favorites saved only on the phone (localStorage + IndexedDB) | `src/services/storage.js` |
 | Ads: Google Mobile Ads SDK via `@capacitor-community/admob`, with UMP consent | `src/services/admob.js` |
-| Voice input: Android `SpeechRecognizer` via the app's own `VoicePlugin` (also asks for the mic permission). The app does not record or save audio; it receives only text. On Android 13+ it sends the speech service up to 100 hint words (My words, profile name, a few tech terms); Smart name matching off sends none. My words and learned corrections stay on the phone | `src/services/voice.js`, `src/services/vocab.js`, `VoicePlugin.java` |
+| Voice input: Android `SpeechRecognizer` via the app's own `VoicePlugin` (also asks for the mic permission). The app does not record or save audio; it receives only text. On Android 13+ it sends the speech service a few hint words (profile name, a short list of tech terms) | `src/services/voice.js`, `src/services/voice-filter.js`, `VoicePlugin.java` |
 | Read aloud: Android text-to-speech via `@capacitor-community/text-to-speech` | `src/services/tts.js` |
 | Transcript sharing only through the Android share menu when the user taps it | `exportT()` in `src/main.js` |
 | Permissions you declare: INTERNET, ACCESS_NETWORK_STATE, RECORD_AUDIO, AD_ID | `app/src/main/AndroidManifest.xml` |

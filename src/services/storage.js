@@ -27,10 +27,7 @@ export async function initStorage() {
     'is_scr',
     'is_pf',
     'is_pclv',
-    'is_voice_accent',
-    'is_voice_smart',
-    'is_voice_words',
-    'is_voice_mem'
+    'is_voice_accent'
   ];
 
   for (const key of legacyKeys) {

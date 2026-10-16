@@ -20,7 +20,7 @@ The app saves the following only in the app's private storage on your phone:
 - Profile details you type (for example name, hometown, degree, university, target role, certifications and skills)
 - Questions and answers you add or edit
 - Mock interview answers you type or speak, and your scores and history
-- Favorites and settings (theme, shuffle, read aloud, voice accent, My words and learned voice corrections)
+- Favorites and settings (theme, shuffle, read aloud, voice accent)
 
 This data is not sent to us or to anyone else by the app. You can delete it at any time: delete a profile or clear history inside the app, or use Android Settings > Apps > Interview Simulator > Storage > Clear data. Uninstalling the app also deletes it.
 
@@ -32,7 +32,7 @@ If Android backup is turned on for your Google account, Android may include this
 - When you use voice input, the app uses the speech recognition service that is installed on your phone. On most phones this is provided by Google.
 - Your voice is processed by that service to turn it into text. The service may send your voice to Google's servers to do this. Google's handling of this data is covered by the Google Privacy Policy: https://policies.google.com/privacy
 - The app itself does not record, save or upload audio files. Only the recognized text comes back to the app and is shown in your answer box on your phone.
-- To hear you more accurately, the app gives the speech service a short list of words you are likely to say (at most 100, never full sentences): words you saved under My words, the name in your profile, and a few technical terms (for example AWS and DevOps). These words, your voice settings and the corrections the app learns from your edits are saved only on your phone. Turning off Smart name matching in Profile > Voice stops this word list from being sent.
+- To hear you more accurately, on Android 13 and newer the app gives the speech service a short list of words you are likely to say: the name in your profile and a few technical terms (for example AWS and DevOps). It is never full sentences.
 - Listening stops when you tap the mic again, leave the screen, or put the app in the background.
 
 ## Read aloud

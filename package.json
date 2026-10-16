@@ -16,7 +16,6 @@
     "test:ads": "node --import ./tests/ads/reg.mjs tests/ads/interstitial.test.mjs",
     "test:home": "node tests/home/qotd.test.mjs",
     "test:voice": "node tests/voice/readalong.test.mjs && node tests/voice/filter.test.mjs && node --import ./tests/voice/reg.mjs tests/voice/voice.test.mjs",
-    "test:vocab": "node tests/vocab/vocab.test.mjs && node tests/vocab/false-positives.test.mjs",
     "build:debug": "vite build --mode debug"
   },
   "dependencies": {
@@ -32,15 +31,12 @@
     "@capacitor/status-bar": "^8.0.4",
     "canvas-confetti": "^1.9.4",
     "dayjs": "^1.11.23",
-    "double-metaphone": "^2.0.1",
-    "fastest-levenshtein": "^1.0.16",
     "localforage": "^1.10.0",
     "marked": "^18.1.1"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.3",
-    "vite": "^8.3.4",
-    "wordlist-english": "^1.2.1"
+    "vite": "^8.3.4"
   }
 }

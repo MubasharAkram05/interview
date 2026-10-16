@@ -5,7 +5,7 @@
 //      loudest moment of a session (max RMS from Android's onRmsChanged) never reached a speaking
 //      level, its final result is dropped.
 //   2. Confidence: guesses with a known confidence below 0.4 are dropped.
-//   3. N-best: of the remaining guesses, the one with the most My words / profile name words wins;
+//   3. N-best: of the remaining guesses, the one with the most profile name words wins;
 //      otherwise the most confident one. Guesses are never merged.
 //   4. Dedupe: a final that repeats text committed in the last 5 seconds is dropped; if it starts
 //      with that text ("I am from" ... "I am from Pakpattan") only the new part is kept.
@@ -53,7 +53,7 @@ export function confidenceFilter(matches, scores, cfg = VOICE_FILTER) {
 }
 
 /**
- * N-best: most words that are My words or the profile name (exact, any case); ties and zero
+ * N-best: most words that are in the profile name (exact, any case); ties and zero
  * overlap go to the highest known confidence, then to the phone's own order.
  * targets: Set of lowercase keys. O(candidates x words).
  */
@@ -68,7 +68,7 @@ export function pickCandidate(cands, targets) {
   }));
   scored.sort((a, b) => b.overlap - a.overlap || (b.score ?? -1) - (a.score ?? -1) || a.index - b.index);
   const best = scored[0];
-  return { ...best, why: best.overlap ? `${best.overlap} My words / name match` : best.score !== null ? 'highest confidence' : 'first guess' };
+  return { ...best, why: best.overlap ? `${best.overlap} profile name word(s)` : best.score !== null ? 'highest confidence' : 'first guess' };
 }
 
 /**

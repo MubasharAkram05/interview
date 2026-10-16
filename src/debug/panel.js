@@ -122,16 +122,10 @@ async function report() {
 async function voiceSection(n) {
   const v = await voiceInfo();
   const fmt = x => (x === null || x === undefined || x === '' ? '-' : x);
-  let smart = '-';
-  try {
-    smart = localStorage.getItem('is_voice_smart') === 'false' ? 'off' : 'on';
-  } catch {
-    // ignore
-  }
   return [
     '== Voice ==',
     `Android SDK ${fmt(v.sdk)} | recognizer available=${fmt(v.available)} | biasing hints ${v.sdk >= 33 ? 'supported' : 'not supported (needs Android 13+)'}`,
-    `Accent ${fmt(v.accent)} | locale now ${fmt(v.locale)} | smart name matching ${smart} | state ${voiceState()}`,
+    `Accent ${fmt(v.accent)} | locale now ${fmt(v.locale)} | state ${voiceState()}`,
     ...sessionLines(),
     `-- last ${n} VOICE: lines --`,
     ...recentVoiceLog(n)

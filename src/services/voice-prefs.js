@@ -1,14 +1,8 @@
-// Voice settings and personal vocabulary, stored on the phone only (localStorage via storage.js):
+// Voice settings, stored on the phone only (localStorage via storage.js):
 //   is_voice_accent  'in' | 'pk' | 'us' | 'uk'
-//   is_voice_smart   true/false  (Smart name matching)
-//   is_voice_words   My words text, one per line ("Pakpattan: pak pattan" adds an alias)
-//   is_voice_mem     learned corrections [{ prev, heard, fix, at }]
 import { getItem, setItem } from './storage.js';
-import { DEFAULT_VOICE_ACCENT, VOICE_ACCENTS } from '../config/app.js';
-import { buildVocab, parseMyWords } from './vocab.js';
+import { DEFAULT_VOICE_ACCENT, VOICE_ACCENTS, TECH_HINTS } from '../config/app.js';
 import { DEMO } from '../data/questions.js';
-
-const MAX_MEMORY = 50;
 
 export function voiceAccent() {
   const a = getItem('is_voice_accent', DEFAULT_VOICE_ACCENT);
@@ -18,39 +12,10 @@ export function setAccentPref(a) {
   setItem('is_voice_accent', VOICE_ACCENTS[a] ? a : DEFAULT_VOICE_ACCENT);
 }
 
-export function smartMatching() {
-  return getItem('is_voice_smart', true) !== false;
-}
-export function setSmartMatching(on) {
-  setItem('is_voice_smart', !!on);
-}
-
-export function myWordsText() {
-  return getItem('is_voice_words', '') || '';
-}
-export function setMyWordsText(t) {
-  setItem('is_voice_words', String(t || '').slice(0, 4000));
-}
-
-export function corrections() {
-  return getItem('is_voice_mem', []) || [];
-}
-export function addCorrection(pair) {
-  if (!pair) return;
-  const list = corrections().filter(m => !(m.prev === pair.prev && m.heard === pair.heard));
-  list.unshift({ ...pair, at: Date.now() });
-  setItem('is_voice_mem', list.slice(0, MAX_MEMORY));
-}
-export function removeCorrection(i) {
-  const list = corrections();
-  list.splice(i, 1);
-  setItem('is_voice_mem', list);
-}
-
 /**
  * The profile name used for voice, or '' for the built-in demo profile. "Alex Khan" is sample
- * data, not the user: its name never becomes a chip, a hint or a name-matching target, even if
- * the demo profile was saved by an older version or its details were edited.
+ * data, not the user: its name is never sent as a hint or used to pick a guess, even if the demo
+ * profile was saved by an older version or its details were edited.
  */
 export function realName(profile = {}) {
   const name = String(profile.name || '').trim();
@@ -58,25 +23,18 @@ export function realName(profile = {}) {
   return !name || demo.includes(name.toLowerCase()) ? '' : name;
 }
 
-// Cached candidate list: rebuilt only when My words, the profile name or learned corrections change.
-let cache = { key: '', vocab: null };
-export function userVocab(profile = {}) {
-  const words = myWordsText();
-  const name = realName(profile);
-  const memory = corrections();
-  const key = JSON.stringify([words, name, memory]);
-  if (cache.key !== key) cache = { key, vocab: buildVocab({ myWords: parseMyWords(words), name, memory }) };
-  return cache.vocab;
+/** Profile name words, lowercase, for picking the best guess. */
+export function nameKeys(profile = {}) {
+  return new Set(
+    realName(profile)
+      .toLowerCase()
+      .split(/\s+/)
+      .map(w => w.replace(/[^a-z0-9]/g, ''))
+      .filter(Boolean)
+  );
 }
 
-/** Up to 6 chip words: My words first, then the profile name. Empty when there are none. */
-export function chipWords(profile = {}) {
-  const out = [];
-  const add = w => {
-    const t = String(w || '').trim();
-    if (t && t.length <= 24 && !out.some(x => x.toLowerCase() === t.toLowerCase()) && out.length < 6) out.push(t);
-  };
-  parseMyWords(myWordsText()).forEach(m => add(m.word));
-  realName(profile).split(/\s+/).forEach(add);
-  return out;
+/** Hints for the speech service (Android 13+): the profile name, then the short tech list. */
+export function voiceHints(profile = {}) {
+  return [...realName(profile).split(/\s+/).filter(Boolean), ...TECH_HINTS];
 }

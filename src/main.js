@@ -54,22 +54,8 @@ import {
   setVoiceAccent,
   openAppSettings
 } from './services/voice.js';
-import {
-  userVocab,
-  smartMatching,
-  setSmartMatching,
-  corrections,
-  addCorrection,
-  removeCorrection,
-  myWordsText,
-  setMyWordsText,
-  voiceAccent,
-  setAccentPref,
-  chipWords
-} from './services/voice-prefs.js';
-import { correctText, snapToReference, hintWords, rareWords, learnFromEdit } from './services/vocab.js';
+import { voiceAccent, setAccentPref, nameKeys, voiceHints } from './services/voice-prefs.js';
 import { pickCandidate } from './services/voice-filter.js';
-import { voiceLog } from './services/debug.js';
 
 import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
@@ -1180,19 +1166,13 @@ function pSummary(state) {
 }
 
 // ---- Voice: shared helpers for Mock and Practice ----
-// Voice candidates: My words, the real profile name (not the demo profile) and learned corrections.
-function vocabFor() {
-  return userVocab(profiles[active] || {});
-}
-
-// N-best: the guess with the most My words / name words wins, else the most confident one; then
-// safe name matching on that one guess. Guesses are never merged.
-function chooser(vocab) {
-  const smart = smartMatching();
+// N-best: the guess with the most profile-name words wins, else the most confident one.
+// Guesses are never merged or changed.
+function chooser() {
+  const keys = nameKeys(profiles[active] || {});
   return cands => {
-    const c = pickCandidate(cands, vocab.keys) || cands[0];
-    const r = correctText(c.text, vocab, { smart });
-    return { text: r.text, index: c.index, changes: r.changes, why: c.why };
+    const c = pickCandidate(cands, keys) || cands[0];
+    return { text: c.text, index: c.index, changes: [], why: c.why };
   };
 }
 
@@ -1220,7 +1200,6 @@ async function togglePMic() {
   const card = P.i;
   const target = pTarget();
   const ref = ansText(P.list[P.i]);
-  const vocab = vocabFor();
   let finished = false;
   const here = () => cs === 'practice' && P.i === card;
   $('pMic').classList.add('on');
@@ -1248,17 +1227,16 @@ async function togglePMic() {
   };
   // Each guess is corrected, then snapped to the saved answer in order; the one that gets
   // furthest through the answer wins. Words are never added.
-  const smart = smartMatching();
   const choose = cands => {
-    const snapped = cands.map(c => snapToReference(correctText(c.text, vocab, { smart }).text, ref).text);
-    const best = bestAlignment(target, pSpoken, snapped);
-    const i = Math.max(0, snapped.indexOf(best.text));
-    return { text: snapped[i], index: cands[i].index, changes: [], why: 'best fit to the answer' };
+    const texts = cands.map(c => c.text);
+    const best = bestAlignment(target, pSpoken, texts);
+    const i = Math.max(0, texts.indexOf(best.text));
+    return { text: texts[i], index: cands[i].index, changes: [], why: 'best fit to the answer' };
   };
   let readyOnce = false;
 
   const started = await startListening({
-    bias: smart ? hintWords(vocab, rareWords(ref)) : [],
+    bias: voiceHints(profiles[active] || {}),
     choose,
     onState: st => {
       if (!here() || finished) return;
@@ -1460,7 +1438,6 @@ function showQ() {
   $('ansBox').value = answers[idx] || '';
   ansCursor = null; // new question: spoken text goes to the end until the user moves the cursor
   mockLive('');
-  renderChips();
   $('qBar').style.width = ((idx + 1) / cur.length) * 100 + '%';
   $('nBtn').dataset.i = idx === cur.length - 1 ? 'check' : 'right';
   mDots();
@@ -1617,26 +1594,12 @@ function mockLive(t) {
   el.classList.toggle('hidden', !t);
 }
 
-// Toast with an Undo button (learned corrections).
-function toastUndo(m, onUndo) {
-  const t = $('toast');
-  t.innerHTML = `<span>${esc(m)}</span> <button class="tundo" type="button">Undo</button>`;
-  t.classList.remove('hidden');
-  t.querySelector('.tundo').onclick = () => {
-    onUndo();
-    t.classList.add('hidden');
-  };
-  clearTimeout(toastT);
-  toastT = setTimeout(() => t.classList.add('hidden'), 5000);
-}
-
 // Where spoken text goes in the answer box: the cursor (tracked while the box is used), else the end.
 let ansCursor = null;
-let lastDictation = { at: 0, i: -1 };
 
 // Insert a final phrase into the answer of question `i` at the cursor, with correct spaces and
 // capitals. The rest of the box is never replaced.
-function addSpoken(i, text, info, keepCase) {
+function addSpoken(i, text, keepCase) {
   const box = idx === i && cs === 'interview' ? $('ansBox') : null;
   const v = box ? box.value : answers[i] || '';
   const pos = box && ansCursor !== null ? Math.min(ansCursor, v.length) : v.length;
@@ -1649,82 +1612,15 @@ function addSpoken(i, text, info, keepCase) {
   if (box) {
     box.value = nv;
     ansCursor = joined.length;
-    editSnap = nv; // edits after this are compared with the dictated text (correction memory)
   }
-  lastDictation = { at: Date.now(), i };
-  saveScr();
-  const mem = ((info && info.changes) || []).filter(c => c.why === 'learned from your edit');
-  if (mem.length) {
-    const c = mem[0];
-    toastUndo(`Changed "${c.from}" to "${c.to}"`, () => {
-      const b2 = idx === i ? $('ansBox') : null;
-      const cur2 = b2 ? b2.value : answers[i] || '';
-      const k = cur2.lastIndexOf(c.to);
-      if (k < 0) return;
-      const nv2 = cur2.slice(0, k) + c.from + cur2.slice(k + c.to.length);
-      answers[i] = nv2.trim();
-      if (b2) b2.value = nv2;
-      saveScr();
-    });
-  }
-}
-
-// My words chips under the answer box: tap to insert at the cursor.
-function renderChips() {
-  const el = $('vChips');
-  const words = chipWords(profiles[active] || {});
-  el.innerHTML = words.map(w => `<button type="button" class="vchip" data-w="${esc(w)}">${esc(w)}</button>`).join('');
-  el.classList.toggle('hidden', !words.length);
-  el.querySelectorAll('.vchip').forEach(b => {
-    // Keep the text box focused and its cursor where it is.
-    b.addEventListener('pointerdown', e => e.preventDefault());
-    b.addEventListener('click', () => insertAtCursor($('ansBox'), b.dataset.w));
-  });
-}
-
-function insertAtCursor(box, word) {
-  playTapSound();
-  const v = box.value;
-  const s0 = box.selectionStart ?? v.length;
-  const e0 = box.selectionEnd ?? v.length;
-  const pre = v.slice(0, s0);
-  const post = v.slice(e0);
-  const a = pre && !/\s$/.test(pre) ? ' ' : '';
-  const z = post && !/^[\s.,!?]/.test(post) ? ' ' : '';
-  box.value = pre + a + word + z + post;
-  const pos = (pre + a + word + z).length;
-  box.setSelectionRange(pos, pos);
-  answers[idx] = box.value.trim();
   saveScr();
 }
 
-// Learn from the user's own fixes: when one word of dictated text is changed by hand right after
-// dictation (within 2 minutes), remember "wrong -> right" and use it next time.
-let editSnap = '';
-const LEARN_WINDOW_MS = 120000;
-function watchAnswerEdits() {
+// Track the cursor in the answer box, so spoken text goes where the user is typing.
+function watchAnswerCursor() {
   const box = $('ansBox');
   const track = () => (ansCursor = box.selectionEnd ?? null);
   ['click', 'keyup', 'select', 'input'].forEach(e => box.addEventListener(e, track));
-  box.addEventListener('focus', () => {
-    if (Date.now() - lastDictation.at > LEARN_WINDOW_MS) editSnap = box.value;
-  });
-  box.addEventListener('change', () => {
-    if (!smartMatching() || lastDictation.i !== idx || Date.now() - lastDictation.at > LEARN_WINDOW_MS) {
-      editSnap = box.value;
-      return;
-    }
-    const pair = learnFromEdit(editSnap, box.value);
-    editSnap = box.value;
-    if (!pair) return;
-    addCorrection(pair);
-    voiceLog('learned', pair);
-    toastUndo(`Learned: "${pair.heard}" means "${pair.fix}"`, () => {
-      const list = corrections();
-      const k = list.findIndex(m => m.prev === pair.prev && m.heard === pair.heard);
-      if (k >= 0) removeCorrection(k);
-    });
-  });
 }
 
 async function toggleMic() {
@@ -1744,8 +1640,8 @@ async function toggleMic() {
   if (cs !== 'interview') return;
 
   const myIdx = idx;
-  const vocab = vocabFor();
-  const keepCase = [...Object.values(FIX), ...[...vocab.targets.values()].map(t => t.text)];
+  const prof = profiles[active] || {};
+  const keepCase = [...Object.values(FIX), ...voiceHints(prof)];
   const here = () => idx === myIdx && cs === 'interview';
   let readyOnce = false;
   mMicOn = true;
@@ -1753,8 +1649,8 @@ async function toggleMic() {
   mockNote('Getting the mic ready...');
 
   const started = await startListening({
-    bias: smartMatching() ? hintWords(vocab) : [],
-    choose: chooser(vocab),
+    bias: voiceHints(prof),
+    choose: chooser(),
     onState: st => {
       if (!here()) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
@@ -1762,8 +1658,8 @@ async function toggleMic() {
     },
     onLevel: db => micLevel($('mic'), db),
     onPartial: text => here() && mockLive(text), // grey live bar only
-    onFinal: (text, info) => {
-      addSpoken(myIdx, text, info, keepCase);
+    onFinal: text => {
+      addSpoken(myIdx, text, keepCase);
       if (here()) mockLive('');
     },
     onEnd: ({ reason, message }) => {
@@ -2161,7 +2057,9 @@ function loadPreferences() {
 async function initApp() {
   await initStorage();
   setVoiceAccent(voiceAccent());
-  watchAnswerEdits();
+  // My words, Smart name matching and learned corrections were removed: delete their old data.
+  ['is_voice_smart', 'is_voice_words', 'is_voice_mem'].forEach(k => removeItem(k));
+  watchAnswerCursor();
 
   const savedTheme = getItem('is_theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = savedTheme;
@@ -2322,50 +2220,18 @@ async function initApp() {
 }
 
 
-// Profile > Voice: accent, Smart name matching, My words and learned corrections.
+// Profile > Voice: accent.
 function renderVoiceSettings() {
-  const sel = $('vAccent');
   const a = voiceAccent();
-  sel.innerHTML = Object.entries(VOICE_ACCENTS)
+  $('vAccent').innerHTML = Object.entries(VOICE_ACCENTS)
     .map(([k, v]) => `<option value="${k}"${k === a ? ' selected' : ''}>${esc(v.label)}</option>`)
     .join('');
-  $('vSmart').checked = smartMatching();
-  $('vWords').value = myWordsText();
-  renderVoiceMemory();
-}
-
-function renderVoiceMemory() {
-  const list = corrections();
-  $('vMem').innerHTML = list.length
-    ? list
-        .map(
-          (m, i) =>
-            `<div class="vmrow"><span>"${esc(m.heard)}" becomes "${esc(m.fix)}"</span><button class="pbtn danger" data-i="trash" onclick="delVoiceMemory(${i})" aria-label="Delete correction" title="Delete"></button></div>`
-        )
-        .join('')
-    : '<small class="vempty">Nothing learned yet. When you fix a word the mic got wrong, the app remembers it here.</small>';
-  renderIcons();
 }
 
 function saveVoiceAccent(a) {
   setAccentPref(a);
   setVoiceAccent(voiceAccent());
   toast(`Voice accent: ${VOICE_ACCENTS[voiceAccent()].label}`);
-}
-
-function saveSmart(on) {
-  setSmartMatching(on);
-  toast(on ? 'Smart name matching is on' : 'Smart name matching is off');
-}
-
-// My words save by themselves while typing (no Save button).
-function saveMyWords() {
-  setMyWordsText($('vWords').value);
-}
-
-function delVoiceMemory(i) {
-  removeCorrection(i);
-  renderVoiceMemory();
 }
 
 // Bind all action methods to window for full inline HTML onclick compatibility
@@ -2408,9 +2274,6 @@ Object.assign(window, {
   togglePMic,
   readA,
   saveVoiceAccent,
-  saveSmart,
-  saveMyWords,
-  delVoiceMemory,
   homeLevel,
   pcLevel,
   pcGo,
