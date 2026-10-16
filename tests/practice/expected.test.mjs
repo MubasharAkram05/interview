@@ -1,5 +1,5 @@
 // Practice expected-text matching (src/services/expected.js). Run: node tests/practice/expected.test.mjs
-import { alignToExpected, introTemplate, isIntroQuestion, wordStatus } from '../../src/services/expected.js';
+import { alignToExpected, introTemplate, isIntroQuestion, wordStatus, wordDetail } from '../../src/services/expected.js';
 
 const out = [];
 const check = (name, ok, extra = '') => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : '   ' + extra}`);
@@ -61,6 +61,9 @@ check('wordStatus: said words ok, rest dull', ws('my name is Mubashir Akram') ==
 check('wordStatus: a wrong word in its place is red ("Lahore" for "Pakpattan")', ws('I am a BS IT student from Lahore').split(' ').slice(-1)[0] === 'bad', ws('I am a BS IT student from Lahore'));
 check('wordStatus: skipped words stay dull, not red', ws('my name is Akram').split(' ')[3] === 'dim', ws('my name is Akram'));
 check('wordStatus: one extra word marks one word', (ws('my name is Ali Akram').match(/bad/g) || []).length === 1, ws('my name is Ali Akram'));
+
+const wd = wordDetail(alignToExpected('I am a BS IT student from Lahore', EXP, { partial: true }));
+check('wordDetail: a red word knows what was said instead', wd.heard[W - 1] === 'Lahore', JSON.stringify(wd.heard));
 
 console.log(out.join('\n'));
 console.log(`${out.filter(l => l.startsWith('PASS')).length}/${out.length} passed`);

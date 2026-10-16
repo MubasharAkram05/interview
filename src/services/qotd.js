@@ -44,3 +44,19 @@ export function questionOfDay({ saved, cats, lv, list, today = dayKey() }) {
   }
   return null;
 }
+
+// Question of the day streak: days in a row with the day's question practised.
+// s: { d: last practised day, n: days in a row } or null.
+export function prevDay(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return dayKey(new Date(y, m - 1, d - 1));
+}
+
+/** The streak after practising today's question (once per day). */
+export function bumpStreak(s, today = dayKey()) {
+  if (s && s.d === today) return s;
+  return { d: today, n: s && s.d === prevDay(today) ? s.n + 1 : 1 };
+}
+
+/** The streak to show today: kept while the last practice was today or yesterday, else 0. */
+export const streakNow = (s, today = dayKey()) => (s && (s.d === today || s.d === prevDay(today)) ? s.n : 0);

@@ -135,6 +135,13 @@ if (intro) {
   check(`Mock: said words dark, saved spelling ("${ok}")`, ok === 'My name is Mubashar Akram. I am a BS IT student from');
   check('Mock: the word said wrong is red', (await p.$$eval('#ansBox .aw.wrongw', x => x.map(e => e.textContent).join())) === 'Pakpattan.');
   check('Mock: words not said are dull', (await p.locator('#ansBox .aw.notsaid').count()) > 5);
+  await p.click('#ansBox .aw.wrongw');
+  await wait(200);
+  check(`Mock: tap a red word shows what was said ("${await p.textContent('#toast')}")`, /You said "Lahore" instead of "Pakpattan\."/.test(await p.textContent('#toast')));
+  const row = await p.evaluate(() => ['.mctl .mnav', '#mic', '#nBtn'].map(q => document.querySelector(q).getBoundingClientRect()));
+  // In the test browser there is no speech service, so the mic is hidden; then only Prev | Next.
+  const micShown = row[1].width > 0;
+  check(`Mock: Previous and Next sit left and right of the mic (mic ${micShown ? 'shown' : 'hidden here'})`, micShown ? row[0].right <= row[1].left && row[1].right <= row[2].left : row[0].right <= row[2].left && Math.abs(row[0].top - row[2].top) < 4);
   const dimC = await p.$eval('#ansBox .aw.notsaid', e => getComputedStyle(e).color);
   const okC = await p.$eval('#ansBox .aw.said', e => getComputedStyle(e).color);
   check(`Mock: dull and dark colours differ (${dimC} vs ${okC})`, dimC !== okC);

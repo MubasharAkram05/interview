@@ -65,22 +65,18 @@
     <div class="kv hidden" id="pKv"></div>
     <div class="stats"><div><b id="pN">0</b><span>Sessions</span></div><div><b id="pB">-</b><span>Best score</span></div><div><b id="pAvg">-</b><span>Average</span></div></div></div>
   </div>
-  <div class="sec" id="pHistBox"><div class="hh" style="align-items:center"><h4 style="margin:0">Interview history</h4><button class="pbtn" id="hEye" data-i="eye" onclick="toggleHist()" aria-label="Show history" title="Show history"></button></div><div id="hList" class="hidden"></div></div>
-  <div class="sec" id="pVoiceBox"><h4>Voice</h4>
-  <label class="vlab" for="vAccent">Voice accent</label>
+  <div class="sec plist" id="pHistBox"><div class="prow"><span class="pic" data-i="chart"></span><span class="ptx"><b>Interview history</b><small id="pHistSub">Your past scores</small></span><button class="pbtn" id="hEye" data-i="eye" onclick="toggleHist()" aria-label="Show history" title="Show history"></button></div><div id="hList" class="hidden"></div></div>
+  <div class="sec plist" id="pVoiceBox"><h4>Voice</h4>
+  <div class="prow pstack"><span class="pic" data-i="globe"></span><span class="ptx"><label for="vAccent"><b>Voice accent</b></label><small class="vempty">English (India) works best for Pakistani English. Change it if words are often wrong.</small></span></div>
   <select id="vAccent" onchange="saveVoiceAccent(this.value)"></select>
-  <small class="vempty">English (India) works best for Pakistani English. Change it if words are often wrong.</small>
-  <button class="full" onclick="editProfile()">Edit my details</button>
   <div class="vmem"><b>Learned corrections</b><div id="vMem"></div></div>
   </div>
-  <div class="sec" id="pPrefBox"><h4>Interview preferences</h4>
-  <label class="opt"><input type="checkbox" id="shuf" class="pf"> Shuffle questions</label>
-  <label class="opt"><input type="checkbox" id="rd" class="pf" checked> Read questions aloud</label>
-  <button class="full" onclick="restoreQ()">Restore deleted questions</button>
-  <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
-    <div><b>Privacy Policy</b><br><small style="color:var(--mute)">How data and ads are handled</small></div>
-    <button class="pbtn" style="width:auto;padding:8px 16px;border-radius:12px;background:var(--acc);color:#fff" onclick="openPrivacyPolicy()">View</button>
-  </div>
+  <div class="sec plist" id="pPrefBox"><h4>Preferences</h4>
+  <label class="prow sw"><span class="pic" data-i="shuffle"></span><span class="ptx"><b>Shuffle questions</b><small>Random order in Mock interviews</small></span><input type="checkbox" id="shuf" class="pf"></label>
+  <label class="prow sw"><span class="pic" data-i="speaker"></span><span class="ptx"><b>Read questions aloud</b><small>The phone reads each question</small></span><input type="checkbox" id="rd" class="pf" checked></label>
+  <button class="prow plink" onclick="editProfile()"><span class="pic" data-i="edit"></span><span class="ptx"><b>Edit my details</b><small>Name, role, education, skills</small></span><span class="chev" data-i="right"></span></button>
+  <button class="prow plink" onclick="restoreQ()"><span class="pic" data-i="undo"></span><span class="ptx"><b>Restore deleted questions</b><small>Bring back default questions you removed</small></span><span class="chev" data-i="right"></span></button>
+  <button class="prow plink" onclick="openPrivacyPolicy()"><span class="pic" data-i="shield"></span><span class="ptx"><b>Privacy Policy</b><small>How data and ads are handled</small></span><span class="chev" data-i="right"></span></button>
   </div>
 </section>
 
@@ -153,8 +149,8 @@
   <div class="ansbox" id="ansBox" role="textbox" aria-readonly="true" aria-label="Your answer" aria-live="polite"></div>
   <div class="mtools"><div class="vlive mhintt hidden" id="mHintT" aria-live="polite"></div><button type="button" class="hintb" id="mHint" onclick="mHint()">Hint</button><button type="button" class="hintb" id="mTypeB" onclick="mType()">Type</button><button type="button" class="hintb" onclick="mClear()">Clear</button></div>
   <div class="dots" id="mDots"></div>
-  <div class="micwrap"><button class="mic" id="mic" data-i="mic" onclick="toggleMic()" aria-label="Speak to type" title="Speak to type"></button><div class="note" id="micSt" aria-live="polite"></div></div>
-  <div class="row"><button data-i="left" onclick="step(-1)" aria-label="Previous" title="Previous"></button><button class="ok" id="nBtn" data-i="right" onclick="step(1)" aria-label="Next" title="Next"></button></div>
+  <div class="mctl"><button class="mnav" data-i="left" onclick="step(-1)" aria-label="Previous question" title="Previous"></button><button class="mic" id="mic" data-i="mic" onclick="toggleMic()" aria-label="Speak to type" title="Speak to type"></button><button class="mnav ok" id="nBtn" data-i="right" onclick="step(1)" aria-label="Next question" title="Next"></button></div>
+  <div class="note mnote" id="micSt" aria-live="polite"></div>
 </section>
 
 <section class="scr hidden" id="feedback">

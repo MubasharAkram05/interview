@@ -107,24 +107,35 @@ export function alignToExpected(heardText, expectedText, { partial = false, cfg 
  *  'dim' = not said (missed or not reached yet).
  * Uses the ops of alignToExpected. Time O(n + m).
  */
-export function wordStatus(r) {
+export const wordStatus = r => wordDetail(r).st;
+
+/**
+ * wordStatus plus what was heard for each red word: { st, heard: { [j]: 'words said instead' } }.
+ * Extras are given to the red words in order; leftover extras go to the last red word of the gap.
+ */
+export function wordDetail(r) {
   const st = new Array(r.total).fill('dim');
+  const heard = {};
   let miss = [];
-  let extra = 0;
+  let extra = [];
   const flush = () => {
-    miss.slice(0, extra).forEach(j => (st[j] = 'bad'));
+    const k = Math.min(miss.length, extra.length);
+    for (let t = 0; t < k; t++) {
+      st[miss[t]] = 'bad';
+      heard[miss[t]] = (t === k - 1 ? extra.slice(t) : [extra[t]]).join(' ');
+    }
     miss = [];
-    extra = 0;
+    extra = [];
   };
   r.ops.forEach(o => {
     if (o.type === 'match' || o.type === 'fix') {
       flush();
       st[o.j] = 'ok';
-    } else if (o.type === 'extra') extra++;
+    } else if (o.type === 'extra') extra.push(o.heard);
     else miss.push(o.j);
   });
   flush();
-  return st;
+  return { st, heard };
 }
 
 const list = a => (a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);

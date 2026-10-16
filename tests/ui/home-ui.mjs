@@ -117,6 +117,7 @@ await p.evaluate(() => window.startMock());
 await p.waitForTimeout(400);
 check('mock page has level tabs and category tiles', (await p.locator('#mSeg button').count()) === 3 && (await p.locator('#mGrid .mt').count()) >= 4);
 check('no Start button on the Mock page', (await p.locator('#mStart').count()) === 0);
+check('no interview type is pre-selected', (await p.locator('#mGrid .mt.on').count()) === 0);
 const tiles = await p.$$eval('#mGrid .mt', bs => bs.map(b => b.getBoundingClientRect().height));
 check('tiles are big enough to tap (>= 44px)', tiles.every(h => h >= 44));
 await p.click('#mSeg button:nth-child(2)');

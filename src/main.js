@@ -56,13 +56,13 @@ import {
 } from './services/voice.js';
 import { voiceAccent, setAccentPref, corrections, removeCorrection, userVocab } from './services/voice-prefs.js';
 import { hintWords, rareWords, norm } from './services/vocab.js';
-import { alignToExpected, introTemplate, isIntroQuestion, wordStatus } from './services/expected.js';
+import { alignToExpected, introTemplate, isIntroQuestion, wordStatus, wordDetail } from './services/expected.js';
 import { ROLES, EXPERIENCE, MAX_SKILLS, ROLE_SKILLS, nameError, cleanTags, buildProfile, setupDone, catToRole, autoWords, LEGACY_DEMO_NAMES } from './services/setup.js';
 import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
 
 import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
-import { questionOfDay } from './services/qotd.js';
+import { questionOfDay, bumpStreak, streakNow } from './services/qotd.js';
 import { nativeAdLayout } from './services/native-info.js';
 import { formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
 import { playTapSound, playSuccessChime, playErrorBeep } from './services/sound.js';
@@ -94,6 +94,10 @@ const IC = {
   download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
   trash: 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',
   plus: 'M12 5v14M5 12h14',
+  chart: 'M6 20V14M12 20V8M18 20V4',
+  globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20',
+  shuffle: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
+  shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
   moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
   sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4'
 };
@@ -458,9 +462,11 @@ function fillHx() {
   if (res) {
     const { pick, changed } = res;
     if (changed) setItem('is_qotd', pick);
+    const qs = streakNow(getItem('is_qstreak', null));
+    const fire = qs ? `<span class="qstreak${pick.done ? ' on' : ''}" title="Days in a row">🔥 ${qs} day${qs === 1 ? '' : 's'}</span>` : '';
     o += pick.done
-      ? card('qotd done', '✅', 'Question of the day', `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="sm" id="qotdBtn">Practice again</button>', '<small class="qdone">Done today</small>')
-      : card('qotd', '💡', 'Question of the day', `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="pri sm" id="qotdBtn">Practice it</button>', `<small>${esc(CL(pick.c, pick.lv))}</small>`);
+      ? card('qotd done', '✅', `Question of the day${fire}`, `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="sm" id="qotdBtn">Practice again</button>', '<small class="qdone">Done today</small>')
+      : card('qotd', '💡', `Question of the day${fire}`, `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="pri sm" id="qotdBtn">Practice it</button>', `<small>${esc(qs ? 'Practise today to keep your streak' : CL(pick.c, pick.lv))}</small>`);
   } else {
     o += card('qotd', '💡', 'Question of the day', '<p class="hce">No question today. Add your own in Practice.</p>', '<button class="sm" onclick="startPractice()">Open Practice</button>');
   }
@@ -478,6 +484,7 @@ function markQotd(c, lv, q) {
   const s = getItem('is_qotd', null);
   if (!s || s.done || s.c !== c || s.lv !== lv || s.q !== q) return;
   setItem('is_qotd', { ...s, done: 1 });
+  setItem('is_qstreak', bumpStreak(getItem('is_qstreak', null), s.d));
 }
 
 function pFinish1() {
@@ -704,6 +711,7 @@ function showProfile() {
   $('pN').textContent = h.length;
   $('pB').textContent = h.length ? `${Math.max(...h.map(x => x.s))}/10` : '-';
   $('pAvg').textContent = h.length ? (h.reduce((t, x) => t + x.s, 0) / h.length).toFixed(1) : '-';
+  $('pHistSub').textContent = h.length ? `${h.length} interview${h.length === 1 ? '' : 's'} · last ${h[h.length - 1].s}/10` : 'No interviews yet';
 
   $('pKv').innerHTML = ABOUT.map(([t, f]) => {
     const v = f(p);
@@ -999,8 +1007,8 @@ function renderMockPicker() {
 
   $('mGrid').innerHTML = Object.keys(CATS).map(c => {
     const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
-    const on = c === c0;
-    return `<button class="mt${on ? ' on' : ''}" data-c="${c}" aria-pressed="${on}" style="--c:${col}"><span class="mc"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><i class="mck" aria-hidden="true"></i></span><span class="pl">${esc(CATS[c])}</span></button>`;
+    // No tile is pre-selected: tapping one starts the interview.
+    return `<button class="mt" data-c="${c}" style="--c:${col}"><span class="mc"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><i class="mck" aria-hidden="true"></i></span><span class="pl">${esc(CATS[c])}</span></button>`;
   }).join('');
   $('mGrid').querySelectorAll('.mt').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1304,14 +1312,7 @@ async function prepareVoice(notify) {
   let st = await micPermission();
   if (st === 'granted') return true;
   if (st === 'denied') return micBlocked();
-  const go = await ask(
-    'Allow microphone?',
-    'The mic is used only while you tap record, to turn your speech into text. The app does not save your audio.',
-    'Continue',
-    'Not now',
-    '🎙️'
-  );
-  if (!go) return false;
+  // Straight to Android's own permission dialog (no second popup from the app).
   st = await requestMicPermission();
   if (st === 'granted') return true;
   if (st === 'denied') return micBlocked();
@@ -1869,14 +1870,28 @@ function mRender(i, live = '') {
     return;
   }
   const { r } = mAlign(i, live);
-  const st = wordStatus(r);
+  const { st, heard } = wordDetail(r);
+  // While the mic is on, only the part already reached is shown (the rest stays hidden, so it is
+  // still from memory); when it stops, the words not said show dull.
+  const reach = mMicOn ? st.reduce((n, s, j) => (s !== 'dim' ? j : n), -1) : st.length - 1;
   const CLS = { ok: 'said', bad: 'wrongw', dim: 'notsaid' };
   box.innerHTML = mWords(ref)
-    .map((w, j) => `<span class="aw ${CLS[st[j]]}">${esc(w)}</span>`)
-    .join(' ');
+    .slice(0, reach + 1)
+    .map((w, j) =>
+      st[j] === 'bad'
+        ? `<button type="button" class="aw wrongw" data-heard="${esc(heard[j] || '')}" aria-label="${esc(w)}: you said ${esc(heard[j] || '')}">${esc(w)}</button>`
+        : `<span class="aw ${CLS[st[j]]}">${esc(w)}</span>`
+    )
+    .join(' ') || '<span class="aph">Listening...</span>';
   const last = box.querySelectorAll('.aw.said, .aw.wrongw');
   const x = last[last.length - 1];
   if (x && x.offsetTop + x.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = x.offsetTop - box.clientHeight / 2;
+}
+
+// The last word of the saved answer has been said (right or wrong).
+function mDone(i, live = '') {
+  const st = wordStatus(mAlign(i, live).r);
+  return st.length > 0 && st[st.length - 1] !== 'dim';
 }
 
 // answers[i] (used for feedback): the saved-answer words the user said, in order.
@@ -1993,10 +2008,19 @@ async function toggleMic() {
       mockNote(st === 'ready' || st === 'listening' ? 'Speak now. Say your answer from memory.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : st === 'stopping' ? 'Finishing...' : '');
     },
     onLevel: db => micLevel($('mic'), db),
-    onPartial: text => mRender(myIdx, text), // shown in the box at once, saved when final
+    onPartial: text => {
+      mRender(myIdx, text); // shown in the box at once, saved when final
+      if (ref && mDone(myIdx, text)) stopListening(); // last word reached: the final still comes
+    },
     onFinal: text => {
       H.push(...mWords(text).map(w => ({ w })));
       mCommit(myIdx);
+      if (ref && mMicOn && mDone(myIdx)) {
+        // The whole answer is said: stop the mic by itself.
+        mMicOn = false;
+        $('mic').classList.remove('on');
+        stopListening();
+      }
     },
     onEnd: ({ reason, message }) => {
       $('mic').style.removeProperty('--lvl');
@@ -2313,6 +2337,13 @@ function initEventListeners() {
   // Mock interview actions
   $('qSpkBtn')?.addEventListener('click', () => reveal(cur[idx].q, true));
   $('mPrevBtn')?.addEventListener('click', () => step(-1));
+  // Tap a red word: what the phone heard instead.
+  $('ansBox')?.addEventListener('click', e => {
+    const b = e.target.closest('.aw.wrongw');
+    if (!b || $('ansBox').isContentEditable) return;
+    playTapSound();
+    toast(b.dataset.heard ? `You said "${b.dataset.heard}" instead of "${b.textContent}"` : `"${b.textContent}" was not said right`);
+  });
 
   // Feedback actions
   $('fbExportBtn')?.addEventListener('click', exportT);
