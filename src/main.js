@@ -49,7 +49,9 @@ import {
   requestMicPermission,
   startListening,
   stopListening,
-  isListening
+  cancelListening,
+  isListening,
+  voiceErrorText
 } from './services/voice.js';
 import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
@@ -130,7 +132,6 @@ let csC = '';
 let favOpen = false;
 let PW = [];
 let pRv = null;
-let base = '';
 let rv = null;
 let voiceOK = false; // phone has a speech recognition service
 let pSpoken = []; // practice read-along: final text of each listening session on this card
@@ -942,7 +943,9 @@ function hlTo(k) {
 
 // Stop voice input, read aloud and word animations (screen change, app in background).
 function stopMedia() {
-  stopListening();
+  pMicOn = false;
+  mMicOn = false;
+  cancelListening();
   stopSpeaking();
   clearInterval(rv);
   clearTimeout(rv);
@@ -1130,17 +1133,30 @@ function pPaint(state, pos) {
 
 const pTarget = () => PW.map(x => tokens(x.textContent)[0] || '');
 
-function pStopReading(summary) {
-  pMicOn = false;
-  stopListening();
-  $('pMic').classList.remove('on');
-  if (!summary) return;
-  const r = bestAlignment(pTarget(), pSpoken, []);
-  const said = r.state.filter(x => x === 'ok').length;
-  if (!said) return;
-  const missed = r.state.filter(x => x === 'miss').length;
-  const pct = Math.round(readingScore(r.state) * 100);
-  toast(missed ? `${pct}% read. ${missed} word${missed === 1 ? '' : 's'} missed (orange). Tap the mic to try again.` : `${pct}% read. Keep going!`);
+// Words to help the speech service (Android 13+): every word of the answer plus short phrases.
+function biasFor(text) {
+  const words = String(text || '').match(/[A-Za-z][A-Za-z.+#'-]*/g) || [];
+  const out = new Set(words.filter(w => w.length > 2).map(w => w.replace(/[.'-]+$/, '')));
+  String(text || '')
+    .split(/[.!?;:\n]+/)
+    .map(x => x.trim().split(/\s+/).slice(0, 8).join(' '))
+    .filter(x => x.split(' ').length > 2)
+    .forEach(x => out.add(x));
+  return [...out].slice(0, 200);
+}
+
+// Mic button grows a little with your voice, so you can see it is hearing you.
+function micLevel(el, db) {
+  const v = Math.max(0, Math.min(1, (db + 2) / 12));
+  el.style.setProperty('--lvl', v.toFixed(2));
+}
+
+function pSummary(state) {
+  const said = state.filter(x => x === 'ok').length;
+  if (!said) return null;
+  const missed = state.filter(x => x === 'miss').length;
+  const pct = Math.round(readingScore(state) * 100);
+  return { pct, missed };
 }
 
 // Practice: read the answer aloud. Like Duolingo, words light up as you say them, small
@@ -1149,7 +1165,9 @@ function pStopReading(summary) {
 async function togglePMic() {
   playTapSound();
   if (pMicOn || isListening()) {
-    pStopReading(true);
+    pMicOn = false;
+    $('pMic').classList.remove('on');
+    stopListening(); // the last phrase still arrives, then onEnd shows the result
     return;
   }
   stopSpeaking();
@@ -1163,60 +1181,66 @@ async function togglePMic() {
   pMicOn = true;
   const card = P.i;
   const target = pTarget();
-  let empty = 0;
+  const text = ansText(P.list[P.i]);
+  let finished = false;
+  const here = () => cs === 'practice' && P.i === card;
   $('pMic').classList.add('on');
   toast('Listening... read the answer aloud');
 
-  const done = () => {
-    pMicOn = false;
-    stopListening(); // runs onEnd now, which saves the last text
-    $('pMic').classList.remove('on');
-    const r = bestAlignment(target, pSpoken, []);
+  const show = (alts = []) => {
+    const r = bestAlignment(target, pSpoken, alts);
     pPaint(r.state, r.pos);
-    const pct = Math.round(readingScore(r.state) * 100);
-    const missed = r.state.filter(x => x === 'miss').length;
-    if (pct >= 80) {
+    return r;
+  };
+  const complete = () => {
+    if (finished) return;
+    finished = true;
+    pMicOn = false;
+    $('pMic').classList.remove('on');
+    stopListening();
+    const sm = pSummary(show().state) || { pct: 0, missed: 0 };
+    if (sm.pct >= 80) {
       playSuccessChime();
       fireConfetti();
     }
-    toast(missed ? `Finished! ${pct}% correct. ${missed} word${missed === 1 ? '' : 's'} missed (orange).` : 'Perfect! You read it all 🎉');
+    toast(sm.missed ? `Finished! ${sm.pct}% correct. ${sm.missed} word${sm.missed === 1 ? '' : 's'} missed (orange).` : 'Perfect! You read it all 🎉');
   };
 
-  const listen = async () => {
-    const started = await startListening({
-      onText: (t, alts) => {
-        if (!pMicOn || cs !== 'practice' || P.i !== card) return;
-        const r = bestAlignment(target, pSpoken, alts);
-        pPaint(r.state, r.pos);
-        if (r.pos >= target.length) done(); // stopping saves this text via onEnd
-      },
-      onEnd: ({ text, alts, reason }) => {
-        if (P.i !== card || cs !== 'practice') {
-          pMicOn = false;
-          return;
-        }
-        if (text) {
-          pSpoken.push(bestAlignment(target, pSpoken, alts && alts.length ? alts : [text]).text);
-          empty = 0;
-        } else empty++;
-        if (!pMicOn) return; // finished or stopped by the user
-        if (reason === 'stopped') return pStopReading(false);
-        // Android ends a session after a short pause. Keep listening, unless nothing was
-        // heard twice in a row or the mic failed.
-        if (reason === 'ended' && empty < 2) {
-          setTimeout(() => pMicOn && cs === 'practice' && P.i === card && listen(), 250);
-          return;
-        }
-        pStopReading(true);
-        if (!pSpoken.length) toast("Didn't catch that. Tap the mic and try again.");
+  const started = await startListening({
+    bias: biasFor(text),
+    silenceMs: 3500,
+    onLevel: db => micLevel($('pMic'), db),
+    onPartial: alts => {
+      if (!here() || finished) return;
+      if (show(alts).pos >= target.length) {
+        pSpoken.push(bestAlignment(target, pSpoken, alts).text);
+        complete();
       }
-    });
-    if (!started) {
-      pStopReading(false);
-      toast('Could not start voice input. Please try again.');
+    },
+    onSegment: alts => {
+      if (!here() || finished) return;
+      pSpoken.push(bestAlignment(target, pSpoken, alts).text);
+      if (show().pos >= target.length) complete();
+    },
+    onEnd: ({ reason, code, heard }) => {
+      $('pMic').style.removeProperty('--lvl');
+      if (finished || !here()) {
+        pMicOn = false;
+        return;
+      }
+      pMicOn = false;
+      $('pMic').classList.remove('on');
+      if (reason === 'error') return toast(voiceErrorText(code));
+      if (!heard && !pSpoken.length) return toast("Didn't catch that. Tap the mic and try again.");
+      const sm = pSummary(show().state);
+      if (sm) toast(sm.missed ? `${sm.pct}% read. ${sm.missed} word${sm.missed === 1 ? '' : 's'} missed (orange). Tap the mic to try again.` : `${sm.pct}% read. Keep going!`);
     }
-  };
-  listen();
+  });
+  if (!started) {
+    pMicOn = false;
+    $('pMic').classList.remove('on');
+    toast('Could not start voice input. Please try again.');
+  }
 }
 
 // Practice: listen to the answer with the phone's text-to-speech voice.
@@ -1229,7 +1253,8 @@ async function readA() {
     hlTo(0);
     return;
   }
-  stopListening();
+  pMicOn = false;
+  cancelListening();
   pFinish();
 
   const w = PW.map(x => x.textContent);
@@ -1370,7 +1395,9 @@ function startInterview() {
 }
 
 function showQ() {
-  stopListening();
+  mMicOn = false;
+  $('mic').classList.remove('on');
+  stopListening(); // the last phrase of the previous question is still saved to it
   $('qCount').textContent = `${idx + 1}/${cur.length}`;
   reveal(cur[idx].q, $('rd').checked);
   $('ansBox').value = answers[idx] || '';
@@ -1519,6 +1546,14 @@ function fixTerms(t) {
 // Mock interview: speak your answer and it is typed into the answer box.
 let mMicOn = false; // mock interview: keep listening through pauses until the user taps stop
 
+// Words likely in an interview answer: tech terms the app knows and the user's skills and
+// work topics. No name, university or other personal details are sent as hints.
+function mockBias() {
+  const p = profiles[active] || {};
+  const own = ['role', 'skills', 'certs', 'project'].map(k => p[k] || '').join(' ');
+  return [...Object.values(FIX), ...biasFor(own)].slice(0, 200);
+}
+
 async function toggleMic() {
   playTapSound();
   const note = m => {
@@ -1526,9 +1561,9 @@ async function toggleMic() {
   };
   if (mMicOn || isListening()) {
     mMicOn = false;
-    stopListening();
     $('mic').classList.remove('on');
     note('');
+    stopListening(); // the last phrase still arrives and is added to the answer
     return;
   }
   stopSpeaking();
@@ -1539,46 +1574,42 @@ async function toggleMic() {
   if (cs !== 'interview') return;
 
   const myIdx = idx;
-  let empty = 0;
+  // Text that is final; live words are shown after it.
+  let kept = $('ansBox').value;
+  const join = (a, b) => (a && b ? a.replace(/\s+$/, '') + ' ' + b : a || b);
+  const write = v => {
+    answers[myIdx] = v.trim(); // kept even if the user moves on mid-sentence
+    if (idx === myIdx && cs === 'interview') $('ansBox').value = v;
+    saveScr();
+  };
   mMicOn = true;
   $('mic').classList.add('on');
   note('Listening... speak now. Tap the mic when you finish.');
 
-  const listen = async () => {
-    base = $('ansBox').value;
-    if (base && !/\s$/.test(base)) base += ' ';
-    const started = await startListening({
-      onText: t => {
-        if (idx !== myIdx || cs !== 'interview') return;
-        $('ansBox').value = base + fixTerms(t);
-        answers[myIdx] = $('ansBox').value.trim(); // keep it even if the user moves on mid-sentence
-      },
-      onEnd: ({ text, reason }) => {
-        if (idx === myIdx && text) {
-          $('ansBox').value = base + fixTerms(text);
-          answers[myIdx] = $('ansBox').value.trim();
-          saveScr();
-          empty = 0;
-        } else if (!text) empty++;
-        base = $('ansBox').value;
-        // Android ends a session after a short pause; keep going for long answers.
-        if (mMicOn && reason === 'ended' && empty < 2 && idx === myIdx && cs === 'interview') {
-          setTimeout(() => mMicOn && idx === myIdx && cs === 'interview' && listen(), 250);
-          return;
-        }
-        const heard = !!$('ansBox').value.trim();
-        mMicOn = false;
-        $('mic').classList.remove('on');
-        note(heard || reason === 'stopped' ? '' : "Didn't catch that. Tap the mic and try again, or type your answer.");
-      }
-    });
-    if (!started) {
+  const started = await startListening({
+    bias: [...mockBias(), ...biasFor(cur[myIdx] && cur[myIdx].q)],
+    silenceMs: 4000,
+    onLevel: db => micLevel($('mic'), db),
+    onPartial: alts => write(join(kept, fixTerms(alts[0]))),
+    onSegment: alts => {
+      kept = join(kept, fixTerms(alts[0]));
+      write(kept);
+    },
+    onEnd: ({ reason, code, heard }) => {
+      $('mic').style.removeProperty('--lvl');
+      write(kept);
       mMicOn = false;
       $('mic').classList.remove('on');
-      note('Could not start voice input. Please try again or type your answer.');
+      if (idx !== myIdx || cs !== 'interview') return;
+      if (reason === 'error') note(voiceErrorText(code));
+      else note(heard || reason === 'stopped' ? '' : "Didn't catch that. Tap the mic and try again, or type your answer.");
     }
-  };
-  listen();
+  });
+  if (!started) {
+    mMicOn = false;
+    $('mic').classList.remove('on');
+    note('Could not start voice input. Please try again or type your answer.');
+  }
 }
 
 // Evaluation & Feedback Scoring
@@ -1649,7 +1680,8 @@ function mistakes(user, ref) {
 
 function finish() {
   clearInterval(ti);
-  stopListening();
+  mMicOn = false;
+  cancelListening();
 
   const done = answers.filter(Boolean);
   const words = done.reduce((s, a) => s + a.split(/\s+/).length, 0);
