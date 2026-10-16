@@ -73,8 +73,8 @@
   <label class="vlab" for="vAccent">Voice accent</label>
   <select id="vAccent" onchange="saveVoiceAccent(this.value)"></select>
   <label class="opt"><input type="checkbox" id="vSmart" onchange="saveSmart(this.checked)"> Smart name matching</label>
-  <label class="vlab" for="vWords">My words <small>(one per line, for example: Mubashar or Pakpattan: Pak pattan)</small></label>
-  <textarea id="vWords" class="vwords" spellcheck="false" maxlength="4000" placeholder="Your name, your city, tools you use"></textarea>
+  <label class="vlab" for="vWords">My words <small>Add names and rare words here, one per line (for example Mubashar, Pakpattan, Kubernetes)</small></label>
+  <textarea id="vWords" class="vwords" spellcheck="false" maxlength="4000" placeholder="Add names and rare words here"></textarea>
   <button class="full" onclick="saveMyWords()">Save my words</button>
   <div class="vmem"><b>Learned corrections</b><div id="vMem"></div></div>
   </div>

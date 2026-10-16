@@ -1,11 +1,12 @@
 // Voice settings and personal vocabulary, stored on the phone only (localStorage via storage.js):
-//   is_voice_accent  'pk' | 'in' | 'us' | 'uk'
+//   is_voice_accent  'in' | 'pk' | 'us' | 'uk'
 //   is_voice_smart   true/false  (Smart name matching)
-//   is_voice_words   My words text, one per line ("Pakpattan: Pakistan" adds an alias)
+//   is_voice_words   My words text, one per line ("Pakpattan: pak pattan" adds an alias)
 //   is_voice_mem     learned corrections [{ prev, heard, fix, at }]
 import { getItem, setItem } from './storage.js';
 import { DEFAULT_VOICE_ACCENT, VOICE_ACCENTS } from '../config/app.js';
 import { buildVocab, parseMyWords } from './vocab.js';
+import { DEMO } from '../data/questions.js';
 
 const MAX_MEMORY = 50;
 
@@ -46,21 +47,29 @@ export function removeCorrection(i) {
   setItem('is_voice_mem', list);
 }
 
-// Cached vocabulary: rebuilt only when My words, the profile, the saved answers or the question change.
+/**
+ * The profile name used for voice, or '' for the built-in demo profile ("Alex Khan" is sample data,
+ * not the user: its name must never become a chip, a hint or a name-matching target).
+ */
+export function realName(profile = {}) {
+  const name = String(profile.name || '').trim();
+  if (!name) return '';
+  const demo = DEMO[name];
+  return demo && Object.keys(demo).every(k => demo[k] === profile[k]) ? '' : name;
+}
+
+// Cached candidate list: rebuilt only when My words, the profile name or learned corrections change.
 let cache = { key: '', vocab: null };
-export function userVocab({ profile = {}, answers = [], question = '' } = {}) {
+export function userVocab(profile = {}) {
   const words = myWordsText();
-  const key = JSON.stringify([words, profile.name || '', profile.city || '', answers.length, answers.join('\u0001').length, answers.slice(-3), question]);
-  if (cache.key !== key) {
-    cache = {
-      key,
-      vocab: buildVocab({ myWords: parseMyWords(words), profile: { name: profile.name, city: profile.city }, answers, questions: [question] })
-    };
-  }
+  const name = realName(profile);
+  const memory = corrections();
+  const key = JSON.stringify([words, name, memory]);
+  if (cache.key !== key) cache = { key, vocab: buildVocab({ myWords: parseMyWords(words), name, memory }) };
   return cache.vocab;
 }
 
-/** Up to 6 chip words: My words first, then the profile name and hometown. */
+/** Up to 6 chip words: My words first, then the profile name. Empty when there are none. */
 export function chipWords(profile = {}) {
   const out = [];
   const add = w => {
@@ -68,7 +77,6 @@ export function chipWords(profile = {}) {
     if (t && t.length <= 24 && !out.some(x => x.toLowerCase() === t.toLowerCase()) && out.length < 6) out.push(t);
   };
   parseMyWords(myWordsText()).forEach(m => add(m.word));
-  String(profile.name || '').split(/\s+/).forEach(add);
-  String(profile.city || '').split(/,/).forEach(add);
+  realName(profile).split(/\s+/).forEach(add);
   return out;
 }

@@ -118,3 +118,20 @@
 - [ ] Add `app-ads.txt` if you have a website
 - [ ] Keep Capacitor, AdMob plugin and Google Mobile Ads SDK updated (Play target API rules change every year)
 - [ ] Keep `PRIVACY_POLICY.md`, the in-app policy and the website identical after any change
+
+## Voice fix (Mock interview)
+
+- [x] Own `VoicePlugin` for everything (permission, settings, sessions); `@capacitor-community/speech-recognition` removed
+- [x] Recognizer: en-IN default (en-PK, en-US, en-GB in settings), prefer offline off, 5 guesses, partial results, silence 4000/3000 ms, minimum 15000 ms, language detection off, hints on Android 13+
+- [x] No restart loop: next session only after real speech; one empty session stops with "Tap the mic to continue"
+- [x] Partials only in the grey live bar; one final per session; noise gate (max RMS), confidence 0.4, 5 s dedupe with overlap trim
+- [x] N-best by My words / name overlap, else confidence; never merged
+- [x] Safe name matching: only My words, profile name, learned fixes; places never swapped; max 3 changes per sentence; phonetic buckets
+- [x] Demo profile name ("Alex Khan") no longer used for chips, hints or matching
+- [x] Text inserted at the cursor; correction memory with Undo; Open settings button when the mic is blocked
+- [x] Debug voice report per session (language, n-best + confidence, max RMS, drops, replacements, committed text)
+- [x] CI fails if the AAB is 40 MB or more
+- [ ] Voice fix tested on a real phone (GUIDE section 16 test script): **NOT CHECKED**
+- [ ] Recognizer honours the silence extras on the test phone: **NOT CHECKED** (session length in the voice report)
+- [ ] Noise gate level (5 dB) right for the test phone: **NOT CHECKED** (max RMS in the voice report)
+

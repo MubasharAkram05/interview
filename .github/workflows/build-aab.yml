@@ -137,6 +137,13 @@ jobs:
           ! grep -q " NO$" $R
           ! grep -q "YES-BAD" $R
 
+      - name: Size budget (AAB must stay under 40 MB)
+        run: |
+          AAB=$(ls app/build/outputs/bundle/release/*.aab | head -1)
+          BYTES=$(stat -c%s "$AAB")
+          echo "AAB size: $BYTES bytes ($((BYTES / 1024 / 1024)) MB), limit 40 MB" | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$BYTES" -lt 41943040
+
       - name: Verify build (package, SDK, version, permissions, 16 KB, signing)
         run: |
           BT="$ANDROID_HOME/build-tools/$BUILD_TOOLS"

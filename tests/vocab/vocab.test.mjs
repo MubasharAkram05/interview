@@ -1,103 +1,78 @@
-// vocab.js: personal vocabulary correction. Run: node tests/vocab/vocab.test.mjs
-import { buildVocab, correctText, parseMyWords, snapToReference, pickBest, isDuplicatePhrase, hintWords, learnFromEdit, similarity, VOCAB_CONFIG } from '../../src/services/vocab.js';
+// vocab.js: safe name matching. Run: node tests/vocab/vocab.test.mjs
+import { buildVocab, correctText, parseMyWords, snapToReference, hintWords, rareWords, learnFromEdit, similarity, VOCAB_CONFIG } from '../../src/services/vocab.js';
 
 const out = [];
 const check = (name, ok, extra = '') => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : '   ' + extra}`);
-const eq = (name, got, want) => check(name, got === want, `got "${got}" want "${want}"`);
 
-const profile = { name: 'Mubashar Akram', city: 'Pakpattan', skills: 'JavaScript, React, AWS' };
-const myWords = parseMyWords('Mubashar\nPakpattan\nDevOps');
-const vocab = buildVocab({ myWords, profile, answers: ['I built a REST API with Node.js and deployed it on AWS using Kubernetes.'], questions: ['Introduce yourself in 2 minutes.'] });
-const fix = (t, o) => correctText(t, vocab, o).text;
+const v = buildVocab({ myWords: parseMyWords('Mubashar\nPakpattan\nKubernetes\nDevOps: dev ops'), name: 'Mubashar Akram' });
+const fix = t => correctText(t, v).text;
+const same = (name, t) => check(name, fix(t) === t, `"${t}" -> "${fix(t)}"`);
+const becomes = (name, t, want) => check(name, fix(t) === want, `"${t}" -> "${fix(t)}" (want "${want}")`);
 
-// ---- Must become Mubashar / names
-eq('ubashar -> Mubashar', fix('I am ubashar'), 'I am Mubashar');
-eq('mubasher -> Mubashar', fix('I am mubasher'), 'I am Mubashar');
-eq('mu bashar -> Mubashar', fix('I am mu bashar'), 'I am Mubashar');
-eq('moobashar -> Mubashar', fix('I am moobashar'), 'I am Mubashar');
-eq('Mubasher (capital) -> Mubashar', fix('Mubasher here'), 'Mubashar here');
-eq('mubashar (lower) -> Mubashar (case)', fix('i am mubashar'), 'i am Mubashar');
-eq('akram -> Akram (case)', fix('mubashar akram'), 'Mubashar Akram');
-eq('pakpatan -> Pakpattan', fix('I am from pakpatan'), 'I am from Pakpattan');
-eq('pak pattan -> Pakpattan (merge)', fix('I am from pak pattan'), 'I am from Pakpattan');
-eq('punctuation kept: "mubasher," -> "Mubashar,"', fix('hello, mubasher, how are you'), 'hello, Mubashar, how are you');
+// No common-word replacement, places never swapped
+same('Pakpattan stays Pakpattan', 'I am from Pakpattan');
+same('Pakistan stays Pakistan (even with Pakpattan in My words)', 'I am from Pakistan');
+const v2 = buildVocab({ myWords: parseMyWords('Pakistan'), name: '' });
+check('Pakpattan never becomes Pakistan (Pakistan in My words)', correctText('I am from Pakpattan', v2).text === 'I am from Pakpattan');
+same('common word "official" outside a name slot stays', 'the official website');
+same('common word "wishing" stays', 'I am wishing you luck');
+same('"I am from" is not a name slot', 'I am from Lahore');
+same('"I am working" is not a name slot (lowercase)', 'I am working hard');
+same('"Python" stays (not close to any My word)', 'I know Python');
+same('numbers never change', 'I have 3 years of experience');
+same('short words never change', 'I am at it');
+same('a normal sentence is untouched', 'I handled the deadline with my team');
 
-// ---- Terms
-eq('a w s -> AWS', fix('I know a w s well'), 'I know AWS well');
-eq('dev ops -> DevOps', fix('I like dev ops'), 'I like DevOps');
-eq('aws -> AWS (case)', fix('I used aws'), 'I used AWS');
-eq('kubernetis -> Kubernetes', fix('I used kubernetis'), 'I used Kubernetes');
-eq('cubernetes -> Kubernetes', fix('deploy on cubernetes'), 'deploy on Kubernetes');
-eq('git hub -> GitHub', fix('my code is on git hub'), 'my code is on GitHub');
-eq('java script -> JavaScript', fix('I write java script'), 'I write JavaScript');
-eq('type script -> TypeScript', fix('and type script'), 'and TypeScript');
-eq('mongo db -> MongoDB', fix('I used mongo db'), 'I used MongoDB');
-eq('post gre sql stays readable (no bad merge)', fix('post office'), 'post office');
+// Close spellings and sounds
+becomes('rare misspelling of the name is fixed', 'I am Mubashir Akram', 'I am Mubashar Akram');
+becomes('misspelled hometown (not a place word) is fixed', 'I live in Pakpatan', 'I live in Pakpattan');
+becomes('lowercase name gets capitals', 'my name is mubashar', 'my name is Mubashar');
+becomes('split name is joined', 'my name is mu bashar', 'my name is Mubashar');
+becomes('My words alias (exact)', 'I use dev ops daily', 'I use DevOps daily');
+becomes('Kubernetes misspelled', 'I deploy on kubernates', 'I deploy on Kubernetes');
 
-// ---- Name slot
-eq('my name is wishing -> my name is Mubashar', fix('my name is wishing'), 'my name is Mubashar');
-eq('My name is official Akram -> Mubashar Akram', fix('My name is official Akram'), 'My name is Mubashar Akram');
-eq('myself wishing -> myself Mubashar', fix('myself wishing'), 'myself Mubashar');
-eq('name slot keeps a common next word ("and")', fix('my name is wishing and I code'), 'my name is Mubashar and I code');
-eq('"myself as a developer" unchanged', fix('I see myself as a developer'), 'I see myself as a developer');
-eq('"myself working as" unchanged', fix('I see myself working as a lead'), 'I see myself working as a lead');
-eq('name slot: already right stays', fix('my name is Mubashar'), 'my name is Mubashar');
-eq('name slot off with smart=false', correctText('my name is wishing', vocab, { smart: false }).text, 'my name is wishing');
-eq('no name slot after "I am"', fix('I am wishing'), 'I am wishing');
+// Name slot rule
+becomes('"my name is" + misspelled name', 'my name is Mubasher', 'my name is Mubashar');
+becomes('"I am" + capitalized misspelling is a name slot', 'I am Mobashar', 'I am Mubashar');
+same('"my name is" + unrelated word stays (no forced replacement)', 'my name is official');
+same('"my name is" + a different real name stays', 'my name is Ahmed');
+const vb = buildVocab({ name: 'Rose Akram' });
+check('name slot lets a common word match the name ("my name is Rows")', correctText('my name is Rows', vb).text === 'my name is Rose', correctText('my name is Rows', vb).text);
+check('same common word outside a name slot stays', correctText('rows of data', vb).text === 'rows of data');
 
-// ---- Must stay unchanged
-eq('"I am from Pakistan" unchanged', fix('I am from Pakistan'), 'I am from Pakistan');
-eq('"I am hard working" unchanged', fix('I am hard working'), 'I am hard working');
-eq('"I am official" unchanged', fix('I am official'), 'I am official');
-eq('"a student" unchanged', fix('I am a student'), 'I am a student');
-eq('numbers unchanged', fix('I have 2 years and 3.5 CGPA'), 'I have 2 years and 3.5 CGPA');
-eq('short common words unchanged', fix('it is on to me'), 'it is on to me');
-eq('common word "wishing" outside name slot unchanged', fix('I am wishing you luck'), 'I am wishing you luck');
-eq('place "India" unchanged', fix('I worked in India'), 'I worked in India');
-eq('unknown name far from vocab unchanged ("Abhishek")', fix('I am Abhishek'), 'I am Abhishek');
-eq('"IMO" unchanged', fix('IMO it is fine'), 'IMO it is fine');
-eq('empty text', fix(''), '');
+// Never a more common word, cap per sentence
+const vc = buildVocab({ myWords: parseMyWords('Hello') });
+check('never replaced by a more common word', correctText('I said Helo', vc).text === 'I said Helo');
+const many = buildVocab({ myWords: parseMyWords('Zaheer\nQadeer\nNadeer\nSabeer') });
+const r = correctText('Zaheerr Qadeerr Nadeerr Sabeerr met', many);
+check(`at most ${VOCAB_CONFIG.maxChangesPerSentence} changes per sentence`, r.changes.length === 3, JSON.stringify(r.changes));
+const r2 = correctText('Zaheerr Qadeerr. Nadeerr Sabeerr.', many);
+check('the cap is per sentence', r2.changes.length === 4, JSON.stringify(r2));
 
-// ---- Aliases (user-added)
-const v2 = buildVocab({ myWords: parseMyWords('Pakpattan: Pakistan'), profile });
-eq('explicit alias overrides place protection', correctText('I am from Pakistan', v2).text, 'I am from Pakpattan');
-eq('alias works with smart off', correctText('I am from Pakistan', v2, { smart: false }).text, 'I am from Pakpattan');
+// Smart off, learned corrections
+check('smart off: no fuzzy change', correctText('I am Mubashir Akram', v, { smart: false }).text === 'I am Mubashir Akram');
+check('smart off: alias still applies', correctText('dev ops', v, { smart: false }).text === 'DevOps');
+const vm = buildVocab({ name: 'Mubashar Akram', memory: [{ prev: 'am', heard: 'officer', fix: 'Mubashar' }, { prev: 'from', heard: 'pakistan', fix: 'Pakpattan' }] });
+check('learned correction applies', correctText('I am officer', vm).text === 'I am Mubashar');
+check('learned correction for a place needs the same previous word', correctText('I am from Pakistan', vm).text === 'I am from Pakpattan' && correctText('Pakistan is big', vm).text === 'Pakistan is big');
+check('changes say why', correctText('I am Mubashir', v).changes[0].why.includes('My word') || correctText('I am Mubashir', v).changes[0].why.includes('profile name'));
 
-// ---- Correction memory
-const mem = [{ prev: 'am', heard: 'official', fix: 'Mubashar' }];
-eq('memory applies after same previous word', correctText('I am official', vocab, { memory: mem }).text, 'I am Mubashar');
-eq('memory does not apply after another word', correctText('very official', vocab, { memory: mem }).text, 'very official');
-const learned = learnFromEdit('I am official from Pakistan', 'I am Mubashar from Pakistan');
-check('learnFromEdit finds the one changed word', learned && learned.prev === 'am' && learned.heard === 'official' && learned.fix === 'Mubashar');
-check('learnFromEdit ignores bigger edits', learnFromEdit('a b c', 'x y c') === null && learnFromEdit('a b', 'a b c') === null);
+// Hints, learning, Practice
+const h = hintWords(v);
+check('hints: My words first, then name, then tech list', h[0] === 'Mubashar' && h.includes('Akram') && h.includes('AWS') && h.indexOf('Akram') < h.indexOf('AWS'));
+check('hints: no duplicates, no sentences', new Set(h.map(x => x.toLowerCase())).size === h.length && h.every(x => x.split(' ').length <= 2));
+check('rareWords keeps rare words only', rareWords('I deployed Kubernetes on Pakistan servers').join() === 'deployed,Kubernetes', rareWords('I deployed Kubernetes on Pakistan servers').join());
+check('learnFromEdit finds one changed word', JSON.stringify(learnFromEdit('I am officer', 'I am Mubashar')) === JSON.stringify({ prev: 'am', heard: 'officer', fix: 'Mubashar' }));
+check('learnFromEdit ignores bigger edits', learnFromEdit('I am officer', 'Hello I am Mubashar') === null);
+check('Practice snap never adds words', snapToReference('I deploy on kubernates', 'I deploy on Kubernetes').text === 'I deploy on Kubernetes');
+check('similarity 0..1', similarity('abc', 'abc') === 1 && similarity('abc', 'xyz') === 0);
 
-// ---- Changes are reported
-const ch = correctText('I am mubasher', vocab).changes;
-check('changes report from/to/rule', ch.length === 1 && ch[0].from === 'mubasher' && ch[0].to === 'Mubashar');
-
-// ---- Practice snap
-const ref = 'My name is Mubashar Akram and I build web apps with React.';
-eq('practice snap: partly similar words snap to the saved answer', snapToReference('my name is mubasha akrum and I bild web apps', ref).text, 'my name is Mubashar Akram and I build web apps');
-eq('practice snap never adds words', snapToReference('my name', ref).text, 'my name');
-eq('practice snap leaves unrelated words', snapToReference('banana', ref).text, 'banana');
-
-// ---- Alternatives
-const best = pickBest(['I know a WS and dev box', 'I know AWS and DevOps'], vocab);
-check('pickBest prefers the alternative that fits the vocabulary', best.text === 'I know AWS and DevOps', best.text);
-const keep = pickBest(['I am from Pakistan', 'I am from Pakistan and I am a student at the university'], vocab);
-check('pickBest never picks a longer alternative that adds words', keep.index === 0);
-check('pickBest of empty list', pickBest([], vocab).text === '');
-
-// ---- Duplicates
-check('duplicate: same phrase', isDuplicatePhrase('I am from Pakistan', 'I am from Pakistan.'));
-check('duplicate: contained in the end of the box', isDuplicatePhrase('I am from Pakistan', '', 'Hello. I am Mubashar. I am from Pakistan'));
-check('duplicate: 90% similar', isDuplicatePhrase('I am Abhishek IMO akram', 'I am Abhishek IMO akrm'));
-check('not duplicate: new phrase', !isDuplicatePhrase('I am hard working', 'I am from Pakistan', 'I am from Pakistan'));
-
-// ---- Hints
-const hints = hintWords(vocab);
-check('hints start with my words and profile, max 100, no sentences', hints[0] === 'Mubashar' && hints.includes('Pakpattan') && hints.length <= VOCAB_CONFIG.maxHints && hints.every(h => h.split(' ').length <= 2));
-check('similarity tolerates a dropped first letter', similarity('ubashar', 'mubashar') >= 0.87);
+// Speed: phonetic and length buckets keep a long sentence fast
+const big = buildVocab({ myWords: parseMyWords(Array.from({ length: 300 }, (_, i) => `Word${String.fromCharCode(97 + (i % 26))}${i}`).join('\n')), name: 'Mubashar Akram' });
+const t0 = performance.now();
+for (let i = 0; i < 200; i++) correctText('I am Mubashir Akram and I am from Pakpattan and I know AWS and DevOps very well', big);
+const ms = (performance.now() - t0) / 200;
+check(`speed: ${ms.toFixed(2)} ms per sentence with 300 My words`, ms < 5);
 
 console.log(out.join('\n'));
 console.log(`${out.filter(l => l.startsWith('PASS')).length}/${out.length} passed`);

@@ -1,40 +1,50 @@
-// Personal vocabulary and voice text correction.
+// Safe name matching for voice text.
 //
-// The phone's speech service does not know names like "Mubashar" or "Pakpattan", so it writes the
-// closest word it knows ("ubashar", "mu bashar", "official"). This module fixes what it safely can:
-//   1. Builds a vocabulary: My words (+ aliases), profile name and hometown, interview/tech terms,
-//      and rare words from saved answers and the question.
-//   2. Corrects a heard text against it: exact aliases, learned corrections, split acronyms
-//      ("a w s"), split words ("mu bashar"), and near spellings of rare words (edit distance plus a
-//      sound code). Common English words, places and numbers are never changed automatically.
-//   3. Name slot: after "my name is" / "myself" the next word becomes the profile name if it is not
-//      already close to it.
-//   4. Practice: snaps heard words to the saved answer being read, in order, never adding words.
-// Pure functions (no DOM, no storage), so everything is unit tested in Node.
+// The phone's speech service does not know names like "Mubashar", so it writes the closest word it
+// knows ("Mubashir", "official"). This module fixes only what it safely can:
+//   - Candidates are ONLY: My words, the profile name, and words the user corrected before.
+//   - A heard word is replaced when it is close in spelling (normalized edit distance <= 0.35) or
+//     sounds the same (double metaphone), AND it is not a common English word. A common word is
+//     replaced only in a name slot ("my name is ...", "I am Xxx", "this is Xxx", "I'm Xxx"),
+//     or when it sounds like a My word AND is spelled very close to it.
+//   - Countries and cities are never changed ("Pakpattan" never becomes "Pakistan" and the other
+//     way round), numbers and words shorter than 3 letters are never changed, a word is never
+//     replaced by a more common word, and at most 3 words change per sentence.
+//   - Lookup uses sound-code and length buckets, so a sentence costs about O(words x bucket size),
+//     not O(words x vocabulary).
+// Pure functions (no DOM, no storage), unit tested in tests/vocab/vocab.test.mjs.
 
 import { distance } from 'fastest-levenshtein';
 import { doubleMetaphone } from 'double-metaphone';
 import COMMON_RAW from '../data/common-words.js';
-import { TERMS, PLACES } from '../data/voice-terms.js';
+import { PLACES, TECH_HINTS } from '../data/voice-terms.js';
 
 // All thresholds in one place. Similarity is 1 - editDistance / longerLength (0..1).
 export const VOCAB_CONFIG = {
-  replace: 0.78, // a rare heard word becomes a vocabulary word at this similarity
-  phoneticMin: 0.5, // sound codes match: still need at least this spelling similarity
-  strong: 0.9, // joining split words ("mu bashar") needs this
-  practiceSnap: 0.65, // Practice: heard word snaps to the saved answer word at this similarity
+  maxDistance: 0.35, // replace when normalized edit distance is at most this (similarity >= 0.65)
+  phoneticMinSim: 0.4, // same sound code still needs at least this spelling similarity
+  commonStrongSim: 0.75, // a common word outside a name slot: same sound AND at least this similar
+  mergeSim: 0.9, // "mu bashar" -> Mubashar: two heard words joined must be this close
   minLen: 3, // never touch words shorter than this
   maxLenGap: 3, // only compare words whose lengths differ by at most this
+  maxChangesPerSentence: 3,
   alignWindow: 6, // Practice: how far ahead in the saved answer to look
-  pickMargin: 1, // another alternative must score this much higher than the first one
-  dupSimilarity: 0.9, // a new phrase this similar to the last one is a duplicate
-  maxHints: 100 // words sent to the speech service as hints (Android 13+)
+  practiceSnap: 0.65, // Practice: heard word snaps to the saved answer word at this similarity
+  maxHints: 60 // strings sent to the speech service (Android 13+)
 };
 
 const COMMON = new Set(COMMON_RAW.split(' '));
 const PLACE_WORDS = new Set();
 PLACES.forEach(p => p.split(/\s+/).forEach(w => PLACE_WORDS.add(norm(w))));
-const NAME_TRIGGERS = [['my', 'name', 'is'], ['myself']];
+// Name slots: the word after these. For "i am", "im", "this is" only a capitalized word counts
+// ("I am Mubasher" yes, "I am from" no); after "my name is" any word.
+const NAME_TRIGGERS = [
+  { words: ['my', 'name', 'is'], needCap: false },
+  { words: ['myself'], needCap: true },
+  { words: ['this', 'is'], needCap: true },
+  { words: ['i', 'am'], needCap: true },
+  { words: ['im'], needCap: true }
+];
 
 /** "Node.js," -> "nodejs", "I'm" -> "im". */
 export function norm(w) {
@@ -49,31 +59,18 @@ export function isPlace(w) {
   return PLACE_WORDS.has(norm(w));
 }
 
-const isNumber = w => /^\d+([.,]\d+)?$/.test(String(w || '').replace(/[^\d.,]/g, '')) && /\d/.test(w);
+const isNumber = w => /\d/.test(String(w || ''));
 
-/** Spelling similarity 0..1, tolerant to one dropped first or last letter ("ubashar"). */
-export function similarity(a, b, tolerant = true) {
+/** Spelling similarity 0..1 (1 - edit distance / longer length). */
+export function similarity(a, b) {
   if (!a || !b) return 0;
   if (a === b) return 1;
-  const r = 1 - distance(a, b) / Math.max(a.length, b.length);
-  let d = 0;
-  if (tolerant && b.length >= 5 && a.length >= 4) {
-    if (a === b.slice(1) || a === b.slice(0, -1)) d = 0.92;
-    else if (b === a.slice(1) || b === a.slice(0, -1)) d = 0.92;
-  }
-  return Math.max(r, d);
+  return 1 - distance(a, b) / Math.max(a.length, b.length);
 }
 
 function codes(key) {
   const [p, s] = doubleMetaphone(key);
-  return [p, s].filter(Boolean);
-}
-
-function soundsAlike(a, b) {
-  if (a.length < 3 || b.length < 3) return false;
-  const ca = codes(a);
-  const cb = codes(b);
-  return ca.some(c => c.length >= 2 && cb.includes(c));
+  return [...new Set([p, s].filter(c => c && c.length >= 2))];
 }
 
 /** Split text into word and space tokens; each word keeps its leading/trailing punctuation. */
@@ -93,8 +90,8 @@ function join(tokens) {
 }
 
 /**
- * My words lines: "Mubashar", "Pakpattan: Pakistan, pak pattan" (word, then aliases after a colon).
- * An alias is replaced exactly, even if it is a common word or a place, because the user added it.
+ * My words lines: "Mubashar", "Pakpattan: pak pattan" (word, then aliases after a colon).
+ * An alias is replaced exactly, even if it is a common word, because the user added it.
  */
 export function parseMyWords(text) {
   const out = [];
@@ -116,98 +113,126 @@ export function parseMyWords(text) {
 }
 
 /**
- * Build the vocabulary.
- * opts: { myWords: [{word, aliases}], profile: {name, city, skills}, answers: [text], questions: [text], terms }
+ * Build the candidate list.
+ * opts: { myWords: [{word, aliases}], name: 'Mubashar Akram', memory: [{heard, fix}] }
+ * Returns { targets: Map key->{text,key,len,source}, keys: Set, byCode, byLen, alias, memory, nameTokens }.
  */
-export function buildVocab({ myWords = [], profile = {}, answers = [], questions = [], terms = TERMS } = {}) {
-  const targets = new Map(); // key -> { text, key, len, source }
-  const alias = new Map(); // heard key (may be two words joined) -> text
-  const known = new Set(); // every word seen in answers/questions/my words (already correct as heard)
+export function buildVocab({ myWords = [], name = '', memory = [] } = {}) {
+  const targets = new Map();
+  const alias = new Map(); // heard key (one word, or two words joined) -> text
+  const mem = new Map(); // learned correction: heard key -> [{ prev, fix }]
   const add = (text, source) => {
     const t = String(text || '').trim();
     const key = norm(t);
-    if (key.length < 2 || /^\d+$/.test(key)) return;
-    const old = targets.get(key);
-    const rank = { my: 3, profile: 3, term: 2, answer: 1 };
-    if (!old || rank[source] > rank[old.source]) targets.set(key, { text: t, key, len: key.length, source });
+    if (key.length < 2 || /^\d+$/.test(key) || targets.has(key)) return;
+    targets.set(key, { text: t, key, len: key.length, source });
   };
-
   myWords.forEach(({ word, aliases = [] }) => {
-    add(word, 'my');
-    known.add(norm(word));
+    word
+      .split(/\s+/)
+      .filter(Boolean)
+      .forEach(w => add(w, 'my'));
     aliases.forEach(a => alias.set(norm(a), word));
   });
-  const name = String(profile.name || '').trim();
-  name.split(/\s+/).filter(Boolean).forEach(n => add(n, 'profile'));
-  String(profile.city || '')
-    .split(/[\s,]+/)
-    .filter(w => w.length > 2)
-    .forEach(c => add(c, 'profile'));
-  terms.forEach(t => add(t, 'term'));
-  [...answers, ...questions].forEach(text => {
-    String(text || '')
-      .replace(/\{\w+\}/g, ' ')
-      .split(/\s+/)
-      .forEach(raw => {
-        const core = raw.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9+#]+$/g, '');
-        const key = norm(core);
-        if (!key) return;
-        known.add(key);
-        if (key.length >= 4 && !/\d/.test(key) && !COMMON.has(key) && !PLACE_WORDS.has(key)) add(core, 'answer');
-      });
+  const nameTokens = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  nameTokens.forEach(n => add(n, 'name'));
+  memory.forEach(m => {
+    if (!m || !m.heard || !m.fix) return;
+    const k = norm(m.heard);
+    mem.set(k, [...(mem.get(k) || []), { prev: m.prev || '', fix: m.fix }]);
+    add(m.fix, 'memory');
   });
-  const list = [...targets.values()];
-  list.forEach(t => (t.codes = codes(t.key)));
-  return {
-    targets,
-    list,
-    alias,
-    known,
-    nameTokens: name.split(/\s+/).filter(Boolean)
-  };
+  const byCode = new Map();
+  const byLen = new Map();
+  targets.forEach(t => {
+    t.codes = codes(t.key);
+    t.codes.forEach(c => byCode.set(c, [...(byCode.get(c) || []), t]));
+    byLen.set(t.len, [...(byLen.get(t.len) || []), t]);
+  });
+  return { targets, keys: new Set(targets.keys()), byCode, byLen, alias, memory: mem, nameTokens };
 }
 
-function bestTarget(key, vocab, cfg, tolerant = true) {
+/** Bucketed lookup: targets with the same sound code or a similar length. */
+function nearby(key, vocab, cfg) {
+  const out = new Set();
+  codes(key).forEach(c => (vocab.byCode.get(c) || []).forEach(t => out.add(t)));
+  for (let l = key.length - cfg.maxLenGap; l <= key.length + cfg.maxLenGap; l++) (vocab.byLen.get(l) || []).forEach(t => out.add(t));
+  return out;
+}
+
+/** Best safe candidate for one heard word, or null. slot = the word is in a name slot. */
+function match(key, vocab, cfg, slot) {
+  const common = COMMON.has(key);
+  const kc = codes(key);
   let best = null;
-  for (const t of vocab.list) {
-    if (Math.abs(t.len - key.length) > cfg.maxLenGap) continue;
-    const s = similarity(key, t.key, tolerant);
-    const phon = s >= cfg.phoneticMin && soundsAlike(key, t.key);
-    const ok = s >= cfg.replace || phon;
-    if (!ok) continue;
+  nearby(key, vocab, cfg).forEach(t => {
+    if (Math.abs(t.len - key.length) > cfg.maxLenGap) return;
+    if (COMMON.has(t.key) && !common) return; // never replace with a more common word
+    const s = similarity(key, t.key);
+    const phon = s >= cfg.phoneticMinSim && t.codes.some(c => kc.includes(c));
+    const close = s >= 1 - cfg.maxDistance;
+    let ok;
+    if (!common || slot) ok = close || phon;
+    else ok = phon && s >= cfg.commonStrongSim; // a real English word: only a strong sound-alike
+    if (!ok) return;
     const score = s + (phon ? 0.05 : 0);
-    if (!best || score > best.score) best = { t, score, s, phon };
-  }
+    if (!best || score > best.score) best = { t, s, phon, score };
+  });
   return best;
 }
 
-/** Is this heard word allowed to be changed by spelling similarity? */
-function protectedWord(core, key, cfg) {
-  if (!key || key.length < cfg.minLen) return true;
-  if (isNumber(core)) return true;
-  if (COMMON.has(key) || PLACE_WORDS.has(key)) return true;
-  return false;
+function learned(vocab, k, prev) {
+  const list = vocab.memory.get(k);
+  if (!list) return '';
+  const m = list.find(x => x.prev === prev) || (PLACE_WORDS.has(k) ? null : list[0]);
+  return m ? m.fix : '';
+}
+
+/** Word indexes that are name slots. */
+function nameSlots(toks, words) {
+  const slots = new Set();
+  const key = wi => norm(toks[words[wi]].core);
+  for (let wi = 0; wi < words.length; wi++) {
+    for (const trig of NAME_TRIGGERS) {
+      if (trig.words.some((w, j) => wi + j >= words.length || key(wi + j) !== w)) continue;
+      const at = wi + trig.words.length;
+      if (at >= words.length) continue;
+      const core = toks[words[at]].core;
+      if (trig.needCap && !/^[A-Z]/.test(core)) continue;
+      slots.add(at);
+      // A surname right after the first name is in the slot too ("my name is Mubashir Akram").
+      if (at + 1 < words.length && /^[A-Z]/.test(toks[words[at + 1]].core)) slots.add(at + 1);
+    }
+  }
+  return slots;
 }
 
 /**
- * Correct a heard text. Returns { text, changes: [{ from, to, rule, index }] }.
- * opts: { smart: true, memory: [{prev, heard, fix}], cfg }
- * With smart = false only aliases and learned corrections are applied.
+ * Correct a heard text. Returns { text, changes: [{ from, to, why }] }.
+ * opts: { smart: true, cfg }. With smart = false only aliases and learned corrections apply.
  */
 export function correctText(text, vocab, opts = {}) {
   const cfg = { ...VOCAB_CONFIG, ...(opts.cfg || {}) };
   const smart = opts.smart !== false;
-  const memory = opts.memory || [];
   const toks = split(text);
   const words = toks.map((t, i) => (t.space == null ? i : -1)).filter(i => i >= 0);
+  const slots = nameSlots(toks, words);
   const changes = [];
-  const put = (wi, to, rule, span = 1) => {
+  let inSentence = 0;
+  const key = wi => norm(toks[words[wi]].core);
+  const put = (wi, to, why, span = 1) => {
     const ti = words[wi];
-    const from = words.slice(wi, wi + span).map(k => toks[k].core).join(' ');
+    const from = words
+      .slice(wi, wi + span)
+      .map(k => toks[k].core)
+      .join(' ');
     if (from === to) return;
-    changes.push({ from, to, rule, index: wi });
+    changes.push({ from, to, why });
+    inSentence++;
     toks[ti].core = to;
-    // Joined words: keep the last word's punctuation and drop the words in between.
     if (span > 1) {
       toks[ti].post = toks[words[wi + span - 1]].post;
       for (let k = 1; k < span; k++) {
@@ -217,116 +242,48 @@ export function correctText(text, vocab, opts = {}) {
       }
     }
   };
-  const key = wi => norm(toks[words[wi]].core);
 
   for (let wi = 0; wi < words.length; wi++) {
     const tok = toks[words[wi]];
     if (tok.gone || !tok.core) continue;
     const k = key(wi);
-    const prev = wi > 0 ? key(wi - 1) : '';
     const next = wi + 1 < words.length ? key(wi + 1) : '';
+    const capped = inSentence >= cfg.maxChangesPerSentence;
 
-    // 1. Aliases the user added (one word or two words joined).
-    if (next && vocab.alias.has(k + next)) {
+    // 1. Aliases the user typed in My words (exact, one word or two joined).
+    if (!capped && next && vocab.alias.has(k + next)) {
       put(wi, vocab.alias.get(k + next), 'alias', 2);
-      continue;
-    }
-    if (vocab.alias.has(k)) {
+    } else if (!capped && vocab.alias.has(k)) {
       put(wi, vocab.alias.get(k), 'alias');
-      continue;
-    }
-    // 2. Learned corrections: same heard word after the same previous word.
-    const mem = memory.find(m => m.heard === k && m.prev === prev);
-    if (mem) {
-      put(wi, mem.fix, 'memory');
-      continue;
-    }
-    if (!smart) continue;
-
-    // 3. Spelled-out acronym: "a w s" -> AWS (only if the letters exactly make a known term).
-    if (k.length === 1 && /[a-z]/.test(k)) {
-      let joined = k;
-      let n = 1;
-      while (wi + n < words.length && n < 6 && key(wi + n).length === 1) {
-        joined += key(wi + n);
-        n++;
-        const t = vocab.targets.get(joined);
-        if (t && n >= 2 && joined.length >= 2) {
-          put(wi, t.text, 'acronym', n);
-          break;
+    } else if (!capped && learned(vocab, k, wi > 0 ? key(wi - 1) : '')) {
+      // 2. A correction the user made before. For a place word the previous word must match too,
+      // so one fix of "from Pakistan" does not change every "Pakistan".
+      put(wi, learned(vocab, k, wi > 0 ? key(wi - 1) : ''), 'learned from your edit');
+    } else if (vocab.targets.has(k)) {
+      // 3. Already right: only fix capitals ("mubashar" -> "Mubashar").
+      const t = vocab.targets.get(k);
+      if (tok.core !== t.text && !COMMON.has(k)) put(wi, t.text, 'capitals');
+    } else if (smart && !capped) {
+      // 4. Split name: "mu bashar" -> Mubashar (strong match only, never with a place word).
+      let merged = false;
+      if (next && !PLACE_WORDS.has(k) && !PLACE_WORDS.has(next) && !isNumber(tok.core) && !isNumber(toks[words[wi + 1]].core)) {
+        const joined = k + next;
+        const t = [...nearby(joined, vocab, cfg)].find(x => similarity(joined, x.key) >= cfg.mergeSim && !(COMMON.has(k) && COMMON.has(next) && x.key !== joined));
+        if (t && joined.length >= 5) {
+          put(wi, t.text, 'joined split word', 2);
+          merged = true;
         }
       }
-      if (toks[words[wi]].core !== tok.core || changes.some(c => c.index === wi)) continue;
-    }
-
-    // 4. Split word: "mu bashar" -> Mubashar, "dev ops" -> DevOps (strong match only).
-    if (next && !isNumber(tok.core) && !isNumber(toks[words[wi + 1]].core)) {
-      const joined = k + next;
-      if (joined.length >= 5 && !(vocab.known.has(k) && vocab.known.has(next) && !vocab.targets.has(joined))) {
-        const exact = vocab.targets.get(joined);
-        const b = exact ? { t: exact, s: 1 } : bestTarget(joined, vocab, { ...cfg, replace: cfg.strong, phoneticMin: 2 }, false);
-        // "am ubashar": the second word alone already matches, so do not glue "am" to it.
-        const alone = b && !exact && (COMMON.has(k) || COMMON.has(next)) && (similarity(next, b.t.key) >= cfg.replace || similarity(k, b.t.key) >= cfg.replace);
-        // Two common words ("follow up") are joined only into my words, names and tech terms
-        // ("java script" -> JavaScript), never into a word taken from the answers ("follow-up").
-        const bothCommon = COMMON.has(k) && COMMON.has(next);
-        if (b && !alone && b.s >= cfg.strong && !(bothCommon && (b.s < 1 || b.t.source === 'answer'))) {
-          put(wi, b.t.text, 'merge', 2);
-          continue;
-        }
+      // 5. One word.
+      if (!merged && k.length >= cfg.minLen && !isNumber(tok.core) && !PLACE_WORDS.has(k)) {
+        const slot = slots.has(wi);
+        const b = match(k, vocab, cfg, slot);
+        if (b) put(wi, b.t.text, `${b.phon ? 'sounds like' : 'spelled like'} ${b.t.source === 'name' ? 'profile name' : b.t.source === 'memory' ? 'a learned word' : 'My word'} (${b.s.toFixed(2)})${slot ? ', name slot' : ''}`);
       }
     }
-
-    // 5. One word.
-    if (protectedWord(tok.core, k, cfg)) continue;
-    const exact = vocab.targets.get(k);
-    if (exact) {
-      // Already right; only fix capitals of names, my words and terms ("aws" -> AWS).
-      if (exact.source !== 'answer' && tok.core !== exact.text) put(wi, exact.text, 'case');
-      continue;
-    }
-    if (vocab.known.has(k)) continue; // a real word from the answers: never replace with a worse match
-    const b = bestTarget(k, vocab, cfg);
-    if (b) put(wi, b.t.text, b.s >= cfg.replace ? 'spelling' : 'sound');
+    if (/[.!?]$/.test(toks[words[wi]].post)) inSentence = 0; // new sentence, new change budget
   }
-
-  // 6. Name slot: "my name is <word>" / "myself <word>" -> profile name.
-  if (smart && vocab.nameTokens.length) nameSlot(toks, words, vocab, cfg, put, key);
-
   return { text: join(toks.filter(t => !t.gone)).replace(/ {2,}/g, ' '), changes };
-}
-
-function nameSlot(toks, words, vocab, cfg, put, key) {
-  const nt = vocab.nameTokens;
-  for (let wi = 0; wi < words.length; wi++) {
-    for (const trig of NAME_TRIGGERS) {
-      if (trig.some((w, j) => key(wi + j) !== w)) continue;
-      const at = wi + trig.length;
-      if (at >= words.length || toks[words[at]].gone) continue;
-      const first = key(at);
-      if (!first || toks[words[at]].pre.includes('{')) continue; // a {placeholder}, not speech
-      // "myself as a developer" stays. After "myself" a common word is taken as a misheard name only
-      // when the phrase ends there: "myself wishing", "myself wishing, from ...", "myself wishing and ...".
-      if (trig[0] === 'myself' && (COMMON.has(first) || PLACE_WORDS.has(first))) {
-        const after = at + 1 < words.length ? key(at + 1) : '';
-        const ends = !after || /[,.!?;:]$/.test(toks[words[at]].post) || ['and', 'from', 'i', 'im'].includes(after);
-        if (PLACE_WORDS.has(first) || !ends || first.length <= 3) continue;
-      }
-      if (similarity(first, norm(nt[0])) >= cfg.replace) {
-        if (toks[words[at]].core !== nt[0]) put(at, nt[0], 'case');
-      } else {
-        put(at, nt[0], 'name-slot');
-      }
-      // Second name word: replace only a rare word or one close to the surname.
-      if (nt[1] && at + 1 < words.length && !toks[words[at + 1]].gone) {
-        const second = key(at + 1);
-        const close = similarity(second, norm(nt[1])) >= cfg.replace;
-        if (close || (!COMMON.has(second) && !PLACE_WORDS.has(second) && !isNumber(toks[words[at + 1]].core) && second.length >= 3)) {
-          if (toks[words[at + 1]].core !== nt[1]) put(at + 1, nt[1], close ? 'case' : 'name-slot');
-        }
-      }
-    }
-  }
 }
 
 /**
@@ -358,8 +315,10 @@ export function snapToReference(text, reference, opts = {}) {
       if (s === 1) break;
     }
     if (best >= 0 && bestS >= cfg.practiceSnap) {
-      if (t.core !== ref[best] && norm(ref[best]) !== k) snapped++;
-      if (norm(ref[best]) !== k) t.core = ref[best];
+      if (norm(ref[best]) !== k) {
+        snapped++;
+        t.core = ref[best];
+      }
       p = best + 1;
     }
   });
@@ -367,65 +326,39 @@ export function snapToReference(text, reference, opts = {}) {
 }
 
 /**
- * Pick the best of the speech service's alternatives after correction. The first one wins unless
- * another one scores at least pickMargin higher and has about the same number of words (so a
- * different alternative can fix a word, but never adds a phrase that was not said).
+ * Hints for the speech service (Android 13+): My words first, then the profile name, then the
+ * short tech list, then `extra` (Practice: rare words of the answer being read). Single words or
+ * short names only, never sentences.
  */
-export function pickBest(alts, vocab, opts = {}) {
-  const cfg = { ...VOCAB_CONFIG, ...(opts.cfg || {}) };
-  const list = (alts || []).filter(a => a && a.trim());
-  if (!list.length) return { text: '', index: -1, changes: [], raw: '' };
-  const n0 = list[0].trim().split(/\s+/).length; // raw word count of the first alternative
-  const scored = list.map((raw, index) => {
-    const r = correctText(raw, vocab, opts);
-    const keys = r.text.split(/\s+/).map(norm).filter(Boolean);
-    const score = keys.filter(k => vocab.targets.has(k) || vocab.known.has(k)).length;
-    return { ...r, raw, index, score, words: raw.trim().split(/\s+/).length };
-  });
-  let best = scored[0];
-  scored.slice(1).forEach(c => {
-    // Fewer words is fine (split words joined); more than one extra word could be a phrase never said.
-    if (c.words <= n0 + 1 && c.score >= scored[0].score + cfg.pickMargin && c.score > best.score) best = c;
-  });
-  return best;
-}
-
-/** Normalized phrase for duplicate checks. */
-export function phraseKey(t) {
-  return String(t || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-/**
- * True when a new final phrase repeats what is already there: same as the last phrase, contained
- * in the end of the text box, or at least dupSimilarity similar to the last phrase.
- */
-export function isDuplicatePhrase(next, last, tail = '', cfg = VOCAB_CONFIG) {
-  const n = phraseKey(next);
-  if (!n) return true;
-  const l = phraseKey(last);
-  if (l && (n === l || 1 - distance(n, l) / Math.max(n.length, l.length) >= cfg.dupSimilarity)) return true;
-  const t = phraseKey(tail);
-  if (t && n.length >= 8 && t.slice(-Math.max(n.length * 2, 40)).includes(n)) return true;
-  return false;
-}
-
-/**
- * Hint words for the speech service (Android 13+): My words, profile name and hometown, then
- * rare words and terms from the question and answers. Short words only, never sentences.
- */
-export function hintWords(vocab, cfg = VOCAB_CONFIG) {
-  const order = ['my', 'profile', 'term', 'answer'];
+export function hintWords(vocab, extra = [], cfg = VOCAB_CONFIG) {
   const out = [];
-  order.forEach(src => {
-    vocab.list
-      .filter(t => t.source === src && t.text.split(/\s+/).length <= 2 && t.text.length <= 24)
-      .forEach(t => out.length < cfg.maxHints && !out.includes(t.text) && out.push(t.text));
-  });
+  const push = w => {
+    const t = String(w || '').trim();
+    if (t && t.length <= 30 && out.length < cfg.maxHints && !out.some(x => x.toLowerCase() === t.toLowerCase())) out.push(t);
+  };
+  vocab.targets.forEach(t => t.source === 'my' && push(t.text));
+  vocab.alias.forEach(word => push(word));
+  vocab.nameTokens.forEach(push);
+  TECH_HINTS.forEach(push);
+  extra.forEach(push);
+  return out;
+}
+
+/** Rare words of a text (not common, not places, 4+ letters): Practice hints. */
+export function rareWords(text, max = 20) {
+  const out = [];
+  String(text || '')
+    .split(/\s+/)
+    .forEach(raw => {
+      const core = raw.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9+#]+$/g, '');
+      const k = norm(core);
+      if (k.length >= 4 && !/\d/.test(k) && !COMMON.has(k) && !PLACE_WORDS.has(k) && out.length < max && !out.includes(core)) out.push(core);
+    });
   return out;
 }
 
 /**
- * Learn from the user's edit of the answer box: exactly one word changed (same word count).
+ * Learn from the user's edit of dictated text: exactly one word changed (same word count).
  * Returns { prev, heard, fix } or null. Nothing leaves the phone.
  */
 export function learnFromEdit(before, after) {
@@ -438,6 +371,6 @@ export function learnFromEdit(before, after) {
   const i = diff[0];
   const heard = norm(a[i]);
   const fix = b[i].replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9+#]+$/g, '');
-  if (!heard || !fix || heard.length < 2) return null;
+  if (!heard || !fix || heard.length < 2 || norm(fix) === heard) return null;
   return { prev: i > 0 ? norm(a[i - 1]) : '', heard, fix };
 }

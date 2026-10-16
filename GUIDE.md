@@ -337,33 +337,51 @@ The **debug APK** has a hidden **Ads status** panel. You do not need a PC or adb
 
 ## 16. How voice recognition works
 
-The phone (not the app) turns speech into text. The app only decides what to send and what to keep.
+The phone (not the app) turns speech into text with Android's speech service (usually Google, needs internet). The app decides what to send and what to keep. Audio is never saved by the app.
 
-1. **Start.** Tap the mic. Read-aloud stops first. The app asks Android's speech service to listen in your **Voice accent** (Profile > Voice). Pakistan tries en-PK, then en-IN, en-GB, en-US. If the phone rejects one (error 12 or 13), the next is used. The voice report shows the locale really used.
-2. **Ready.** "Speak now" shows only after the service says it is ready, so your first words are not lost.
-3. **Live words.** While you speak, a grey line under the answer box shows what the phone hears. Each new guess replaces the old one. Nothing is written into the box yet.
-4. **Final phrase.** When a phrase is final, the phone gives up to 5 guesses. The app corrects each guess with your words and picks the best one. It is added to the **end** of the box. Text you typed is never replaced.
-5. **Duplicates.** A phrase that is the same as the last one, already at the end of the box, or 90% similar is dropped.
-6. **Pauses.** After silence the phone ends its session. The app starts a new one after about 0.3 s. A few words said exactly in that gap can be missed, so pause between sentences, not in the middle. After 3 failed restarts in a row the mic stops with a message.
-7. **Nothing heard.** If you say nothing, you see "I did not catch that. Try again or type." and the box stays empty.
+### One mic tap
 
-### Your words (Smart name matching)
+1. **Start.** Tap the mic. Read-aloud stops first. One recognizer session starts in your **Voice accent** (Profile > Voice). Default is English (India), en-IN, which handles Pakistani English best. Options: en-PK, en-US, en-GB. Never a mixed or Urdu locale. If the phone rejects a locale (error 12/13), the next English one is used.
+2. **Ready.** "Speak now" shows only after the service says it is ready.
+3. **Live words.** While you speak, the grey bar under the answer box shows what the phone hears. These partial results are **never** written into the box.
+4. **Final result.** When the session ends, the phone gives up to 5 guesses with confidence scores. Before anything is written:
+   - **Noise gate:** if the loudest moment of the session (max RMS) never reached a speaking level (5 dB), the text is dropped. This stops invented words from silence or noise.
+   - **Confidence:** guesses with a known confidence below 0.4 are dropped.
+   - **Pick one guess:** the one with the most My words / profile name words, else the most confident. Guesses are never merged.
+   - **Name matching** (below) runs on that one guess.
+   - **Duplicates:** text already written in the last 5 seconds is dropped; if it starts with that text, only the new words are kept.
+   - The text is inserted **at the cursor** with correct spaces. The rest of the box is never replaced.
+5. **Next session.** Another session starts only if this one had real speech. If a session has no real speech, the mic stops and shows "Tap the mic to continue". There is no restart loop.
+6. **Stop.** Tap the mic again: it stops now, and the last final result is still used.
 
-The app builds a word list from: My words (Profile > Voice), your profile name and hometown, your saved Practice answers, the current question and common tech terms (AWS, DevOps, Kubernetes...).
+Pauses: the app asks for 4 s complete silence, 3 s possibly complete and 15 s minimum length, so a 3 to 4 second pause should not end the session. Google's service may ignore these on some phones; the voice report shows how long each session ran.
 
-- A heard word is changed only if it sounds like one of your words (same phonetic code and at least 50% similar) or is at least 78% similar. Limits live in `VOCAB_CONFIG` in `src/services/vocab.js`.
-- Common English words, numbers, countries and cities are **never** changed, unless you add an alias in My words, for example `Pakpattan: Pak pattan`.
-- After "my name is" or "myself" the next word is treated as a name. After "I am" it is not ("I am working" stays).
-- If you fix a word by hand, the app remembers it (with Undo). See or delete these in Profile > Voice > Learned corrections.
-- Chips under the answer box insert My words at the cursor.
-- On Android 13+ the app also sends up to 100 single hint words to the speech service. Turn off Smart name matching to send none and keep only aliases and learned corrections.
+### Smart name matching (safe)
+
+- Candidates are only: **My words**, your **profile name**, and words you **corrected before**.
+- A heard word is replaced only when it is close in spelling (edit distance at most 0.35) or sounds the same (double metaphone), and it is **not a common English word**.
+- A common word is replaced only in a name slot: after "my name is", or a capitalized word after "I am", "I'm", "this is", "myself".
+- Countries and cities are never changed (Pakpattan never becomes Pakistan, and the other way round). Numbers and short words never change. At most 3 changes per sentence.
+- If you fix one word right after dictation, the app remembers "wrong to right" (Undo in the toast; see or delete in Profile > Voice > Learned corrections).
+- The demo profile ("Alex Khan") is sample data: its name is never used for chips, hints or matching. Use your own profile, or add your name under My words.
+- Hints (Android 13+): My words, profile name, then a short tech list (AWS, DevOps, Kubernetes, Docker, React, Node.js, JavaScript, Python, SQL, API, CI/CD, GitHub, Linux). Turn off Smart name matching to send none.
 
 ### Cost
 
-- Correction: each heard word is compared with every target of similar length: O(a x w x t x L^2) time (a guesses up to 5, w words, t targets, L word length) and O(t) memory for the cached list. Measured on a PC: about 0.6 ms for 5 guesses against 325 targets (a phone is slower, still well under one frame).
-- Common word list: about 30 KB gzipped in the app.
+- Name matching uses sound-code and length buckets: about O(words x bucket size) per sentence instead of O(words x vocabulary). Under 1 ms per sentence with 300 My words on a PC.
+- Dedupe and n-best: O(guesses x words).
 
 ### If voice is still wrong
 
-Use the debug APK. Hold the app title 1 s > **Copy voice report**. It lists the locale, start options, every guess with its confidence, which guess was used, corrections and error codes. Send it with what you really said.
+Use the debug APK. Hold the app title 1 s > **Copy voice report**. For each session it lists: language, hints sent, max RMS, every guess with its confidence, which guess was picked and why, what was dropped and why, what was replaced and why, and the text written. Send it with what you really said.
 
+### Phone test (start each test with an empty box)
+
+1. Tap the mic and stay silent for 10 seconds. The box stays empty; "I did not catch that. Tap the mic to continue."
+2. Say "I am from Pakistan" once. It appears once.
+3. Say "My name is Mubashar" (with your name in the profile or My words).
+4. Say "My name is Mubashar Akram", pause 3 seconds, "I am a student from Pakpattan". Both parts appear once, Pakpattan stays Pakpattan.
+5. Say "I know AWS and DevOps".
+6. Airplane mode: tap the mic, see the offline message, typing works. Deny the mic permission twice: the dialog has an **Open settings** button.
+7. Tap a chip (inserts at the cursor). Dictate, then fix one wrong word by hand: an Undo toast shows; next time that word is fixed automatically.
+Then copy the voice report from the debug panel.
