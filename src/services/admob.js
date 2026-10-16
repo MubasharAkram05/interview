@@ -232,8 +232,12 @@ async function startBanner() {
   }
 }
 
-async function rebuildBanner(reason) {
+async function rebuildBanner(reason, { correction = false } = {}) {
   adsLog('banner rebuild', reason);
+  // A rebuild for a new place or a moved header gets its own position checks again (the limit is
+  // per banner, not per session: before, a banner that moved later could never be fixed).
+  if (!correction) bannerCorrectionsBy[bannerPlace] = 0;
+  setBannerSuppressed('misplaced', false);
   try {
     await AdMob.removeBanner();
   } catch {
@@ -249,7 +253,7 @@ async function rebuildBanner(reason) {
  * (edge-to-edge on Android 15/16, notches, older WebViews) do not match the CSS insets.
  */
 async function checkBannerPosition() {
-  if (bannerState !== 'loaded' || suppressed.size) return;
+  if (bannerState !== 'loaded' || [...suppressed].some(r => r !== 'misplaced')) return;
   const n = await nativeAdLayout();
   bstats.native = n;
   if (!n || !n.found || !n.visible) return;
@@ -263,12 +267,18 @@ async function checkBannerPosition() {
   if (Math.abs(diff) <= BANNER_TOLERANCE_PX) return;
   if (bannerCorrectionsBy[bannerPlace] >= BANNER_MAX_CORRECTIONS) {
     adsLog('banner position off by', Math.round(diff) + 'px, no more corrections');
+    // Still wrong: never let the banner cover the header or the page. Hide it (the slot stays,
+    // so nothing jumps); the next screen change or rebuild tries again.
+    if (Math.abs(diff) > 8) {
+      adsLog('banner hidden: would cover the page');
+      setBannerSuppressed('misplaced', true);
+    }
     return;
   }
   bannerCorrectionsBy[bannerPlace]++;
   // Top: a larger margin moves the banner down. Bottom: a larger margin moves it up.
   bannerAdjustBy[bannerPlace] += bannerPlace === 'bottom' ? -diff : diff;
-  rebuildBanner('position off by ' + Math.round(diff) + 'px');
+  rebuildBanner('position off by ' + Math.round(diff) + 'px', { correction: true });
 }
 
 /**
@@ -280,7 +290,13 @@ async function relayoutBanner() {
   if (bannerState !== 'loaded' && bannerState !== 'requested') return;
   const { margin } = bannerTargets();
   if (Math.abs(margin - bannerMargin) < 1) {
-    if (bannerState === 'loaded') checkBannerPosition();
+    if (bannerState === 'loaded') {
+      if (suppressed.has('misplaced')) {
+        // Try once more on this screen (a new screen can have a different header).
+        bannerCorrectionsBy[bannerPlace] = 0;
+        rebuildBanner('retry after misplaced');
+      } else checkBannerPosition();
+    }
     return;
   }
   rebuildBanner('header moved');

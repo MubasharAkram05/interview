@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="./src/style.css">
 </head>
 <body>
-<div class="intro" id="intro" role="dialog" aria-label="Welcome to Interview Simulator">
+<div class="intro" id="intro" role="dialog" aria-modal="true" aria-label="Welcome to Interview Simulator">
   <div class="itop">
     <img class="ilogo" src="./assets/logo/glyph.svg" alt="" width="76" height="76">
     <h1 class="ititle">Interview <span>Simulator</span></h1>
@@ -41,6 +41,10 @@
   <button class="igo hidden" id="iGo" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg> Get Started</button>
   <p class="ifoot">Your next opportunity is just a practice away.</p>
 </div>
+<script>
+  // The welcome screen is painted: hide the native splash now (the app bundle may still be loading).
+  try { window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen && window.Capacitor.Plugins.SplashScreen.hide({ fadeOutDuration: 200 }); } catch (e) {}
+</script>
 <div class="app">
 <header class="bar"><button class="ic hidden" id="x" data-i="left" onclick="back()" aria-label="Back" title="Back"></button><span class="logo" id="hLogo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg></span><h1 id="ttl">Interview Simulator</h1><button class="ic hidden" id="hMute" data-i="mute" onclick="muteSpeech()" aria-label="Stop reading aloud" title="Stop reading aloud"></button><button class="ic" id="hStreak" data-i="flame" onclick="streakToast()" aria-label="Streak" title="Streak"></button><button class="ic" id="hProf" data-i="user" onclick="showProfile()" aria-label="Profile" title="Profile"></button></header>
 <div id="adSlot" aria-hidden="true"></div>
@@ -162,7 +166,7 @@
   <div class="vlive hidden" id="pLive" aria-live="polite"></div>
   <div class="pres hidden" id="pRes" aria-live="polite"></div>
   <textarea id="pEditQ" class="ft hidden" placeholder="Question"></textarea>
-  <textarea id="pEdit" class="hidden"></textarea>
+  <textarea id="pEdit" class="hidden" aria-label="Edit the answer" placeholder="Write your answer"></textarea>
   <div class="row hidden" id="pEditBtns"><button class="ok" data-i="check" onclick="saveA()" aria-label="Save" title="Save"></button><button data-i="x" onclick="cancelA()" aria-label="Cancel" title="Cancel"></button></div>
   <div class="row hidden" id="pEditMore"><button data-i="plus" onclick="addQ()" aria-label="Add question" title="Add question"></button><button class="hidden" id="pReset" data-i="undo" onclick="resetA()" aria-label="Reset to original" title="Reset to original"></button><button class="danger" data-i="trash" onclick="delQ()" aria-label="Delete question" title="Delete question"></button></div>
   <button class="pri hidden" id="pEmpty" onclick="addQ()">Add a question</button>

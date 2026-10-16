@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Window background while the app starts: brand gradient and the white logo in the middle.
+     Shown after Android's own splash until the web page paints. When the app is opened from the
+     installer ("Open" after install), Android 13 shows a plain-colour splash without the icon;
+     this background makes sure the logo still appears instead of a blank blue screen. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="315"
+                android:startColor="#2d7dca"
+                android:centerColor="#2a45b5"
+                android:endColor="#6b5bd6"
+                android:type="linear" />
+        </shape>
+    </item>
+    <item
+        android:width="160dp"
+        android:height="160dp"
+        android:gravity="center"
+        android:drawable="@drawable/splash_icon" />
+</layer-list>

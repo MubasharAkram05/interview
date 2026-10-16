@@ -70,7 +70,7 @@ Answers for Play Console > Policy and programs > **App content**. Every answer i
 |---|---|
 | Does your app collect or share any of the required user data types? | **Yes** (because of AdMob and voice input) |
 | Is all of the user data collected by your app encrypted in transit? | **Yes** (Google Mobile Ads SDK and Google speech service use HTTPS) |
-| Do you provide a way for users to request that their data is deleted? | **Yes**. Explain: "All app data is stored on the device. Users can delete profiles and history in the app, or clear app data / uninstall. Ad data is controlled by Google; users can reset their advertising ID in Android settings." |
+| Do you provide a way for users to request that their data is deleted? | **Yes**. Explain: "All app data is stored on the device. Users can clear their interview history and delete questions in the app, or clear app data / uninstall. Ad data is controlled by Google; users can reset their advertising ID in Android settings." |
 
 ### Data types to declare
 

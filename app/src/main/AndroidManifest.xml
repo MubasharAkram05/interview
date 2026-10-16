@@ -39,6 +39,14 @@
     <!-- Advertising ID for AdMob (also merged in by the Google Mobile Ads SDK). -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
+    <!-- Android 11+ hides other apps unless declared. Without this, SpeechRecognizer
+         cannot see the phone's speech service and voice input reports "not available". -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <!-- Microphone is optional, so devices without one can still install the app. -->
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 </manifest>

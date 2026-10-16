@@ -50,6 +50,7 @@ import {
   stopListening,
   cancelListening,
   isListening,
+  voiceState,
   setVoiceAccent,
   openAppSettings,
   notePractice
@@ -379,6 +380,11 @@ function render(id) {
   const adBottom = id === 'interview';
   document.documentElement.classList.toggle('ad-bottom', adBottom);
   setBannerPlacement(adBottom ? 'bottom' : 'top');
+  // Forms (details, new question): no banner and no reserved space.
+  const noAd = id === 'setup' || id === 'addq';
+  document.documentElement.classList.toggle('no-ad', noAd);
+  setBannerSuppressed('form', noAd);
+  requestBannerRelayout(); // every screen: check the banner is still just under the header
 
   $('x').classList.toggle('hidden', id === 'home');
   $('ttl').textContent = TT[id] || 'Interview Simulator';
@@ -475,7 +481,10 @@ function heroGo() {
 function introReady() {
   const el = $('intro');
   if (!el) return;
-  if (window.__skipIntro) return el.remove(); // browser tests that check other screens
+  if (window.__skipIntro) {
+    setBannerSuppressed('intro', false);
+    return el.remove(); // browser tests that check other screens
+  }
   $('iLoad').classList.add('hidden');
   const go = $('iGo');
   go.classList.remove('hidden');
@@ -483,7 +492,14 @@ function introReady() {
     playTapSound();
     el.classList.add('out');
     setTimeout(() => el.remove(), 400);
+    // A screen restored behind the welcome screen starts reading aloud only now.
+    setTimeout(() => {
+      if (cs === 'practice' && P.list[P.i]) pAutoRead(P.list[P.i]);
+      if (cs === 'interview' && cur[idx] && $('rd').checked) reveal(cur[idx].q, true);
+    }, 450);
+    // Open the form first (it hides the banner), then let the banner show with the app.
     if (!setupDone(profiles[active])) openSetup(() => home(), { fresh: !profiles[active] });
+    setBannerSuppressed('intro', false); // the banner appears with the app, never on this screen
   };
 }
 
@@ -751,7 +767,7 @@ function showProfile() {
   $('pN').textContent = h.length;
   $('pB').textContent = h.length ? `${Math.max(...h.map(x => x.s))}/10` : '-';
   $('pAvg').textContent = h.length ? (h.reduce((t, x) => t + x.s, 0) / h.length).toFixed(1) : '-';
-  $('pHistSub').textContent = h.length ? `${h.length} interview${h.length === 1 ? '' : 's'} · last ${h[h.length - 1].s}/10` : 'No interviews yet';
+  $('pHistSub').textContent = h.length ? `${h.length} interview${h.length === 1 ? '' : 's'} · last ${h[0].s}/10` : 'No interviews yet';
 
   $('pKv').innerHTML = ABOUT.map(([t, f]) => {
     const v = f(p);
@@ -898,6 +914,11 @@ function saveSetup() {
     );
     setItem('is_edits', E);
     setItem('is_qedits', QE);
+    // Favourites and Practice best scores are keyed by the name too: move them with it.
+    const re = k => (String(k).startsWith(oldName + '|') ? p.name + String(k).slice(oldName.length) : k);
+    setItem('is_fav', favs().map(f => (f.n === oldName ? { ...f, n: p.name, k: re(f.k) } : f)));
+    const pb = pBest();
+    setItem('is_pbest', Object.fromEntries(Object.entries(pb).map(([k, v]) => [re(k), v])));
   }
   profiles = { [p.name]: p }; // one profile at a time
   setItem('is_profiles', profiles);
@@ -1253,7 +1274,7 @@ function pr() {
 let pAutoKey = '';
 function pAutoRead(it) {
   const k = `${P.cat}|${P.lv}|${it.i}`;
-  if (k === pAutoKey || !$('rd').checked) return;
+  if (k === pAutoKey || !$('rd').checked || $('intro')) return; // never behind the welcome screen
   pAutoKey = k;
   const card = P.i;
   speak(it.q).then(r => {
@@ -1317,7 +1338,7 @@ function practiceBreak(wasRecording, wasTyping) {
   // Never while recording or typing; skip silently and continue.
   if (wasRecording) return skipInterstitialBreak(name, 'recording');
   if (wasTyping) return skipInterstitialBreak(name, 'typing');
-  showInterstitialAtBreak(name);
+  showInterstitialAtBreak(name).then(shown => shown && stopMedia()); // no reading aloud behind the ad
 }
 
 function isTypingNow() {
@@ -1809,7 +1830,7 @@ function showQ() {
   $('mic').classList.remove('on');
   stopListening(); // the last phrase of the previous question is still saved to it
   $('qCount').textContent = `${idx + 1}/${cur.length}`;
-  reveal(cur[idx].q, $('rd').checked);
+  reveal(cur[idx].q, $('rd').checked && !$('intro'));
   $('mHintT').classList.add('hidden');
   $('wTip').classList.add('hidden');
   mRender(idx);
@@ -1949,7 +1970,7 @@ function mStatus(i, live = '') {
 }
 
 function mRender(i, live = '') {
-  if (i !== idx || cs !== 'interview') return;
+  if (i !== idx || cs !== 'interview' || $('ansBox').isContentEditable) return; // never under typing
   const box = $('ansBox');
   const H = mHeard[i] || [];
   if (!H.length && !live) {
@@ -2040,7 +2061,7 @@ function mHint() {
 // Type: the box becomes editable; the typed words are checked like spoken ones when done.
 function mType() {
   playTapSound();
-  if (mMicOn || isListening()) return;
+  if (mMicOn || isListening() || voiceState() === 'stopping') return;
   const box = $('ansBox');
   box.textContent = answers[idx] || '';
   box.contentEditable = 'plaintext-only';
@@ -2074,6 +2095,8 @@ async function mClear() {
 
 async function toggleMic() {
   playTapSound();
+  // Still finishing the last stop: wait for its last sentence instead of cancelling it.
+  if (voiceState() === 'stopping') return mockNote('Finishing... one moment.');
   if (mMicOn || isListening()) {
     mMicOn = false;
     $('mic').classList.remove('on');
@@ -2238,41 +2261,34 @@ function finish() {
   const done = answers.filter(Boolean);
   const words = done.reduce((s, a) => s + a.split(/\s+/).length, 0);
   const avg = done.length ? Math.round(words / done.length) : 0;
-  let bad = 0;
-  let acc = [];
-
-  cur.forEach((q, i) => {
-    if (!answers[i]) return;
-    const r = mistakes(answers[i], refText(q));
-    if (r) {
-      bad += r.bad;
-      acc.push(1 - r.bad / r.span);
-    }
+  // Score from each answer word (like the Mock box colours): said right / all words of the saved
+  // answer, averaged over every question (a question not answered counts 0). Before, only the
+  // words said right were compared, so one right word gave 10/10.
+  let said = 0;
+  let total = 0;
+  let wrong = 0;
+  const acc = cur.map((q, i) => {
+    const ref = refText(q);
+    if (!ref) return answers[i] ? 1 : 0;
+    const H = mHeard[i] || [];
+    const { st } = H.length ? mStatus(i) : memoryStatus(answers[i] || '', ref);
+    const ok = st.filter(x => x === 'ok').length;
+    said += ok;
+    total += st.length;
+    wrong += st.filter(x => x === 'bad').length;
+    return st.length ? ok / st.length : 0;
   });
-
-  const sc = !done.length
-    ? 0
-    : acc.length
-    ? Math.round((acc.reduce((a, b) => a + b, 0) / acc.length) * 10)
-    : avg < 5
-    ? 3
-    : avg < 15
-    ? 5
-    : avg < 30
-    ? 7
-    : avg < 50
-    ? 8
-    : 9;
+  const sc = done.length && acc.length ? Math.round((acc.reduce((a, b) => a + b, 0) / acc.length) * 10) : 0;
 
   $('score').textContent = `${sc} / 10`;
   $('score').style.setProperty('--p', sc * 10);
   $('fbText').textContent =
     `You answered ${done.length} of ${cur.length} questions. ` +
-    (acc.length
-      ? bad
-        ? `${bad} word${bad > 1 ? 's' : ''} did not match your practice answers. Only wrong words reduce the score, not shorter or longer answers.`
-        : 'No mistakes found compared with your practice answers.'
-      : 'Add answers to get a score.');
+    (!done.length
+      ? 'Add answers to get a score.'
+      : total
+      ? `You said ${said} of ${total} words of your saved answers right${wrong ? `, ${wrong} wrong` : ''}. Words you skipped or said wrong lower the score.`
+      : 'Well done for answering.');
 
   $('tips').innerHTML = shuffle(TIPS).slice(0, 3).map(t => '• ' + t).join('<br>');
   renderReview();
@@ -2282,6 +2298,7 @@ function finish() {
   // skipped silently. The app never waits for an ad.
   blurTyping();
   showInterstitialAtBreak('interview_finished').then(shown => {
+    if (shown) stopMedia();
     if (shown) return; // no chime or confetti behind a full-screen ad
     playSuccessChime();
     if (sc >= 7) fireGrandCelebration();
@@ -2538,6 +2555,8 @@ function loadPreferences() {
 
 // App Bootstrap
 async function initApp() {
+  // The welcome screen is on the page: the native splash can go (index.html also does this early).
+  if (Capacitor.isNativePlatform()) SplashScreen.hide().catch(() => {});
   await initStorage();
   setVoiceAccent(voiceAccent());
   initSetup();
@@ -2593,6 +2612,9 @@ async function initApp() {
   renderIcons();
 
   history.replaceState({ s: 'root', d: -1 }, '');
+  // Home is always one step above the exit point, so Back from another screen lands on Home
+  // (not on "Press back again to exit").
+  history.pushState({ s: 'home', d: 0 }, '');
 
   // Restore screen state if app reloaded
   const o = getItem('is_scr');
@@ -2602,15 +2624,12 @@ async function initApp() {
         P = { cat: o.cat, lv: o.lv || 'fresher', list: [], i: 0, one: o.one ?? null };
         const l = (P.list = plist());
         if (l.length) {
-          history.pushState({ s: 'home', d: 0 }, '');
           P.i = Math.min(o.i || 0, l.length - 1);
           show('practice');
         }
       } else if (o.s === 'form') {
-        history.pushState({ s: 'home', d: 0 }, '');
         showProfile();
       } else if (o.s === 'interview' && o.cur && o.cur.length) {
-        history.pushState({ s: 'home', d: 0 }, '');
         cat = o.cat;
         lv = o.lv;
         cur = o.cur;
@@ -2630,6 +2649,8 @@ async function initApp() {
     updateMicButtons();
   });
 
+  // The welcome screen covers the app at start: no banner (and no interstitial) over it.
+  if (document.getElementById('intro')) setBannerSuppressed('intro', true);
   // Consent (EEA/UK) first, then AdMob creates ONE banner under the header for the whole session.
   initializeAdMob({ layout: bannerLayout, onSpace: setAdSpace });
   watchBannerLayout();

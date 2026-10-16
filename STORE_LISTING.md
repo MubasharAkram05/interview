@@ -29,7 +29,7 @@ WHAT YOU CAN DO
 • Mock interview: answer questions one by one by typing or by voice, then get a simple score and tips
 • Six interview types: Software Developer / IT, Marketing / Sales, Customer Service, Teaching, Fresh Graduate / HR Round, and Cloud / DevOps / Security
 • Three levels: Fresher, Junior and Senior
-• Profiles: add your degree, skills and target role, and sample answers fill in your details
+• Profile: add your degree, skills and target role, and sample answers fill in your details
 • Add your own questions, edit questions and answers, and mark favorites
 • Read aloud: listen to questions and answers with your phone's text-to-speech voice
 • Question of the day, practice streak and interview history
@@ -40,7 +40,7 @@ HOW THE SCORE WORKS
 The score compares your spoken or typed answer with your own practice answer for that question. It is a practice aid to help you remember your answers. It is not a judgment of your real interview performance.
 
 OFFLINE USE
-Practice, mock interviews, profiles and history work offline. Voice input and ads need an internet connection. If you are offline, you can always type your answers.
+Practice, mock interviews, your profile and history work offline. Voice input and ads need an internet connection. If you are offline, you can always type your answers.
 
 PRIVACY
 No account and no sign-up. Your profile, answers and history are saved only on your phone. Voice input uses your phone's speech recognition service (usually Google) to turn your speech into text. The app itself does not save audio. The app shows ads from Google AdMob.

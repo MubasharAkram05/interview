@@ -7,7 +7,10 @@ const config: CapacitorConfig = {
   // The Android Gradle project lives in the repo root (app/, settings.gradle.kts),
   // not in the usual android/ folder.
   android: {
-    path: '.'
+    path: '.',
+    // Transparent WebView until the page paints, so the window background (logo on the brand
+    // gradient, res/drawable/launch_screen.xml) shows instead of a blank colour.
+    backgroundColor: '#00000000'
   },
   server: {
     androidScheme: 'https'
@@ -19,8 +22,11 @@ const config: CapacitorConfig = {
       initialViewportFitValueHint: 'cover'
     },
     SplashScreen: {
-      launchShowDuration: 1800,
+      // Keep launchShowDuration at 0: MainActivity installs Android's splash itself and keeps it
+      // until the web page has painted. A non-zero value would make this plugin install it again.
+      launchShowDuration: 0,
       launchAutoHide: true,
+      launchFadeOutDuration: 200,
       backgroundColor: '#2a45b5',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',

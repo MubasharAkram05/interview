@@ -155,6 +155,16 @@ const pad = await p.evaluate(() => { document.documentElement.classList.add('wv-
 check(`header: no status bar padding when WebView starts below it (${pad})`, pad === '6px');
 check('no horizontal scroll', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 check('no page errors', errors.length === 0);
+// Back from another screen after a fresh start lands on Home, not on "Press back again to exit"
+await p.evaluate(() => { localStorage.removeItem('is_scr'); });
+await p.evaluate(() => new Promise(r => { const q = indexedDB.deleteDatabase('InterviewSimulator'); q.onsuccess = q.onerror = q.onblocked = () => r(); }));
+await p.reload();
+await p.waitForTimeout(900);
+await p.evaluate(() => window.startMock());
+await p.waitForTimeout(400);
+await p.evaluate(() => history.back());
+await p.waitForTimeout(600);
+check('Back from Mock after a fresh start: Home, no exit warning', (await p.isVisible('#home')) && !/back again/i.test(await p.textContent('#toast')));
 // New user: Get Started on the welcome screen opens the details form
 const p2 = await b.newPage({ viewport: { width: 375, height: 740 } });
 await p2.goto('http://localhost:4173/');

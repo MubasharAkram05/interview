@@ -166,6 +166,7 @@
 - [x] Welcome screen while the app loads (title, tagline, picture, 4 features); Get Started appears when ready: details form for a new user, else Home
 - [x] Home hero is a friendly progress card (greeting, day streak, interviews, best score, Start practice / Mock interview); Start practice opens the form first if details are missing
 - [x] versionCode = CI run number, so every build is a new version and the phone refreshes the cached app icon
+- [x] Ads: banner position checked again on every screen and after every rebuild (the 2-correction limit is per banner, not per session); a banner still misplaced after 2 corrections is hidden instead of covering the header; no banner or interstitial over the welcome screen; reading aloud stops when an interstitial opens
 - [ ] Mock From memory with real speech on a phone (colours while speaking): **NOT CHECKED**
 - [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
 - [ ] Bottom banner position on a real phone (gesture bar, 3-button bar): **NOT CHECKED**

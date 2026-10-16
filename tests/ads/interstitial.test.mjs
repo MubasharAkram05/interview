@@ -180,6 +180,16 @@ const last = () => logs.at(-1) || '';
   m.emit('bl');
   await advance(400);
   check('E7 at most 2 corrections', ads.getAdsDebugState().banner.corrections === 2);
+  check('E8 still wrong after 2 corrections: banner hidden, never over the header', ads.getAdsDebugState().banner.hiddenFor.includes('misplaced') && m.calls.at(-1) === 'hideBanner');
+  // Next screen change: a fresh banner with its own checks (the limit is per banner, not per session)
+  const before = m.calls.filter(c => c.startsWith('showBanner')).length;
+  ads.requestBannerRelayout();
+  await advance(400);
+  check('E9 screen change: rebuilt and checked again', m.calls.filter(c => c.startsWith('showBanner')).length === before + 1 && ads.getAdsDebugState().banner.corrections === 0 && !ads.getAdsDebugState().banner.hiddenFor.includes('misplaced'));
+  // Suppressed by the welcome screen: hidden, and interstitial breaks skip
+  ads.setBannerSuppressed('intro', true);
+  check('E10 welcome screen hides the banner', ads.getAdsDebugState().banner.hiddenFor.includes('intro'));
+  ads.setBannerSuppressed('intro', false);
 }
 
 // ---- Scenario F: force test ignores cooldown/launch, respects load state; no real IDs
