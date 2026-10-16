@@ -55,7 +55,7 @@ import {
   notePractice
 } from './services/voice.js';
 import { voiceAccent, setAccentPref, corrections, removeCorrection, userVocab } from './services/voice-prefs.js';
-import { hintWords, rareWords, norm, similarity } from './services/vocab.js';
+import { hintWords, rareWords, norm } from './services/vocab.js';
 import { alignToExpected, introTemplate, isIntroQuestion } from './services/expected.js';
 import { ROLES, EXPERIENCE, MAX_SKILLS, ROLE_SKILLS, nameError, cleanTags, buildProfile, setupDone, catToRole, autoWords, LEGACY_DEMO_NAMES } from './services/setup.js';
 import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
@@ -985,8 +985,8 @@ function fillMock() {
   renderMockPicker();
 }
 
-// Mock page picker: same level tabs and category grid as Practice, but tapping a tile only
-// selects it (purple ring + check). "Start mock interview" then starts with that choice.
+// Mock page picker: same level tabs and category grid as Practice. Pick the level, then tap a
+// tile: the interview starts at once with that type and level.
 function renderMockPicker() {
   const c0 = $('mcat').value;
   const l0 = $('mlvl').value;
@@ -1003,7 +1003,10 @@ function renderMockPicker() {
     return `<button class="mt${on ? ' on' : ''}" data-c="${c}" aria-pressed="${on}" style="--c:${col}"><span class="mc"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><i class="mck" aria-hidden="true"></i></span><span class="pl">${esc(CATS[c])}</span></button>`;
   }).join('');
   $('mGrid').querySelectorAll('.mt').forEach(btn => {
-    btn.addEventListener('click', () => mPick(btn.dataset.c, $('mlvl').value));
+    btn.addEventListener('click', () => {
+      mPick(btn.dataset.c, $('mlvl').value);
+      startInterview();
+    });
   });
 }
 
@@ -1721,7 +1724,6 @@ function showQ() {
   stopListening(); // the last phrase of the previous question is still saved to it
   $('qCount').textContent = `${idx + 1}/${cur.length}`;
   reveal(cur[idx].q, $('rd').checked);
-  $('wSug').classList.add('hidden');
   $('mHintT').classList.add('hidden');
   mRender(idx);
   $('qBar').style.width = ((idx + 1) / cur.length) * 100 + '%';
@@ -1840,9 +1842,9 @@ function mockNote(m) {
 }
 
 // ---- Mock: From memory ----
-// The user says the saved answer from memory. Words show in the answer box while speaking: each
-// heard word is aligned to the saved answer (src/services/expected.js) and the saved spelling is
-// written. Words that are not in the saved answer are red; tap one for suggestions.
+// The user says the saved answer from memory (like a language app): words show in the answer box
+// while speaking, but only words of the saved answer, in its spelling (aligned with
+// src/services/expected.js). Anything else the phone heard is never written.
 // mHeard[i]: heard words of question i ({ w, keep }), the source of the box and of answers[i].
 let mHeard = [];
 const mWords = t => String(t || '').split(/\s+/).filter(w => norm(w));
@@ -1857,67 +1859,43 @@ function mRender(i, live = '') {
   const box = $('ansBox');
   const H = mHeard[i] || [];
   if (!H.length && !live) {
-    box.innerHTML = answers[i] ? esc(answers[i]) : '<span class="aph">Tap the mic and say your answer from memory. Your words appear here.</span>';
+    box.innerHTML = answers[i] ? esc(answers[i]) : '<span class="aph">Tap the mic and say your answer from memory. Only the words of your saved answer are written.</span>';
     return;
   }
   if (!refText(cur[i])) {
-    box.textContent = [...H.map(x => x.w), ...mWords(live)].join(' ');
+    box.textContent = H.filter(x => x.keep).map(x => x.w).join(' ');
     return;
   }
   const { r } = mAlign(i, live);
-  box.innerHTML = r.ops
+  const html = r.ops
     .map(o => {
       if (o.type === 'missed' || o.type === 'pending') return '';
       const lv = o.i >= H.length ? ' lv' : '';
-      if (o.type !== 'extra') return `<span class="aw${lv}${o.type === 'fix' ? ' fx' : ''}">${esc(o.expected)}</span>`;
-      if (lv || H[o.i].keep) return `<span class="aw${lv}">${esc(o.heard)}</span>`;
-      return `<button type="button" class="aw bad" data-h="${o.i}" aria-label="Not in your answer: ${esc(o.heard)}. Tap for suggestions">${esc(o.heard)}</button>`;
+      // Voice never writes free text: a heard word that is not in the saved answer is dropped.
+      // Typed words (keep) stay as typed.
+      if (o.type === 'extra') return !lv && H[o.i].keep ? `<span class="aw">${esc(o.heard)}</span>` : '';
+      return `<span class="aw${lv}">${esc(o.expected)}</span>`;
     })
     .filter(Boolean)
     .join(' ');
+  box.innerHTML = html || '<span class="aph">Listening... say the words of your saved answer.</span>';
   box.scrollTop = box.scrollHeight;
 }
 
-// Write what was heard into answers[i] (saved words, extras as heard) and redraw.
+// Write what was heard into answers[i]: saved-answer words only (plus typed words) and redraw.
 function mCommit(i) {
   const H = mHeard[i] || [];
   const ref = refText(cur[i]);
-  answers[i] = !ref ? H.map(x => x.w).join(' ') : alignToExpected(H.map(x => x.w).join(' '), ref).text;
+  if (!ref) answers[i] = H.filter(x => x.keep).map(x => x.w).join(' ');
+  else {
+    const r = alignToExpected(H.map(x => x.w).join(' '), ref);
+    answers[i] = r.ops
+      .filter(o => o.type === 'match' || o.type === 'fix' || (o.type === 'extra' && H[o.i].keep))
+      .map(o => (o.type === 'extra' ? o.heard : o.expected))
+      .join(' ');
+  }
   saveScr();
   mRender(i);
-}
-
-// Tap a red word: the nearest answer words not said yet (closest spelling first), Remove, Keep.
-function mSuggest(hi, btn) {
-  playTapSound();
-  const i = idx;
-  const { H, r } = mAlign(i);
-  const k = r.ops.findIndex(o => o.type === 'extra' && o.i === hi);
-  if (k < 0 || !H[hi]) return;
-  const heard = H[hi].w;
-  const near = [];
-  r.ops.forEach((o, n) => {
-    if ((o.type === 'missed' || o.type === 'pending') && Math.abs(n - k) <= 4) near.push({ w: o.expected, d: Math.abs(n - k), s: similarity(norm(heard), norm(o.expected)) });
-  });
-  const opts = [...new Map(near.sort((x, y) => y.s - x.s || x.d - y.d).map(x => [x.w.toLowerCase(), x.w])).values()].slice(0, 3);
-  const el = $('wSug');
-  el.innerHTML = `<p class="wsh">Heard "<b>${esc(heard)}</b>"${opts.length ? '. Did you mean:' : ''}</p><div class="wso">${opts
-    .map(w => `<button type="button" class="pri sm" data-w="${esc(w)}">${esc(w)}</button>`)
-    .join('')}<button type="button" class="sm" data-a="keep">Keep</button><button type="button" class="sm danger" data-a="del">Remove</button></div>`;
-  el.classList.remove('hidden');
-  const bx = $('ansBox').getBoundingClientRect();
-  const b = btn.getBoundingClientRect();
-  el.style.top = `${Math.min(b.bottom - bx.top + $('ansBox').offsetTop + 6, $('ansBox').offsetTop + $('ansBox').offsetHeight - 10)}px`;
-  el.onclick = e => {
-    const t = e.target.closest('button');
-    if (!t) return;
-    playTapSound();
-    if (t.dataset.w) H[hi] = { w: t.dataset.w };
-    else if (t.dataset.a === 'keep') H[hi] = { w: heard, keep: 1 };
-    else H.splice(hi, 1);
-    el.classList.add('hidden');
-    mCommit(i);
-  };
 }
 
 function mHint() {
@@ -1940,7 +1918,6 @@ function mType() {
   playTapSound();
   if (mMicOn || isListening()) return;
   const box = $('ansBox');
-  $('wSug').classList.add('hidden');
   box.textContent = answers[idx] || '';
   box.contentEditable = 'plaintext-only';
   if (box.contentEditable !== 'plaintext-only') box.contentEditable = 'true';
@@ -1954,7 +1931,7 @@ function mType() {
     box.onblur = null;
     box.contentEditable = 'false';
     box.classList.remove('typing');
-    mHeard[i] = mWords(box.innerText).map(w => ({ w }));
+    mHeard[i] = mWords(box.innerText).map(w => ({ w, keep: 1 })); // typed words stay as typed
     mCommit(i);
   };
 }
@@ -1982,7 +1959,6 @@ async function toggleMic() {
   clearInterval(rv);
   clearTimeout(rv);
   document.querySelectorAll('#qText .w').forEach(x => x.classList.add('in'));
-  $('wSug').classList.add('hidden');
   $('ansBox').blur(); // finish typing first
   if (!(await prepareVoice(mockNote))) return;
   if (cs !== 'interview') return;
@@ -2035,9 +2011,8 @@ async function toggleMic() {
       if (!here()) return;
       if (H.length > before && ref) {
         const r = alignToExpected(H.map(x => x.w).join(' '), ref, { partial: true });
-        const bad = r.ops.filter(o => o.type === 'extra' && !H[o.i].keep).length;
         mockNote('');
-        return toast(`${r.score}% of your answer said.${bad ? ` Tap the red word${bad === 1 ? '' : 's'} to fix ${bad === 1 ? 'it' : 'them'}.` : ''}`);
+        return toast(r.matched ? `${r.score}% of your answer said.` : 'No words of your saved answer were heard. Try again.');
       }
       mockNote(reason === 'cancelled' ? '' : message);
     }
@@ -2339,14 +2314,9 @@ function initEventListeners() {
   $('pDelQBtn')?.addEventListener('click', delQ);
 
   // Mock setup actions
-  $('mStartBtn')?.addEventListener('click', startInterview);
 
   // Mock interview actions
   $('qSpkBtn')?.addEventListener('click', () => reveal(cur[idx].q, true));
-  $('ansBox')?.addEventListener('click', e => {
-    const b = e.target.closest('.aw.bad');
-    if (b && !$('ansBox').isContentEditable) mSuggest(Number(b.dataset.h), b);
-  });
   $('mPrevBtn')?.addEventListener('click', () => step(-1));
 
   // Feedback actions

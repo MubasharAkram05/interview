@@ -153,7 +153,8 @@
 - [x] Mock: From memory only (Free answer removed); words appear while speaking; wrong words red with tap suggestions (Keep, Remove); Hint, Type, Clear; no chips; taller box
 - [x] Home hero smaller; Question of the day marked "Done today" after practice
 - [x] One profile at a time (Switch / New / Delete profile removed; older phones keep only the active profile)
-- [ ] Mock From memory with real speech on a phone (live words, red words, suggestions): **NOT CHECKED**
+- [x] Mock: voice writes only words of the saved answer (no free text, no red words); tapping a type starts the interview (Start button removed); hero title on one row
+- [ ] Mock From memory with real speech on a phone (live words, only answer words written): **NOT CHECKED**
 - [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
 - [ ] Bottom banner position on a real phone (gesture bar, 3-button bar): **NOT CHECKED**
 - [ ] Practice matching with real speech (voice report: expected, heard, alignment, score): **NOT CHECKED**

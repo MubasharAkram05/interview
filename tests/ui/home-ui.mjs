@@ -116,27 +116,16 @@ check('header back button hides logo', await p.evaluate(() => { window.showProfi
 await p.evaluate(() => window.startMock());
 await p.waitForTimeout(400);
 check('mock page has level tabs and category tiles', (await p.locator('#mSeg button').count()) === 3 && (await p.locator('#mGrid .mt').count()) >= 4);
-await p.click('#mGrid .mt:nth-child(2)');
-await p.click('#mSeg button:nth-child(2)');
-await p.waitForTimeout(300);
-const pickedC = await p.getAttribute('#mGrid .mt.on', 'data-c');
-check('tapping a tile selects it (one selected)', (await p.locator('#mGrid .mt.on').count()) === 1 && pickedC === (await p.getAttribute('#mGrid .mt:nth-child(2)', 'data-c')));
-check('Start button says only "Start"', (await p.textContent('#mStart')).trim() === 'Start');
+check('no Start button on the Mock page', (await p.locator('#mStart').count()) === 0);
 const tiles = await p.$$eval('#mGrid .mt', bs => bs.map(b => b.getBoundingClientRect().height));
 check('tiles are big enough to tap (>= 44px)', tiles.every(h => h >= 44));
-await p.reload();
-await p.waitForTimeout(700);
-await p.evaluate(() => window.startMock());
-await p.waitForTimeout(400);
-check('mock choice is remembered', (await p.getAttribute('#mGrid .mt.on', 'data-c')) === pickedC && (await p.getAttribute('#mSeg button.on', 'data-lvl')) === 'junior');
-await p.click('#mStart');
+await p.click('#mSeg button:nth-child(2)');
+await p.waitForTimeout(300);
+const pickedC = await p.getAttribute('#mGrid .mt:nth-child(2)', 'data-c');
+await p.click('#mGrid .mt:nth-child(2)');
 await p.waitForTimeout(1200);
 if (await p.isVisible('#dlg')) { await p.click('#dYes'); await p.waitForTimeout(1000); }
-check('Start uses the picked type and level', await p.evaluate(() => JSON.parse(localStorage.getItem('is_scr') || '{}').lv === 'junior'));
-await p.evaluate(() => { window.leaveOK = true; });
-await p.evaluate(() => window.startInterview());
-await p.waitForTimeout(1500);
-if (await p.isVisible('#dlg')) { await p.click('#dYes'); await p.waitForTimeout(1200); }
+check('tapping a tile starts the interview with that type and level', (await p.isVisible('#interview')) && await p.evaluate(c => { const o = JSON.parse(localStorage.getItem('is_scr') || '{}'); return o.lv === 'junior' && o.cat === c; }, pickedC));
 const gap = await p.evaluate(() => {
   const q = document.querySelector('#interview .qbody').getBoundingClientRect();
   const t = document.getElementById('qText').getBoundingClientRect();
