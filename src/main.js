@@ -379,6 +379,7 @@ function render(id) {
   const adBottom = id === 'interview';
   document.documentElement.classList.toggle('ad-bottom', adBottom);
   setBannerPlacement(adBottom ? 'bottom' : 'top');
+  requestBannerRelayout(); // every screen: check the banner is still just under the header
 
   $('x').classList.toggle('hidden', id === 'home');
   $('ttl').textContent = TT[id] || 'Interview Simulator';
@@ -475,7 +476,10 @@ function heroGo() {
 function introReady() {
   const el = $('intro');
   if (!el) return;
-  if (window.__skipIntro) return el.remove(); // browser tests that check other screens
+  if (window.__skipIntro) {
+    setBannerSuppressed('intro', false);
+    return el.remove(); // browser tests that check other screens
+  }
   $('iLoad').classList.add('hidden');
   const go = $('iGo');
   go.classList.remove('hidden');
@@ -483,6 +487,7 @@ function introReady() {
     playTapSound();
     el.classList.add('out');
     setTimeout(() => el.remove(), 400);
+    setBannerSuppressed('intro', false); // the banner appears with the app, never on this screen
     if (!setupDone(profiles[active])) openSetup(() => home(), { fresh: !profiles[active] });
   };
 }
@@ -1317,7 +1322,7 @@ function practiceBreak(wasRecording, wasTyping) {
   // Never while recording or typing; skip silently and continue.
   if (wasRecording) return skipInterstitialBreak(name, 'recording');
   if (wasTyping) return skipInterstitialBreak(name, 'typing');
-  showInterstitialAtBreak(name);
+  showInterstitialAtBreak(name).then(shown => shown && stopMedia()); // no reading aloud behind the ad
 }
 
 function isTypingNow() {
@@ -2282,6 +2287,7 @@ function finish() {
   // skipped silently. The app never waits for an ad.
   blurTyping();
   showInterstitialAtBreak('interview_finished').then(shown => {
+    if (shown) stopMedia();
     if (shown) return; // no chime or confetti behind a full-screen ad
     playSuccessChime();
     if (sc >= 7) fireGrandCelebration();
@@ -2630,6 +2636,8 @@ async function initApp() {
     updateMicButtons();
   });
 
+  // The welcome screen covers the app at start: no banner (and no interstitial) over it.
+  if (document.getElementById('intro')) setBannerSuppressed('intro', true);
   // Consent (EEA/UK) first, then AdMob creates ONE banner under the header for the whole session.
   initializeAdMob({ layout: bannerLayout, onSpace: setAdSpace });
   watchBannerLayout();
