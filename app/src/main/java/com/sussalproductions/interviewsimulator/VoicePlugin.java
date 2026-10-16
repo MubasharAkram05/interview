@@ -58,6 +58,7 @@ public class VoicePlugin extends Plugin {
     private boolean active = false; // the user wants to keep listening
     private boolean continuous = true;
     private int emptyRuns = 0;
+    private int errorRuns = 0; // transient service errors in a row (server, disconnect, timeout)
     private int maxEmpty = 2;
     private long runStartedAt = 0;
     private long lastLevelAt = 0;
@@ -96,6 +97,7 @@ public class VoicePlugin extends Plugin {
                 session++;
                 active = true;
                 emptyRuns = 0;
+                errorRuns = 0;
                 useSegmented = continuous && Build.VERSION.SDK_INT >= 33 && !segmentedBroken;
                 muteBeeps();
                 rec = SpeechRecognizer.createSpeechRecognizer(getContext());
@@ -274,6 +276,11 @@ public class VoicePlugin extends Plugin {
         notifyListeners(event, ret);
     }
 
+    // Errors worth one quiet retry. No internet (2), no permission (9) and language errors are not.
+    private static boolean isTransient(int error) {
+        return error == ERR_NETWORK_TIMEOUT || error == 3 || error == 4 || error == ERR_CLIENT || error == 11;
+    }
+
     private static boolean hasText(Bundle b) {
         ArrayList<String> m = b == null ? null : b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
         return m != null && !m.isEmpty() && m.get(0) != null && !m.get(0).trim().isEmpty();
@@ -331,6 +338,13 @@ public class VoicePlugin extends Plugin {
                 }, 300);
             } else if (error == ERR_CLIENT && !active) {
                 end(my, "stopped", 0);
+            } else if (active && isTransient(error) && errorRuns < 3) {
+                // Long answers: the online service sometimes closes the session (server error,
+                // disconnect, slow network). Start again quietly instead of ending the mic.
+                errorRuns++;
+                main.postDelayed(() -> {
+                    if (my == session && active) begin();
+                }, 300L * errorRuns);
             } else {
                 end(my, "error", error);
             }
@@ -342,6 +356,7 @@ public class VoicePlugin extends Plugin {
             if (hasText(results)) {
                 emit("segment", results);
                 emptyRuns = 0;
+                errorRuns = 0;
             } else emptyRuns++;
             next(my);
         }
@@ -359,6 +374,7 @@ public class VoicePlugin extends Plugin {
             if (hasText(segmentResults)) {
                 emit("segment", segmentResults);
                 emptyRuns = 0;
+                errorRuns = 0;
             }
         }
 

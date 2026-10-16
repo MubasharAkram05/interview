@@ -56,7 +56,7 @@ import {
 import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
 import { questionOfDay } from './services/qotd.js';
-import { tokens, bestAlignment, readingScore } from './services/readalong.js';
+import { tokens, bestAlignment, readingScore, pickAlternative, vocabulary, joinSpoken } from './services/readalong.js';
 import { nativeAdLayout } from './services/native-info.js';
 import { formatFullCurrentDate, formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
 import { playTapSound, playSuccessChime, playErrorBeep } from './services/sound.js';
@@ -1563,12 +1563,29 @@ function fixTerms(t) {
 // Mock interview: speak your answer and it is typed into the answer box.
 let mMicOn = false; // mock interview: keep listening through pauses until the user taps stop
 
-// Words likely in an interview answer: tech terms the app knows and the user's skills and
-// work topics. No name, university or other personal details are sent as hints.
-function mockBias() {
+// Mock interview: the app's own model answer for this question (with the user's profile filled
+// in). The spoken answer is usually close to it, so it is the best hint for the speech service.
+function mockModel(it) {
+  if (!it) return '';
+  const k = `${active}|${CK(cat, lv)}|${it.i}`;
+  const p = profiles[active];
+  return k in E ? E[k] : fill(it.a || '', p && { ...p, role: ROLE[cat] || p.role });
+}
+
+// Word hints for the mock answer: model answer first, then the question, the user's skills and
+// work topics, then common tech terms. No name, university or other personal details.
+function mockBias(it) {
   const p = profiles[active] || {};
   const own = ['role', 'skills', 'certs', 'project'].map(k => p[k] || '').join(' ');
-  return [...Object.values(FIX), ...biasFor(own)].slice(0, 200);
+  // Take personal details out of the model answer before it is used as a hint.
+  let model = mockModel(it);
+  ['name', 'uni', 'degree'].forEach(k => {
+    String(p[k] || '')
+      .split(/[\s,]+/)
+      .filter(w => w.length > 1)
+      .forEach(w => (model = model.replace(new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), ' ')));
+  });
+  return [...biasFor(model), ...biasFor(it && it.q), ...biasFor(own), ...Object.values(FIX)].slice(0, 200);
 }
 
 async function toggleMic() {
@@ -1593,24 +1610,28 @@ async function toggleMic() {
   const myIdx = idx;
   // Text that is final; live words are shown after it.
   let kept = $('ansBox').value;
-  const join = (a, b) => (a && b ? a.replace(/\s+$/, '') + ' ' + b : a || b);
+  const keepCase = Object.values(FIX);
+  const join = (a, b) => joinSpoken(a, b, keepCase);
   const write = v => {
     answers[myIdx] = v.trim(); // kept even if the user moves on mid-sentence
     if (idx === myIdx && cs === 'interview') $('ansBox').value = v;
     saveScr();
   };
+  const it = cur[myIdx];
+  const vocab = vocabulary(mockModel(it), it && it.q, (profiles[active] || {}).skills, Object.values(FIX).join(' '));
+  const best = alts => fixTerms(pickAlternative(alts, vocab));
   mMicOn = true;
   $('mic').classList.add('on');
-  note('Listening... speak now. Tap the mic when you finish.');
+  note('Listening... speak now. Pauses are fine. Tap the mic when you finish.');
 
   const started = await startListening({
-    bias: [...mockBias(), ...biasFor(cur[myIdx] && cur[myIdx].q)],
+    bias: mockBias(it),
     silenceMs: 4000,
     maxEmpty: 6, // about 30 s of thinking time; tap the mic when the answer is done
     onLevel: db => micLevel($('mic'), db),
-    onPartial: alts => write(join(kept, fixTerms(alts[0]))),
+    onPartial: alts => write(join(kept, best(alts))),
     onSegment: alts => {
-      kept = join(kept, fixTerms(alts[0]));
+      kept = join(kept, best(alts));
       write(kept);
     },
     onEnd: ({ reason, code, heard }) => {
