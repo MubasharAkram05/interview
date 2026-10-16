@@ -97,10 +97,11 @@ function finish(reason, code = 0) {
  *  onLevel(db)      mic loudness, for the button animation
  *  onEnd({ reason: 'ended' | 'stopped' | 'error', code, heard })  once, at the end
  * bias: words the speaker is likely to say (Android 13+ uses them to pick the right word).
- * continuous: keep listening through pauses until stopListening() or two silent runs.
+ * continuous: keep listening through pauses until stopListening() or maxEmpty silent runs in a row
+ * (each silent run is about 5 s of no speech).
  * Resolves true when listening started.
  */
-export async function startListening({ onPartial, onSegment, onLevel, onEnd, bias = [], continuous = true, silenceMs = 3000 }) {
+export async function startListening({ onPartial, onSegment, onLevel, onEnd, bias = [], continuous = true, silenceMs = 3000, maxEmpty = 4 }) {
   if (session) cancelListening();
   const s = { onEnd, heard: false, stopping: false, handles: [], safety: null, stopTimer: null };
   session = s;
@@ -142,7 +143,7 @@ export async function startListening({ onPartial, onSegment, onLevel, onEnd, bia
       language: voiceLanguage(),
       maxResults: 5,
       continuous,
-      maxEmpty: 2,
+      maxEmpty,
       silenceMs,
       bias: [...new Set(bias)].slice(0, 200)
     });

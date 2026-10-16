@@ -29,6 +29,12 @@ check('mic level passed on', ev.level[0] === 6);
 emit('end', { reason: 'ended', code: 0 });
 check('natural end reported once with heard=true', ev.end && ev.end.reason === 'ended' && ev.end.heard === true && !isListening());
 
+check('waits through about 20 s of silence by default (maxEmpty 4)', o.maxEmpty === 4);
+reset();
+await startListening({ maxEmpty: 6, silenceMs: 4000, onEnd: () => {} });
+check('mock settings passed to native (maxEmpty 6, silence 4 s)', state.starts[0].maxEmpty === 6 && state.starts[0].silenceMs === 4000);
+cancelListening();
+
 // 2. User stop keeps the last phrase: onEnd only after native end.
 reset();
 let end2 = null;

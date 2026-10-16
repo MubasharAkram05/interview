@@ -1,6 +1,8 @@
 package com.sussalproductions.interviewsimulator;
 
+import android.content.Context;
 import android.content.Intent;
+import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -27,6 +29,10 @@ import java.util.ArrayList;
  *    On older phones (or if segmented sessions are not supported) the recognizer is restarted at once
  *    inside native code, so far fewer words are lost than with a restart from JavaScript.
  *  - Longer silence before the end of a phrase, and real error codes (language, network, no speech).
+ *
+ *  - No beeps: the speech service plays a beep every time listening (re)starts. While the mic is on,
+ *    the music, notification and system sounds are muted, and restored as soon as it stops (also when
+ *    the app goes to the background). Only streams that were not already muted are touched.
  *
  * Events: "partial" {matches}, "segment" {matches}, "level" {db}, "end" {reason, code}.
  * No audio is recorded or stored by the app. Only text comes back.
@@ -60,6 +66,8 @@ public class VoicePlugin extends Plugin {
     private int maxResults = 5;
     private long silenceMs = 3000;
     private ArrayList<String> bias = new ArrayList<>();
+    private final ArrayList<Integer> mutedStreams = new ArrayList<>();
+    private static final int[] BEEP_STREAMS = { AudioManager.STREAM_MUSIC, AudioManager.STREAM_NOTIFICATION, AudioManager.STREAM_SYSTEM };
 
     @PluginMethod
     public void start(PluginCall call) {
@@ -89,6 +97,7 @@ public class VoicePlugin extends Plugin {
                 active = true;
                 emptyRuns = 0;
                 useSegmented = continuous && Build.VERSION.SDK_INT >= 33 && !segmentedBroken;
+                muteBeeps();
                 rec = SpeechRecognizer.createSpeechRecognizer(getContext());
                 rec.setRecognitionListener(new Listener(session));
                 begin();
@@ -114,6 +123,10 @@ public class VoicePlugin extends Plugin {
                 }
                 // Some recognizers never answer after stop(): end the session anyway.
                 main.postDelayed(() -> end(my, "stopped", 0), 1500);
+                // Safety: sound always comes back, even if the session was already over.
+                main.postDelayed(() -> {
+                    if (!active) unmuteBeeps();
+                }, 2000);
                 call.resolve();
             });
     }
@@ -131,9 +144,59 @@ public class VoicePlugin extends Plugin {
     }
 
     @Override
+    protected void handleOnPause() {
+        // App in background: stop listening and give the sound back right away.
+        if (rec != null) {
+            active = false;
+            end(session, "stopped", 0);
+        }
+        unmuteBeeps();
+    }
+
+    @Override
     protected void handleOnDestroy() {
         main.removeCallbacksAndMessages(null);
         destroyRecognizer();
+        unmuteBeeps();
+    }
+
+    private void muteBeeps() {
+        if (!mutedStreams.isEmpty()) return; // already muted by this session
+        try {
+            AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            if (am == null) return;
+            for (int st : BEEP_STREAMS) {
+                try {
+                    if (!am.isStreamMute(st)) {
+                        am.adjustStreamVolume(st, AudioManager.ADJUST_MUTE, 0);
+                        mutedStreams.add(st);
+                    }
+                } catch (Exception ignored) {
+                    // Do Not Disturb or a device rule: leave this stream alone
+                }
+            }
+        } catch (Exception ignored) {
+            // no audio service: beeps stay audible
+        }
+    }
+
+    private void unmuteBeeps() {
+        if (mutedStreams.isEmpty()) return;
+        try {
+            AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            if (am != null) {
+                for (int st : mutedStreams) {
+                    try {
+                        am.adjustStreamVolume(st, AudioManager.ADJUST_UNMUTE, 0);
+                    } catch (Exception ignored) {
+                        // keep going with the other streams
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // nothing to restore
+        }
+        mutedStreams.clear();
     }
 
     private Intent buildIntent() {
@@ -182,6 +245,10 @@ public class VoicePlugin extends Plugin {
         if (my != session || rec == null) return;
         active = false;
         destroyRecognizer();
+        // Wait for the closing beep to pass, then give the sound back (unless a new session started).
+        main.postDelayed(() -> {
+            if (!active) unmuteBeeps();
+        }, 400);
         JSObject ret = new JSObject();
         ret.put("reason", reason);
         ret.put("code", code);
