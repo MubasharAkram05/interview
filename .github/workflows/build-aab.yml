@@ -12,6 +12,7 @@ on:
       - ads-top-banner
       - ads-interstitial
       - ads-recheck
+      - voice-accuracy
 
 permissions:
   contents: read
