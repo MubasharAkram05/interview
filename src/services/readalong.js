@@ -208,3 +208,69 @@ export function readingScore(state) {
   const counted = state.filter(Boolean).length || 1;
   return state.filter(x => x === 'ok').length / counted;
 }
+
+/**
+ * Mock interview: pick the transcript that fits the topic best. The first guess wins unless
+ * another one contains clearly more of the expected words (the model answer, question, skills).
+ * vocab: Set of normalized words. Returns one of the alternatives.
+ */
+const SOUND_CACHE = new WeakMap();
+
+export function pickAlternative(alts, vocab) {
+  if (!alts || !alts.length) return '';
+  if (!vocab || !vocab.size || alts.length === 1) return alts[0];
+  // Sound keys of the expected words, so near matches cost one Set lookup per heard word.
+  let keys = SOUND_CACHE.get(vocab);
+  if (!keys) {
+    keys = new Set([...vocab].filter(v => v.length >= 4).map(soundKey));
+    SOUND_CACHE.set(vocab, keys);
+  }
+  const score = a => {
+    let n = 0;
+    for (const w of tokens(a)) {
+      if (w.length < 3) continue;
+      if (vocab.has(w)) n += 1;
+      else if (w.length >= 4 && keys.has(soundKey(w))) n += 0.5;
+    }
+    return n;
+  };
+  const base = score(alts[0]);
+  let best = alts[0];
+  let bestScore = base;
+  alts.slice(1).forEach(a => {
+    const s = score(a);
+    if (s >= base + 2 && s > bestScore) {
+      best = a;
+      bestScore = s;
+    }
+  });
+  return best;
+}
+
+/** Normalized word set for pickAlternative. */
+export function vocabulary(...texts) {
+  const v = new Set();
+  texts.forEach(t => tokens(t).forEach(w => w.length >= 3 && v.add(w)));
+  return v;
+}
+
+/**
+ * Mock interview: add a new spoken phrase to the answer text. After a pause the phrase is
+ * usually the same sentence going on, so its first word is not capitalized mid-sentence
+ * ("I built an app and used React", not "... app And used React"). Keeps "I", acronyms and
+ * known terms (keep) as they are.
+ */
+export function joinSpoken(prev, next, keep = []) {
+  const a = String(prev || '').replace(/\s+$/, '');
+  let b = String(next || '').trim();
+  if (!b) return a;
+  if (!a) return b.charAt(0).toUpperCase() + b.slice(1);
+  if (!/[.!?]$/.test(a)) {
+    const first = b.split(/\s+/)[0];
+    const isKept = first === 'I' || first.startsWith("I'") || /^[A-Z0-9]{2,}/.test(first) || keep.some(k => first.startsWith(k));
+    if (!isKept) b = b.charAt(0).toLowerCase() + b.slice(1);
+  } else {
+    b = b.charAt(0).toUpperCase() + b.slice(1);
+  }
+  return a + ' ' + b;
+}

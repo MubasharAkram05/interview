@@ -1,5 +1,5 @@
 // Read-along matching: accents, misheard words, skipped words, fillers, numbers.
-import { alignReading, bestAlignment, readingScore, similarity, soundKey, tokens } from '../../src/services/readalong.js';
+import { alignReading, bestAlignment, readingScore, similarity, soundKey, tokens, pickAlternative, vocabulary, joinSpoken } from '../../src/services/readalong.js';
 
 const out = [];
 const check = (name, ok) => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}`);
@@ -58,6 +58,21 @@ const long = Array.from({ length: 300 }, (_, i) => 'word' + (i % 50)).join(' ');
 const t0 = Date.now();
 for (let i = 0; i < 50; i++) alignReading(T(long), [long]);
 check(`fast enough for live updates (50 x 300 words in ${Date.now() - t0} ms)`, Date.now() - t0 < 1500);
+
+// Mock interview: choose the transcript that fits the topic.
+const vocab = vocabulary('I built a REST API with Node.js and MongoDB for an online store.', 'Tell me about your project', 'JavaScript, React');
+check('mock: first guess kept when others are not clearly better', pickAlternative(['I built a rest API with node', 'I build a rest API with note'], vocab) === 'I built a rest API with node');
+check('mock: a guess with clearly more topic words wins', pickAlternative(['I built a rest happy with no JS and mongo baby', 'I built a REST API with Node.js and MongoDB'], vocab) === 'I built a REST API with Node.js and MongoDB');
+check('mock: empty list gives empty text', pickAlternative([], vocab) === '');
+const alts = Array.from({ length: 5 }, (_, i) => 'I worked on a project using React and Node and MongoDB with my team ' + i);
+const t1 = Date.now();
+for (let i = 0; i < 300; i++) pickAlternative(alts, vocab);
+check(`mock: fast enough for live text (300 picks in ${Date.now() - t1} ms)`, Date.now() - t1 < 300);
+
+check('mock: phrase after a pause continues the sentence', joinSpoken('I built an app', 'And used React') === 'I built an app and used React');
+check('mock: keeps I, acronyms and known terms', joinSpoken('First', 'I used AWS') === 'First I used AWS' && joinSpoken('We used', 'AWS and React') === 'We used AWS and React' && joinSpoken('Then', 'JavaScript was used', ['JavaScript']) === 'Then JavaScript was used');
+check('mock: after a full stop the next phrase starts with a capital', joinSpoken('It worked.', 'then we shipped') === 'It worked. Then we shipped');
+check('mock: first phrase starts with a capital', joinSpoken('', 'my name is Ali') === 'My name is Ali');
 
 console.log(out.join('\n'));
 if (out.some(l => l.startsWith('FAIL'))) process.exit(1);
