@@ -159,6 +159,10 @@
 - [x] Question of the day streak (days in a row, on the card); Profile page restyled as a settings list with switches
 - [x] Voice: a 2 s pause writes the sentence and the mic keeps listening (silence 2000/1500/min 2000 ms, up to 2 silent restarts); auto stop 2 s after the last answer word; Practice highlights words while speaking; Mock hint text removed
 - [x] Voice (from the Infinix report): empty first final entry ignored (native), 5 silent restarts while answering, one retry after network error 1/2, focused answer hints (max 60); red-word bubble above the word; Practice text not tappable (Edit button only)
+- [x] Practice mic switched off (`PRACTICE_MIC = false` in src/main.js; set true to bring it back); Practice reads the question and answer aloud on open (Read aloud setting), Pakistani English voice first (en-PK, then en-IN, en-US)
+- [x] Header mute button, shown only while reading aloud
+- [x] Mock matching like a language app: lenient (50% spelling), joined/split words, sticky right words (a red word said again turns right); mic pauses on 2-3 s silence, listens again, stops after ~6-7 s silence, or at the next pause once every word is right
+- [x] Answers in full professional words: degree short forms written out, "Marketing/Sales" -> "Marketing and Sales", no "at my university"; new intro template
 - [ ] Mock From memory with real speech on a phone (colours while speaking): **NOT CHECKED**
 - [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
 - [ ] Bottom banner position on a real phone (gesture bar, 3-button bar): **NOT CHECKED**

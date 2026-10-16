@@ -18,5 +18,7 @@ export const VOICE_ACCENTS = {
 export const DEFAULT_VOICE_ACCENT = 'in';
 
 
-// Read-aloud (text to speech) language.
-export const TTS_LANGUAGE = 'en-US';
+// Read-aloud (text to speech) language: Pakistani English first, then the closest the phone has
+// (Indian English sounds most like it), then US English.
+export const TTS_LANGUAGES = ['en-PK', 'en-IN', 'en-US'];
+export const TTS_LANGUAGE = TTS_LANGUAGES[0];

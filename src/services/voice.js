@@ -336,7 +336,8 @@ function onEnd(s, d) {
 // written, listen again a few times; then stop (never an endless loop on noise or silence).
 function silent(s) {
   s.silent = (s.silent || 0) + 1;
-  const max = s.o.silentRestarts ?? VOICE_TIMING.silentRestarts;
+  const opt = s.o.silentRestarts;
+  const max = typeof opt === 'function' ? opt() : opt ?? VOICE_TIMING.silentRestarts;
   if (s.committed > 0 && s.silent <= max) return next(s, VOICE_TIMING.nextSessionMs);
   return finish(s, 'empty');
 }
@@ -352,7 +353,8 @@ function next(s, ms) {
  *  bias: hint strings (Android 13+). choose(cands) -> { text, index, changes, why }: picks and
  *  corrects one of the guesses ({ text, score, index }). onState(state), onPartial(text) (show
  *  only), onFinal(text, info) (write it), onLevel(db), onEnd({ reason, code, heard, message }).
- *  silentRestarts: how many silent sessions in a row to listen through once something was written.
+ *  silentRestarts: how many silent sessions in a row to listen through once something was written
+ *  (a number, or a function asked each time, so the screen can stop sooner once it is done).
  *  keepLive(text) -> bool: live words the screen trusts (they match the saved answer); they are
  *  written even when no final comes or its confidence is low.
  *  filter: overrides for VOICE_FILTER (tests).
