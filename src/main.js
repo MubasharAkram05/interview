@@ -2,10 +2,7 @@ import {
   CATS,
   LEVELS,
   ROLE,
-  FIELDS,
-  FF,
   DEF,
-  DEMO,
   HEAD,
   TAIL,
   MID,
@@ -31,12 +28,14 @@ import { Share } from '@capacitor/share';
 import { AppLauncher } from '@capacitor/app-launcher';
 import { marked } from 'marked';
 import policyMarkdown from '../PRIVACY_POLICY.md?raw';
+import glyphSvg from '../assets/logo/glyph.svg?raw';
 import { PRIVACY_POLICY_URL, VOICE_ACCENTS } from './config/app.js';
 import {
   initializeAdMob,
   showInterstitialAtBreak,
   skipInterstitialBreak,
   setBannerSuppressed,
+  setBannerPlacement,
   requestBannerRelayout,
   needsPrivacyOptions,
   showPrivacyOptions
@@ -52,17 +51,22 @@ import {
   cancelListening,
   isListening,
   setVoiceAccent,
-  openAppSettings
+  openAppSettings,
+  notePractice
 } from './services/voice.js';
-import { voiceAccent, setAccentPref, nameKeys, voiceHints } from './services/voice-prefs.js';
+import { voiceAccent, setAccentPref, corrections, addCorrection, removeCorrection, userVocab, chipWords } from './services/voice-prefs.js';
+import { correctText, hintWords, keywordsIn, learnFromEdit, rareWords, norm } from './services/vocab.js';
+import { alignToExpected, introTemplate, isIntroQuestion } from './services/expected.js';
+import { ROLES, EXPERIENCE, MAX_SKILLS, MAX_WORDS, nameError, cleanTags, defaultWords, updateWords, buildProfile, setupDone, roleToCat, expToLevel, LEGACY_DEMO_NAMES } from './services/setup.js';
+import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
 import { pickCandidate } from './services/voice-filter.js';
 
 import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
 import { questionOfDay } from './services/qotd.js';
-import { tokens, bestAlignment, readingScore, joinSpoken } from './services/readalong.js';
+import { joinSpoken } from './services/readalong.js';
 import { nativeAdLayout } from './services/native-info.js';
-import { formatFullCurrentDate, formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
+import { formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
 import { playTapSound, playSuccessChime, playErrorBeep } from './services/sound.js';
 import { fireConfetti, fireGrandCelebration } from './services/celebration.js';
 
@@ -183,7 +187,17 @@ const bank = (c, level = 'fresher') => {
 const fill = (t, p) => t.replace(/\{(\w+)\}/g, (_, k) => (p && p[k] ? clean(p[k]) : DEF[k] || `[${k}]`));
 const ekey = it => `${active}|${CK(P.cat, P.lv)}|${it.i}`;
 const rp = p => p && { ...p, role: ROLE[P.cat] || p.role };
-const ansText = it => ((ekey(it) in E) ? E[ekey(it)] : fill(it.a, rp(profiles[active])));
+// Saved answer, or the sample answer filled from the profile. "Introduce yourself" questions use
+// an answer built from the setup details (src/services/expected.js) until the user saves their own.
+const ansText = it => {
+  if (ekey(it) in E) return E[ekey(it)];
+  const p = profiles[active];
+  if (p && isIntroQuestion(it.q)) {
+    const t = introTemplate({ name: p.name, edu: p.edu || p.degree, city: p.city, skills: p.skillTags || p.skills, role: p.role });
+    if (t) return t;
+  }
+  return fill(it.a, rp(p));
+};
 
 // Toast Notification
 function toast(m) {
@@ -234,9 +248,12 @@ function setAdSpace(h) {
 function bannerLayout() {
   const header = document.querySelector('header.bar');
   const probe = $('safeTopProbe');
+  const bottom = $('safeBotProbe');
   return {
     headerBottom: header ? header.getBoundingClientRect().bottom : 0,
-    safeTop: probe ? probe.getBoundingClientRect().height : 0
+    safeTop: probe ? probe.getBoundingClientRect().height : 0,
+    viewportH: window.innerHeight,
+    safeBottom: bottom ? bottom.getBoundingClientRect().height : 0
   };
 }
 
@@ -299,7 +316,8 @@ const TT = {
   interview: 'Mock interview',
   feedback: 'Results',
   addq: 'Add question',
-  privacy: 'Privacy Policy'
+  privacy: 'Privacy Policy',
+  setup: 'Your details'
 };
 
 const TB = {
@@ -311,7 +329,8 @@ const TB = {
   interview: 'nMock',
   feedback: 'nMock',
   addq: 'nPractice',
-  privacy: 'nProfile'
+  privacy: 'nProfile',
+  setup: 'nProfile'
 };
 
 const TABS = ['home', 'pcat', 'practice', 'mock', 'form'];
@@ -340,12 +359,19 @@ function render(id) {
   if (id === 'pcat') fillPcat();
   if (id === 'mock') fillMock();
   if (id === 'privacy') fillPrivacy();
+  if (id === 'setup') renderSetup();
+  if (id === 'interview' && cur.length) renderChips(); // details may have changed (Edit my details)
+
+  // Mock interview session page: banner at the bottom (below Prev/Next); everywhere else at the top.
+  const adBottom = id === 'interview';
+  document.documentElement.classList.toggle('ad-bottom', adBottom);
+  setBannerPlacement(adBottom ? 'bottom' : 'top');
 
   $('x').classList.toggle('hidden', id === 'home');
   $('ttl').textContent = TT[id] || 'Interview Simulator';
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === TB[id]));
   // Question screens (practice and mock interview) use the full height; the header back button leaves.
-  $('nav').classList.toggle('hidden', id === 'interview' || id === 'practice' || id === 'addq');
+  $('nav').classList.toggle('hidden', id === 'interview' || id === 'practice' || id === 'addq' || id === 'setup');
   $('main').scrollTop = 0;
   renderIcons();
 }
@@ -359,7 +385,8 @@ function show(id, replace = false) {
     render('home');
     return;
   }
-  if (replace || (TABS.includes(id) && TABS.includes(cs) && cs !== 'home')) {
+  // Leaving the setup screen after saving: replace it, so Back does not reopen the form.
+  if (replace || cs === 'setup' || (TABS.includes(id) && TABS.includes(cs) && cs !== 'home')) {
     history.replaceState({ s: id, d: dep }, '');
   } else {
     dep++;
@@ -400,34 +427,85 @@ function syncThemeSwitch() {
   b.innerHTML = svg(b.dataset.i);
 }
 
-// Stats & Home Screen
-function stats() {
-  $('av').textContent = active ? ini(active) : '';
-  const g = new Date().getHours();
-  $('gr').textContent = g < 12 ? 'Good morning' : g < 18 ? 'Good afternoon' : 'Good evening';
-  $('hi').textContent = active ? `Hi, ${active.split(' ')[0]}` : 'Ready to practice?';
+// The logo glyph (assets/logo/glyph.svg) inline; mask ids are made unique per copy.
+let logoN = 0;
+function logoSvg() {
+  logoN++;
+  return glyphSvg.replace(/<!--[\s\S]*?-->/g, '').replace(/lg-/g, `lg${logoN}-`);
 }
 
+// Stats & Home Screen
+function stats() {
+  const p = profiles[active];
+  const g = new Date().getHours();
+  const first = p && p.name ? p.name.split(' ')[0] : '';
+  $('gr').textContent = first ? (g < 12 ? 'Good morning,' : g < 18 ? 'Good afternoon,' : 'Good evening,') : '';
+  $('hi').textContent = first || 'Welcome';
+  $('hSub').textContent = p && p.role ? `Ready for your ${p.role} interview?` : 'Practise answers, then try a mock interview.';
+}
+
+// Home cards: one horizontal row that snaps (about 1.2 cards visible, so the next one peeks).
 function fillHx() {
   const h = getItem('is_hist', []) || [];
   const streak = calculateStreak(h);
   const hs = $('hStreak');
   hs.classList.toggle('on', streak > 0);
   hs.dataset.n = streak;
+  $('hChip').textContent = streak > 0 ? `🔥 ${streak} day${streak === 1 ? '' : 's'}` : '';
+  $('hChip').classList.toggle('hidden', !streak);
 
+  const card = (cls, icon, title, body, btn, extra = '') =>
+    `<article class="hcard ${cls}"><div class="hct"><span class="hci" aria-hidden="true">${icon}</span><h4>${title}</h4></div>${body}<div class="hcb">${extra}${btn}</div></article>`;
   let o = '';
   const res = questionOfDay({ saved: getItem('is_qotd', null), cats: Object.keys(CATS), lv: LEVELS[pcLv] ? pcLv : 'fresher', list: bank });
   if (res) {
     const { pick, changed } = res;
     if (changed) setItem('is_qotd', pick);
-    o += `<div class="sec qotd"><h4>Question of the day</h4><div class="qotdq">${esc(pick.q)}</div><div class="hx"><small>${esc(CL(pick.c, pick.lv))}</small><button id="qotdBtn">Practice it</button></div></div>`;
+    o += card('qotd', '💡', 'Question of the day', `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="pri sm" id="qotdBtn">Practice it</button>', `<small>${esc(CL(pick.c, pick.lv))}</small>`);
+  } else {
+    o += card('qotd', '💡', 'Question of the day', '<p class="hce">No question today. Add your own in Practice.</p>', '<button class="sm" onclick="startPractice()">Open Practice</button>');
   }
-  $('hx').innerHTML = o;
+  o += card('hmock', '🎙️', 'Mock interview', '<p>Answer real questions by voice or typing, then get a score and tips.</p>', '<button class="pri sm" onclick="startMock()">Start</button>');
+  o += card('hprac', '📖', 'Practice', '<p>Say your saved answers aloud. Names come out exactly as you saved them.</p>', '<button class="pri sm" onclick="startPractice()">Open</button>');
+  const last = h[h.length - 1];
+  o += card(
+    'hhist',
+    '📈',
+    'History',
+    last ? `<p>Last score <b>${last.s}/10</b> · ${h.length} interview${h.length === 1 ? '' : 's'}</p>` : '<p class="hce">No interviews yet. Your scores show here after your first mock interview.</p>',
+    `<button class="sm" onclick="openHistory()">${last ? 'View history' : 'Start one'}</button>`
+  );
+  $('hCards').innerHTML = o;
+  const n = $('hCards').children.length;
+  $('hDots').innerHTML = Array.from({ length: n }, (_, i) => `<button class="hdot${i ? '' : ' on'}" data-k="${i}" aria-label="Card ${i + 1}"></button>`).join('');
 
   $('qotdBtn')?.addEventListener('click', () => {
     const { c, lv, q } = res.pick;
     const it = bank(c, lv).find(x => x.q === q);
     pcGo(c, 0, lv, it ? it.i : null);
+  });
+}
+
+function openHistory() {
+  playTapSound();
+  if (!(getItem('is_hist', []) || []).length) return startMock();
+  showProfile();
+  if ($('hList').classList.contains('hidden')) toggleHist();
+}
+
+function watchHomeCards() {
+  const row = $('hCards');
+  const dots = () => {
+    const w = row.firstElementChild ? row.firstElementChild.getBoundingClientRect().width + 12 : 1;
+    const k = Math.round(row.scrollLeft / w);
+    $('hDots').querySelectorAll('.hdot').forEach((d, i) => d.classList.toggle('on', i === k));
+  };
+  row.addEventListener('scroll', () => requestAnimationFrame(dots), { passive: true });
+  $('hDots').addEventListener('click', e => {
+    const d = e.target.closest('.hdot');
+    if (!d) return;
+    const c = row.children[Number(d.dataset.k)];
+    if (c) row.scrollTo({ left: c.offsetLeft - row.offsetLeft, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   });
 }
 
@@ -466,11 +544,6 @@ function openFav(c, l, i) {
   pcGo(c, Math.max(0, bank(c, l).findIndex(x => x.i === i)));
 }
 
-function tickClk() {
-  const t = $('dFull');
-  if (!t) return;
-  t.textContent = formatFullCurrentDate();
-}
 
 function fillHomeGrid() {
   if (!LEVELS[pcLv]) pcLv = 'fresher';
@@ -522,10 +595,10 @@ function closeCS() {
   setBannerSuppressed('sheet', false);
 }
 
-function csGo(m) {
-  const c = csC;
+function csGo(m, c0) {
+  const c = c0 || csC;
   closeCS();
-  if (!need()) return;
+  if (!need(() => csGo(m, c))) return;
   if (m === 0) {
     pcGo(c, 0);
     return;
@@ -613,32 +686,16 @@ function setActive(n) {
 
 // Profile Section
 const ABOUT = [
-  ['Education', ['degree', 'uni']],
-  ['Hometown', ['city']],
-  ['Certifications', ['certs']],
-  ['Skills', ['skills']]
+  ['Education / role', p => p.edu || p.degree],
+  ['City', p => p.city],
+  ['Experience', p => EXPERIENCE[p.exp]],
+  ['Skills', p => p.skills],
+  ['My words', p => (p.words || []).join(', ')]
 ];
-
-function openForm(p, title) {
-  $('formTitle').textContent = title;
-  $('fields').innerHTML = FF.map(([k, l]) =>
-    `<label class="l" for="f_${k}">${l}</label>` +
-    (k === 'name' || k === 'city'
-      ? `<input type="text" id="f_${k}" value="${esc(p ? p[k] || '' : '')}">`
-      : `<textarea class="ft" id="f_${k}">${esc(p ? p[k] || '' : '')}</textarea>`)
-  ).join('');
-
-  $('pForm').classList.remove('hidden');
-  $('pSumBox').classList.add('hidden');
-  ['pHistBox', 'pProfBox', 'pVoiceBox', 'pPrefBox'].forEach(i => $(i).classList.add('hidden'));
-  show('form');
-}
 
 function newProfile() {
   playTapSound();
-  editing = null;
-  fillHome();
-  openForm(null, 'New profile');
+  openSetup(() => showProfile(), { fresh: true });
 }
 
 function toggleHist() {
@@ -666,7 +723,7 @@ function setAbout(open) {
 
 function showProfile() {
   fillHome();
-  if (!active || !profiles[active]) return newProfile();
+  if (!active || !profiles[active]) return openSetup(() => showProfile(), { fresh: true });
   const p = profiles[active];
   const h = getItem('is_hist', []) || [];
 
@@ -677,8 +734,8 @@ function showProfile() {
   $('pB').textContent = h.length ? `${Math.max(...h.map(x => x.s))}/10` : '-';
   $('pAvg').textContent = h.length ? (h.reduce((t, x) => t + x.s, 0) / h.length).toFixed(1) : '-';
 
-  $('pKv').innerHTML = ABOUT.map(([t, ks]) => {
-    const v = ks.map(k => p[k]).filter(Boolean).join(', ');
+  $('pKv').innerHTML = ABOUT.map(([t, f]) => {
+    const v = f(p);
     return `<div><span>${t}</span><b>${v ? esc(v) : 'Not added yet'}</b></div>`;
   }).join('');
 
@@ -689,50 +746,12 @@ function showProfile() {
   $('hList').classList.add('hidden');
   $('hEye').dataset.i = 'eye';
 
-  $('pSumBox').classList.remove('hidden');
-  $('pForm').classList.add('hidden');
-  ['pHistBox', 'pProfBox', 'pVoiceBox', 'pPrefBox'].forEach(i => $(i).classList.remove('hidden'));
   show('form');
-}
-
-function cancelProfile() {
-  playTapSound();
-  active && profiles[active] ? showProfile() : home();
 }
 
 function editProfile() {
   playTapSound();
-  if (!active) return newProfile();
-  editing = active;
-  fillHome();
-  openForm(profiles[active], 'Edit profile');
-}
-
-function saveProfile() {
-  playTapSound();
-  const p = { ...(editing && profiles[editing] ? profiles[editing] : {}) };
-  FF.forEach(([k]) => {
-    p[k] = $('f_' + k).value.trim();
-  });
-  if (!p.name) {
-    playErrorBeep();
-    customAlert('Please enter your name.');
-    return;
-  }
-  if (editing && editing !== p.name) {
-    delete profiles[editing];
-    Object.keys(E).forEach(k => {
-      if (k.startsWith(editing + '|')) {
-        E[p.name + k.slice(editing.length)] = E[k];
-        delete E[k];
-      }
-    });
-    setItem('is_edits', E);
-  }
-  profiles[p.name] = p;
-  setItem('is_profiles', profiles);
-  setActive(p.name);
-  showProfile();
+  openSetup(() => showProfile());
 }
 
 function delProfile() {
@@ -758,18 +777,263 @@ function _delProfile() {
   showProfile();
 }
 
-function need() {
-  if (!active || !profiles[active]) {
-    newProfile();
-    return false;
+// Mock and Practice need the setup details first. `go` runs after they are saved.
+function need(go) {
+  if (setupDone(profiles[active])) return true;
+  openSetup(go || null);
+  return false;
+}
+
+// ---- Setup screen: your details, before the first Mock or Practice session ----
+let setupThen = null; // what to open after saving
+let setupNew = false; // create a new profile instead of editing the active one
+let sData = null; // form state while the setup screen is open
+let sStep = 0;
+const SETUP_STEPS = 3;
+const SETUP_TITLES = ['About you', 'Your goal', 'Voice'];
+
+function openSetup(then = null, { fresh = false, step = 0 } = {}) {
+  setupThen = then;
+  setupNew = fresh;
+  const p = !fresh && profiles[active] ? profiles[active] : {};
+  const custom = p.role && !ROLES.includes(p.roleKey || p.role);
+  sData = {
+    name: p.name || '',
+    edu: p.edu || p.degree || '',
+    city: p.city || '',
+    role: custom ? 'Other' : p.roleKey || p.role || '',
+    roleOther: custom ? p.role : '',
+    exp: EXPERIENCE[p.exp] ? p.exp : 'fresher',
+    skills: p.skillTags || (p.skills ? String(p.skills).split(/,\s*|\s+and\s+/).map(x => x.trim()).filter(Boolean).slice(0, MAX_SKILLS) : []),
+    words: p.words || defaultWords(p.name, p.city),
+    accent: voiceAccent(),
+    before: { name: p.name || '', city: p.city || '' }
+  };
+  sStep = step;
+  show('setup');
+}
+
+// Profile, Mock and Practice: "Edit my details" goes back to the same screen after saving.
+function editDetails() {
+  playTapSound();
+  openSetup(() => history.back());
+}
+
+function readSetup() {
+  if (!sData) return;
+  sData.name = $('sName').value.replace(/\s+/g, ' ').trim();
+  sData.edu = $('sEdu').value.trim();
+  sData.city = $('sCity').value.trim();
+  sData.role = $('sRole').value;
+  sData.roleOther = $('sRoleOther').value.trim();
+  sData.accent = $('sAccent').value;
+}
+
+function renderSetup() {
+  if (!sData) openSetup();
+  $('sName').value = sData.name;
+  $('sEdu').value = sData.edu;
+  $('sCity').value = sData.city;
+  $('sRole').innerHTML = '<option value="">Choose your target role</option>' + ROLES.map(r => `<option${r === sData.role ? ' selected' : ''}>${esc(r)}</option>`).join('');
+  $('sRoleOther').value = sData.roleOther;
+  $('sRoleOther').classList.toggle('hidden', sData.role !== 'Other');
+  $('sExp').innerHTML = Object.entries(EXPERIENCE)
+    .map(([k, v]) => `<button type="button" role="radio" aria-checked="${k === sData.exp}" class="${k === sData.exp ? 'on' : ''}" data-exp="${k}">${esc(v)}</button>`)
+    .join('');
+  $('sAccent').innerHTML = Object.entries(VOICE_ACCENTS).map(([k, v]) => `<option value="${k}"${k === sData.accent ? ' selected' : ''}>${esc(v.label)}</option>`).join('');
+  renderTags('sSkills', sData.skills, MAX_SKILLS);
+  renderTags('sWords', sData.words, MAX_WORDS);
+  renderSuggestions();
+  showSetupStep();
+  nameCheck(false);
+}
+
+function showSetupStep() {
+  document.querySelectorAll('#setup .sstp').forEach(el => el.classList.toggle('hidden', Number(el.dataset.step) !== sStep));
+  $('sBar').style.width = `${((sStep + 1) / SETUP_STEPS) * 100}%`;
+  $('sStepT').textContent = `Step ${sStep + 1} of ${SETUP_STEPS} · ${SETUP_TITLES[sStep]}`;
+  $('sBack').textContent = sStep ? 'Back' : 'Cancel';
+  $('sNext').textContent = sStep < SETUP_STEPS - 1 ? 'Next' : setupThen ? 'Save and start' : 'Save';
+  $('main').scrollTop = 0;
+}
+
+function nameCheck(show) {
+  const err = nameError($('sName').value);
+  const box = $('sName');
+  box.setAttribute('aria-invalid', String(!!err && show));
+  $('sNameErr').textContent = show ? err : '';
+  box.classList.toggle('bad', !!err && show);
+  box.classList.toggle('good', !err);
+  return !err;
+}
+
+function setupStep(d) {
+  playTapSound();
+  readSetup();
+  if (d < 0 && sStep === 0) return history.back();
+  if (d > 0 && sStep === 0 && !nameCheck(true)) {
+    playErrorBeep();
+    $('sName').focus();
+    return;
   }
-  return true;
+  if (d > 0 && sStep === SETUP_STEPS - 1) return saveSetup();
+  if (d > 0 && sStep === 0) sData.words = updateWords(sData.words, sData.before, { name: sData.name, city: sData.city });
+  if (d > 0 && sStep === 0) sData.before = { name: sData.name, city: sData.city };
+  sStep = Math.max(0, Math.min(SETUP_STEPS - 1, sStep + d));
+  renderTags('sWords', sData.words, MAX_WORDS);
+  showSetupStep();
+}
+
+function saveSetup() {
+  readSetup();
+  if (!nameCheck(true)) {
+    sStep = 0;
+    showSetupStep();
+    return;
+  }
+  sData.words = updateWords(sData.words, sData.before, { name: sData.name, city: sData.city });
+  const oldName = setupNew ? '' : active;
+  const old = oldName && profiles[oldName] ? profiles[oldName] : {};
+  const p = buildProfile(sData, old);
+  if (oldName && oldName !== p.name) {
+    delete profiles[oldName];
+    [E, QE].forEach(o =>
+      Object.keys(o).forEach(k => {
+        if (k.startsWith(oldName + '|')) {
+          o[p.name + k.slice(oldName.length)] = o[k];
+          delete o[k];
+        }
+      })
+    );
+    setItem('is_edits', E);
+    setItem('is_qedits', QE);
+  }
+  profiles[p.name] = p;
+  setItem('is_profiles', profiles);
+  setActive(p.name);
+  setAccentPref(sData.accent);
+  setVoiceAccent(voiceAccent());
+  if (!old.setup) {
+    // First setup: start Mock and Practice at the user's role and level.
+    pcLv = expToLevel(p.exp);
+    setItem('is_pclv', pcLv);
+    fillHome();
+    $('cat').value = roleToCat(p.roleKey);
+    $('lvl').value = pcLv;
+    $('cat').dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  sData = null;
+  toast('Saved on this phone');
+  const go = setupThen;
+  setupThen = null;
+  if (go) go();
+  else showProfile();
+}
+
+// Tag inputs (skills, My words): Enter or comma adds a tag, the x button removes it.
+function renderTags(id, list, max) {
+  const box = $(id);
+  const input = box.querySelector('input');
+  box.querySelectorAll('.tg').forEach(t => t.remove());
+  list.forEach((t, i) => {
+    const el = document.createElement('span');
+    el.className = 'tg';
+    el.innerHTML = `<span>${esc(t)}</span><button type="button" data-k="${i}" aria-label="Remove ${esc(t)}">&times;</button>`;
+    box.insertBefore(el, input);
+  });
+  input.disabled = list.length >= max;
+  input.placeholder = list.length >= max ? `Up to ${max}` : input.dataset.ph;
+  const c = box.parentElement.querySelector('.tcount');
+  if (c) c.textContent = `${list.length}/${max}`;
+}
+
+function addTag(kind, value) {
+  if (!sData) return;
+  const max = kind === 'skills' ? MAX_SKILLS : MAX_WORDS;
+  const parts = String(value || '').split(',').map(x => x.trim()).filter(Boolean);
+  if (!parts.length) return;
+  sData[kind] = cleanTags([...sData[kind], ...parts], max);
+  renderTags(kind === 'skills' ? 'sSkills' : 'sWords', sData[kind], max);
+  if (kind === 'skills') renderSuggestions();
+}
+
+function renderSuggestions() {
+  const q = ($('sSkillIn').value || '').trim().toLowerCase();
+  const have = new Set(sData.skills.map(x => x.toLowerCase()));
+  const list = SKILL_SUGGESTIONS.filter(x => !have.has(x.toLowerCase()) && (!q || x.toLowerCase().includes(q))).slice(0, 8);
+  $('sSugg').innerHTML = sData.skills.length >= MAX_SKILLS ? '' : list.map(x => `<button type="button" class="sg" data-s="${esc(x)}">+ ${esc(x)}</button>`).join('');
+}
+
+function initSetup() {
+  $('sName').addEventListener('input', () => nameCheck(true));
+  $('sName').addEventListener('blur', () => nameCheck(true));
+  $('sRole').addEventListener('change', () => $('sRoleOther').classList.toggle('hidden', $('sRole').value !== 'Other'));
+  $('sExp').addEventListener('click', e => {
+    const b = e.target.closest('[data-exp]');
+    if (!b || !sData) return;
+    playTapSound();
+    sData.exp = b.dataset.exp;
+    $('sExp').querySelectorAll('button').forEach(x => {
+      x.classList.toggle('on', x === b);
+      x.setAttribute('aria-checked', String(x === b));
+    });
+  });
+  [['sSkills', 'skills'], ['sWords', 'words']].forEach(([id, kind]) => {
+    const box = $(id);
+    const input = box.querySelector('input');
+    input.dataset.ph = input.placeholder;
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const v = input.value;
+        input.value = '';
+        addTag(kind, v);
+      } else if (e.key === 'Backspace' && !input.value && sData && sData[kind].length) {
+        sData[kind].pop();
+        renderTags(id, sData[kind], kind === 'skills' ? MAX_SKILLS : MAX_WORDS);
+      }
+    });
+    input.addEventListener('input', () => {
+      if (input.value.includes(',')) {
+        const v = input.value;
+        input.value = '';
+        addTag(kind, v);
+      }
+      if (kind === 'skills') renderSuggestions();
+    });
+    input.addEventListener('blur', () => {
+      if (input.value.trim()) {
+        const v = input.value;
+        input.value = '';
+        addTag(kind, v);
+      }
+    });
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button[data-k]');
+      if (b && sData) {
+        playTapSound();
+        sData[kind].splice(Number(b.dataset.k), 1);
+        renderTags(id, sData[kind], kind === 'skills' ? MAX_SKILLS : MAX_WORDS);
+        if (kind === 'skills') renderSuggestions();
+      } else input.focus();
+    });
+  });
+  // Tapping a suggestion must not blur the input first (that would save the half-typed text).
+  $('sSugg').addEventListener('pointerdown', e => e.target.closest('[data-s]') && e.preventDefault());
+  $('sSugg').addEventListener('mousedown', e => e.target.closest('[data-s]') && e.preventDefault());
+  $('sSugg').addEventListener('click', e => {
+    const b = e.target.closest('[data-s]');
+    if (!b) return;
+    playTapSound();
+    $('sSkillIn').value = '';
+    addTag('skills', b.dataset.s);
+  });
 }
 
 // Practice Flow
 function startMock() {
   playTapSound();
-  if (!need()) return;
+  if (!need(() => show('mock'))) return;
   show('mock');
 }
 
@@ -821,7 +1085,7 @@ function mSync() {
 
 function startPractice() {
   playTapSound();
-  if (!need()) return;
+  if (!need(() => show('pcat'))) return;
   show('pcat');
 }
 
@@ -834,6 +1098,7 @@ function pcLevel(v) {
 
 function pcGo(c, i, lv, one = null) {
   playTapSound();
+  if (!need(() => pcGo(c, i, lv, one))) return;
   const v = LEVELS[lv] ? lv : pcLv;
   P = { cat: c, lv: v, list: [], i: 0, one };
   const l = (P.list = plist());
@@ -982,6 +1247,12 @@ function pr() {
   $('pCount').textContent = `${CL(P.cat, P.lv)} · ${P.i + 1} / ${n}`;
   pWords(ansText(it) || 'No answer yet. Tap the pencil to write one.');
   pReveal(it.q);
+  applyPMode();
+  renderPRes(null);
+  pLive('');
+  const best = pBest()[ekey(it)];
+  $('pBestTag').textContent = best != null ? `Best ${best}%` : '';
+  $('pBestTag').classList.toggle('hidden', best == null);
   $('pTag').classList.toggle('hidden', !ed);
   $('pReset').classList.toggle('hidden', !ed);
   dots();
@@ -1143,7 +1414,6 @@ function pPaint(state, pos) {
   }
 }
 
-const pTarget = () => PW.map(x => tokens(x.textContent)[0] || '');
 
 // Mic button grows a little with your voice, so you can see it is hearing you.
 function micLevel(el, db) {
@@ -1157,28 +1427,111 @@ function pMicNote(m) {
   if (el) el.textContent = m || PMIC_IDLE;
 }
 
-function pSummary(state) {
-  const said = state.filter(x => x === 'ok').length;
-  if (!said) return null;
-  const missed = state.filter(x => x === 'miss').length;
-  const pct = Math.round(readingScore(state) * 100);
-  return { pct, missed };
+// ---- Voice: shared helpers for Mock and Practice ----
+// The user's own words (setup details, My words, learned corrections) for hints and matching.
+function vocabFor() {
+  return userVocab(profiles[active] || {});
 }
 
-// ---- Voice: shared helpers for Mock and Practice ----
-// N-best: the guess with the most profile-name words wins, else the most confident one.
-// Guesses are never merged or changed.
-function chooser() {
-  const keys = nameKeys(profiles[active] || {});
+// Mock n-best: the guess with the most of the user's own words wins, else the most confident one;
+// then safe name matching runs on that one guess. Guesses are never merged.
+function chooser(vocab) {
   return cands => {
-    const c = pickCandidate(cands, keys) || cands[0];
-    return { text: c.text, index: c.index, changes: [], why: c.why };
+    const c = pickCandidate(cands, vocab.keys) || cands[0];
+    const r = correctText(c.text, vocab);
+    return { text: r.text, index: c.index, changes: r.changes, why: c.why };
   };
 }
 
-// Practice: read the answer aloud. Like Duolingo, words light up as you say them, small
-// recognition mistakes are accepted, skipped words turn orange instead of blocking you, and
-// the mic listens again after each phrase until you finish or tap it again.
+// ---- Practice: expected-text matching ----
+// "Read it" shows the saved answer; "From memory" hides it (Hint shows the next words). Either way
+// the phone's words are aligned to the saved answer and the saved words are written.
+let pMode = 'read';
+const pBest = () => getItem('is_pbest', {}) || {};
+const pIdx = () => PW.map((x, i) => (norm(x.textContent) ? i : -1)).filter(i => i >= 0);
+
+function setPMode(m) {
+  playTapSound();
+  pMode = m === 'memory' ? 'memory' : 'read';
+  setItem('is_pmode', pMode);
+  applyPMode();
+}
+
+function applyPMode() {
+  const mem = pMode === 'memory';
+  $('pWrap').classList.toggle('hidetext', mem);
+  $('pHint').classList.toggle('hidden', !mem);
+  document.querySelectorAll('#pModes button').forEach(b => {
+    const on = b.dataset.m === pMode;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
+// From memory: show the next 3 words not said yet for 3 seconds.
+function pHint() {
+  playTapSound();
+  const done = PW.map(x => x.classList.contains('hl'));
+  const ids = pIdx();
+  const start = ids.findIndex(i => !done[i]);
+  if (start < 0) return;
+  const show = ids.slice(start, start + 3);
+  show.forEach(i => PW[i].classList.add('peek'));
+  setTimeout(() => show.forEach(i => PW[i] && PW[i].classList.remove('peek')), 3000);
+}
+
+// Paint the saved answer from an alignment: said = green, corrected = green with a dot,
+// missed = red underline. Scroll to the last said word.
+function pPaintAlign(r) {
+  const ids = pIdx();
+  const st = {};
+  r.ops.forEach(o => {
+    if (o.j != null) st[ids[o.j]] = o.type;
+  });
+  let lastOk = -1;
+  PW.forEach((x, i) => {
+    const t = st[i];
+    x.classList.toggle('hl', t === 'match' || t === 'fix');
+    x.classList.toggle('fixd', t === 'fix');
+    x.classList.toggle('miss', t === 'missed');
+    if (t === 'match' || t === 'fix') lastOk = i;
+  });
+  const a = $('pA');
+  const x = PW[lastOk];
+  if (x && (x.offsetTop + x.offsetHeight > a.scrollTop + a.clientHeight - 10 || x.offsetTop < a.scrollTop)) {
+    a.scrollTop = Math.max(0, x.offsetTop - a.clientHeight / 3);
+  }
+}
+
+// What the app wrote for this attempt, with colours, the match score and the best score.
+function renderPRes(r, final) {
+  const box = $('pRes');
+  if (!r) {
+    box.classList.add('hidden');
+    return;
+  }
+  const html = r.ops
+    .map(o => {
+      if (o.type === 'match') return `<span class="rm">${esc(o.expected)}</span>`;
+      if (o.type === 'fix') return `<span class="rf" title="Heard: ${esc(o.heard)}">${esc(o.expected)}</span>`;
+      if (o.type === 'extra') return `<span class="rx" title="Not in your answer">${esc(o.heard)}</span>`;
+      return '';
+    })
+    .filter(Boolean)
+    .join(' ');
+  const best = pBest()[ekey(P.list[P.i])];
+  box.innerHTML = `<div class="prtext">${html || '<span class="prwait">Your words appear here.</span>'}</div>
+<div class="prfoot"><b class="prscore">${final ? 'Match' : 'So far'} ${r.score}%</b>${best != null ? `<span>Best ${best}%</span>` : ''}
+<span class="prkey"><i class="k1"></i>said <i class="k2"></i>corrected <i class="k3"></i>extra <i class="k4"></i>missed</span></div>`;
+  box.classList.remove('hidden');
+}
+
+function pLive(t) {
+  const el = $('pLive');
+  el.textContent = t || '';
+  el.classList.toggle('hidden', !t);
+}
+
 async function togglePMic() {
   playTapSound();
   if (pMicOn || isListening()) {
@@ -1198,17 +1551,46 @@ async function togglePMic() {
   pSpoken = [];
   pMicOn = true;
   const card = P.i;
-  const target = pTarget();
-  const ref = ansText(P.list[P.i]);
+  const it = P.list[P.i];
+  const ref = ansText(it);
+  const vocab = vocabFor();
   let finished = false;
+  let readyOnce = false;
   const here = () => cs === 'practice' && P.i === card;
-  $('pMic').classList.add('on');
-  pMicNote('Getting the mic ready...');
-
-  const show = (alts = []) => {
-    const r = bestAlignment(target, pSpoken, alts);
-    pPaint(r.state, r.pos);
+  const heard = (extra = '') => [...pSpoken, extra].filter(Boolean).join(' ');
+  const update = final => {
+    const r = alignToExpected(heard(), ref, { partial: !final });
+    pPaintAlign(r);
+    renderPRes(r, final);
     return r;
+  };
+  const finishAttempt = () => {
+    const r = update(true);
+    if (!r.matched) return toast('No words of your answer were heard. Tap the mic to try again.');
+    const k = ekey(it);
+    const all = pBest();
+    if (all[k] == null || r.score > all[k]) {
+      all[k] = r.score;
+      setItem('is_pbest', all);
+      renderPRes(r, true);
+    }
+    notePractice({
+      expected: ref,
+      heard: heard(),
+      text: r.text,
+      score: r.score,
+      matched: r.matched,
+      total: r.total,
+      extra: r.extra,
+      missed: r.missed,
+      alignment: r.ops.map(o => (o.type === 'extra' ? `+${o.heard}` : o.type === 'missed' ? `-${o.expected}` : o.type === 'fix' ? `${o.heard}>${o.expected}` : o.expected)).join(' ')
+    });
+    if (r.score >= 80) {
+      fireConfetti();
+      // Sound is muted while the mic is on (no beeps); play the chime once it is back.
+      setTimeout(playSuccessChime, 900);
+    }
+    toast(r.missed ? `${r.score}% matched. ${r.missed} word${r.missed === 1 ? '' : 's'} missed (red).` : r.extra ? `${r.score}% matched. Extra words are amber.` : 'Perfect! You said it all 🎉');
   };
   const complete = () => {
     if (finished) return;
@@ -1216,48 +1598,49 @@ async function togglePMic() {
     pMicOn = false;
     $('pMic').classList.remove('on');
     pMicNote('');
+    pLive('');
     stopListening();
-    const sm = pSummary(show().state) || { pct: 0, missed: 0 };
-    if (sm.pct >= 80) {
-      fireConfetti();
-      // Sound is muted while the mic is on (no beeps); play the chime once it is back.
-      setTimeout(playSuccessChime, 900);
-    }
-    toast(sm.missed ? `Finished! ${sm.pct}% correct. ${sm.missed} word${sm.missed === 1 ? '' : 's'} missed (orange).` : 'Perfect! You read it all 🎉');
+    finishAttempt();
   };
-  // Each guess is corrected, then snapped to the saved answer in order; the one that gets
-  // furthest through the answer wins. Words are never added.
+  // N-best: the guess that matches the most words of the saved answer wins (then the phone's order).
   const choose = cands => {
-    const texts = cands.map(c => c.text);
-    const best = bestAlignment(target, pSpoken, texts);
-    const i = Math.max(0, texts.indexOf(best.text));
-    return { text: texts[i], index: cands[i].index, changes: [], why: 'best fit to the answer' };
+    let best = cands[0];
+    let bestN = -1;
+    cands.forEach(c => {
+      const n = alignToExpected(heard(c.text), ref, { partial: true }).matched;
+      if (n > bestN) {
+        best = c;
+        bestN = n;
+      }
+    });
+    return { text: best.text, index: best.index, changes: [], why: `best fit to your answer (${bestN} words)` };
   };
-  let readyOnce = false;
+  $('pMic').classList.add('on');
+  pMicNote('Getting the mic ready...');
+  renderPRes(update(false), false);
 
   const started = await startListening({
-    bias: voiceHints(profiles[active] || {}),
+    // Hints: the user's own words first, then the words of the saved answer (rare ones first).
+    bias: hintWords(vocab, { first: [...rareWords(ref, 100), ...ref.split(/\s+/).map(w => w.replace(/[^\w'+#./-]/g, ''))], context: it.q }),
     choose,
     onState: st => {
       if (!here() || finished) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
-      pMicNote(st === 'ready' || st === 'listening' ? 'Speak now. Read at your own pace.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : '');
+      pMicNote(st === 'ready' || st === 'listening' ? (pMode === 'memory' ? 'Speak now. Say your answer from memory.' : 'Speak now. Read at your own pace.') : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : '');
     },
     onLevel: db => micLevel($('pMic'), db),
-    onPartial: text => {
-      if (!here() || finished) return;
-      if (show([text]).pos >= target.length) {
-        pSpoken.push(text);
-        complete();
-      }
-    },
+    onPartial: text => here() && !finished && pLive(text), // grey live bar only
     onFinal: text => {
       if (!here() || finished) return;
       pSpoken.push(text);
-      if (show().pos >= target.length) complete();
+      pLive('');
+      const r = update(false);
+      const lastJ = r.total - 1;
+      if (r.ops.some(o => (o.type === 'match' || o.type === 'fix') && o.j === lastJ)) complete();
     },
-    onEnd: ({ reason, message }) => {
+    onEnd: ({ message }) => {
       $('pMic').style.removeProperty('--lvl');
+      pLive('');
       if (finished || !here()) {
         pMicOn = false;
         return;
@@ -1265,9 +1648,13 @@ async function togglePMic() {
       pMicOn = false;
       $('pMic').classList.remove('on');
       pMicNote('');
-      if (reason === 'error' || !pSpoken.length) return message && toast(message);
-      const sm = pSummary(show().state);
-      if (sm) toast(sm.missed ? `${sm.pct}% read. ${sm.missed} word${sm.missed === 1 ? '' : 's'} missed (orange). Tap the mic to try again.` : `${sm.pct}% read. Keep going!`);
+      if (!pSpoken.length) {
+        renderPRes(null);
+        PW.forEach(x => x.classList.remove('hl', 'fixd', 'miss'));
+        return message && toast(message);
+      }
+      finished = true;
+      finishAttempt();
     }
   });
   if (!started && pMicOn) {
@@ -1413,7 +1800,7 @@ function shuffle(a) {
 
 function startInterview() {
   playTapSound();
-  if (!need()) return;
+  if (!need(() => show('mock'))) return;
   cat = $('cat').value;
   lv = $('lvl').value;
   timerOn = false;
@@ -1438,6 +1825,7 @@ function showQ() {
   $('ansBox').value = answers[idx] || '';
   ansCursor = null; // new question: spoken text goes to the end until the user moves the cursor
   mockLive('');
+  renderChips();
   $('qBar').style.width = ((idx + 1) / cur.length) * 100 + '%';
   $('nBtn').dataset.i = idx === cur.length - 1 ? 'check' : 'right';
   mDots();
@@ -1596,10 +1984,24 @@ function mockLive(t) {
 
 // Where spoken text goes in the answer box: the cursor (tracked while the box is used), else the end.
 let ansCursor = null;
+let lastDictation = { at: 0, i: -1 };
+
+// Toast with an Undo button (learned corrections).
+function toastUndo(m, onUndo) {
+  const t = $('toast');
+  t.innerHTML = `<span>${esc(m)}</span> <button class="tundo" type="button">Undo</button>`;
+  t.classList.remove('hidden');
+  t.querySelector('.tundo').onclick = () => {
+    onUndo();
+    t.classList.add('hidden');
+  };
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.add('hidden'), 5000);
+}
 
 // Insert a final phrase into the answer of question `i` at the cursor, with correct spaces and
 // capitals. The rest of the box is never replaced.
-function addSpoken(i, text, keepCase) {
+function addSpoken(i, text, keepCase, info) {
   const box = idx === i && cs === 'interview' ? $('ansBox') : null;
   const v = box ? box.value : answers[i] || '';
   const pos = box && ansCursor !== null ? Math.min(ansCursor, v.length) : v.length;
@@ -1612,15 +2014,87 @@ function addSpoken(i, text, keepCase) {
   if (box) {
     box.value = nv;
     ansCursor = joined.length;
+    editSnap = nv; // edits after this are compared with the dictated text (correction memory)
   }
+  lastDictation = { at: Date.now(), i };
+  saveScr();
+  const mem = ((info && info.changes) || []).filter(c => c.why === 'learned from your edit');
+  if (mem.length) {
+    const c = mem[0];
+    toastUndo(`Changed "${c.from}" to "${c.to}"`, () => {
+      const b2 = idx === i ? $('ansBox') : null;
+      const cur2 = b2 ? b2.value : answers[i] || '';
+      const k = cur2.lastIndexOf(c.to);
+      if (k < 0) return;
+      const nv2 = cur2.slice(0, k) + c.from + cur2.slice(k + c.to.length);
+      answers[i] = nv2.trim();
+      if (b2) b2.value = nv2;
+      saveScr();
+    });
+  }
+}
+
+// Chips under the answer box: the user's name and My words, then keywords of this question.
+// Only the user's own saved data (and this question's keywords); hidden when empty.
+function renderChips() {
+  const el = $('vChips');
+  const p = profiles[active] || {};
+  const mine = chipWords(p);
+  const it = cur[idx];
+  const keys = it ? keywordsIn(ansText(it), 4).filter(k => !mine.some(m => m.toLowerCase() === k.toLowerCase())) : [];
+  const chip = (w, cls) => `<button type="button" class="vchip${cls}" data-w="${esc(w)}">${esc(w)}</button>`;
+  el.innerHTML = mine.map(w => chip(w, '')).join('') + (keys.length ? `<span class="vkl">Keywords</span>${keys.map(w => chip(w, ' kw')).join('')}` : '');
+  el.classList.toggle('hidden', !mine.length && !keys.length);
+  el.querySelectorAll('.vchip').forEach(b => {
+    // Keep the text box focused and its cursor where it is.
+    b.addEventListener('pointerdown', e => e.preventDefault());
+    b.addEventListener('click', () => insertAtCursor($('ansBox'), b.dataset.w));
+  });
+}
+
+function insertAtCursor(box, word) {
+  playTapSound();
+  const v = box.value;
+  const s0 = box.selectionStart ?? v.length;
+  const e0 = box.selectionEnd ?? v.length;
+  const pre = v.slice(0, s0);
+  const post = v.slice(e0);
+  const a = pre && !/\s$/.test(pre) ? ' ' : '';
+  const z = post && !/^[\s.,!?]/.test(post) ? ' ' : '';
+  box.value = pre + a + word + z + post;
+  const pos = (pre + a + word + z).length;
+  box.setSelectionRange(pos, pos);
+  ansCursor = pos;
+  answers[idx] = box.value.trim();
   saveScr();
 }
 
-// Track the cursor in the answer box, so spoken text goes where the user is typing.
+// Track the cursor, and learn from the user's own fixes: when one word of dictated text is
+// changed by hand right after dictation (within 2 minutes), remember "wrong -> right".
+let editSnap = '';
+const LEARN_WINDOW_MS = 120000;
 function watchAnswerCursor() {
   const box = $('ansBox');
   const track = () => (ansCursor = box.selectionEnd ?? null);
   ['click', 'keyup', 'select', 'input'].forEach(e => box.addEventListener(e, track));
+  box.addEventListener('focus', () => {
+    if (Date.now() - lastDictation.at > LEARN_WINDOW_MS) editSnap = box.value;
+  });
+  box.addEventListener('change', () => {
+    if (lastDictation.i !== idx || Date.now() - lastDictation.at > LEARN_WINDOW_MS) {
+      editSnap = box.value;
+      return;
+    }
+    const pair = learnFromEdit(editSnap, box.value);
+    editSnap = box.value;
+    if (!pair) return;
+    addCorrection(pair);
+    toastUndo(`Learned: "${pair.heard}" means "${pair.fix}"`, () => {
+      const list = corrections();
+      const k = list.findIndex(m => m.prev === pair.prev && m.heard === pair.heard);
+      if (k >= 0) removeCorrection(k);
+    });
+  });
 }
 
 async function toggleMic() {
@@ -1640,8 +2114,9 @@ async function toggleMic() {
   if (cs !== 'interview') return;
 
   const myIdx = idx;
-  const prof = profiles[active] || {};
-  const keepCase = [...Object.values(FIX), ...voiceHints(prof)];
+  const it = cur[myIdx];
+  const vocab = vocabFor();
+  const keepCase = [...Object.values(FIX), ...[...vocab.targets.values()].map(t => t.text)];
   const here = () => idx === myIdx && cs === 'interview';
   let readyOnce = false;
   mMicOn = true;
@@ -1649,8 +2124,8 @@ async function toggleMic() {
   mockNote('Getting the mic ready...');
 
   const started = await startListening({
-    bias: voiceHints(prof),
-    choose: chooser(),
+    bias: hintWords(vocab, { context: it && it.q }),
+    choose: chooser(vocab),
     onState: st => {
       if (!here()) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
@@ -1658,8 +2133,8 @@ async function toggleMic() {
     },
     onLevel: db => micLevel($('mic'), db),
     onPartial: text => here() && mockLive(text), // grey live bar only
-    onFinal: text => {
-      addSpoken(myIdx, text, keepCase);
+    onFinal: (text, info) => {
+      addSpoken(myIdx, text, keepCase, info);
       if (here()) mockLive('');
     },
     onEnd: ({ reason, message }) => {
@@ -1955,10 +2430,6 @@ function initEventListeners() {
   $('csInterview')?.addEventListener('click', () => csGo(1));
 
   // Profile actions
-  $('pEditProfBtn')?.addEventListener('click', editProfile);
-  $('pEditAboutBtn')?.addEventListener('click', editProfile);
-  $('pCancelBtn')?.addEventListener('click', cancelProfile);
-  $('pSaveBtn')?.addEventListener('click', saveProfile);
   $('pNewProfBtn')?.addEventListener('click', newProfile);
   $('pDelProfBtn')?.addEventListener('click', delProfile);
   $('pRestoreQBtn')?.addEventListener('click', restoreQ);
@@ -2057,38 +2528,52 @@ function loadPreferences() {
 async function initApp() {
   await initStorage();
   setVoiceAccent(voiceAccent());
-  // My words, Smart name matching and learned corrections were removed: delete their old data.
-  ['is_voice_smart', 'is_voice_words', 'is_voice_mem'].forEach(k => removeItem(k));
   watchAnswerCursor();
+  initSetup();
+  watchHomeCards();
+  $('hLogo').innerHTML = logoSvg();
+  $('hLogoBig').innerHTML = logoSvg();
 
   const savedTheme = getItem('is_theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = savedTheme;
   syncThemeSwitch();
 
-  profiles = getItem('is_profiles');
-  if (!profiles || !Object.keys(profiles).length || (Object.keys(profiles).length === 1 && profiles['Ali Khan'])) {
-    profiles = DEMO;
+  profiles = getItem('is_profiles') || {};
+  E = getItem('is_edits', {}) || {};
+  QE = getItem('is_qedits', {}) || {};
+  // Older versions shipped a sample profile ("Alex Khan"). It is not the user: delete it and its edits.
+  if (LEGACY_DEMO_NAMES.some(n => profiles[n])) {
+    LEGACY_DEMO_NAMES.forEach(n => {
+      delete profiles[n];
+      [E, QE].forEach(o => Object.keys(o).forEach(k => k.startsWith(n + '|') && delete o[k]));
+    });
     setItem('is_profiles', profiles);
+    setItem('is_edits', E);
+    setItem('is_qedits', QE);
   }
 
   active = getItem('is_active');
   if (!profiles[active]) {
     active = Object.keys(profiles)[0] || '';
   }
-
-  E = getItem('is_edits', {}) || {};
-  QE = getItem('is_qedits', {}) || {};
+  // My words of an older version (one list for the phone) move into the active profile.
+  const oldWords = getItem('is_voice_words', '');
+  if (oldWords && profiles[active]) {
+    const w = String(oldWords).split(/[\n;]+/).map(l => l.split(':')[0].trim()).filter(Boolean);
+    profiles[active].words = cleanTags([...(profiles[active].words || []), ...w], MAX_WORDS);
+    setItem('is_profiles', profiles);
+  }
+  ['is_voice_smart', 'is_voice_words'].forEach(k => removeItem(k));
   H = getItem('is_hidden', {}) || {};
   C = getItem('is_custom', {}) || {};
   pcLv = getItem('is_pclv', 'fresher') || 'fresher';
+  pMode = getItem('is_pmode', 'read') === 'memory' ? 'memory' : 'read';
 
   initEventListeners();
   setupSwipeGestures();
   // fillHome() first: it fills the type/level lists, so the saved choice can be selected.
   fillHome();
   loadPreferences();
-  tickClk();
-  setInterval(tickClk, 1000);
   renderIcons();
 
   history.replaceState({ s: 'root', d: -1 }, '');
@@ -2182,10 +2667,6 @@ async function initApp() {
         cancelA();
         return;
       }
-      if (cs === 'form' && !$('pForm').classList.contains('hidden')) {
-        cancelProfile();
-        return;
-      }
       // 4. Back in navigation stack
       if (cs !== 'home') {
         history.back();
@@ -2220,12 +2701,33 @@ async function initApp() {
 }
 
 
-// Profile > Voice: accent.
+// Profile > Voice: accent, My words (edited in the setup screen) and learned corrections.
 function renderVoiceSettings() {
   const a = voiceAccent();
   $('vAccent').innerHTML = Object.entries(VOICE_ACCENTS)
     .map(([k, v]) => `<option value="${k}"${k === a ? ' selected' : ''}>${esc(v.label)}</option>`)
     .join('');
+  const w = (profiles[active] || {}).words || [];
+  $('vWords').innerHTML = w.length ? w.map(x => `<span class="tg"><span>${esc(x)}</span></span>`).join('') : '<small class="vempty">Add names and rare words here, so voice input spells them right.</small>';
+  renderVoiceMemory();
+}
+
+function renderVoiceMemory() {
+  const list = corrections();
+  $('vMem').innerHTML = list.length
+    ? list
+        .map(
+          (m, i) =>
+            `<div class="vmrow"><span>"${esc(m.heard)}" becomes "${esc(m.fix)}"</span><button class="pbtn danger" data-i="trash" onclick="delVoiceMemory(${i})" aria-label="Delete correction" title="Delete"></button></div>`
+        )
+        .join('')
+    : '<small class="vempty">Nothing learned yet. When you fix a word the mic got wrong, the app remembers it here.</small>';
+  renderIcons();
+}
+
+function delVoiceMemory(i) {
+  removeCorrection(i);
+  renderVoiceMemory();
 }
 
 function saveVoiceAccent(a) {
@@ -2243,9 +2745,9 @@ Object.assign(window, {
   streakToast,
   showProfile,
   editProfile,
+  editDetails,
+  setupStep,
   toggleAbout,
-  cancelProfile,
-  saveProfile,
   newProfile,
   delProfile,
   toggleHist,
@@ -2274,6 +2776,10 @@ Object.assign(window, {
   togglePMic,
   readA,
   saveVoiceAccent,
+  delVoiceMemory,
+  openHistory,
+  setPMode,
+  pHint,
   homeLevel,
   pcLevel,
   pcGo,

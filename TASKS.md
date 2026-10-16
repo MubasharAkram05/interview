@@ -135,3 +135,16 @@
 - [ ] Recognizer honours the silence extras on the test phone: **NOT CHECKED** (session length in the voice report)
 - [ ] Noise gate level (5 dB) right for the test phone: **NOT CHECKED** (max RMS in the voice report)
 
+## Setup, Practice matching, Home, Mock banner, new logo
+
+- [x] Demo profile ("Alex Khan") removed from the code and deleted from phones at start-up (with its edits); chips only from the user's own data
+- [x] Setup screen before the first Mock or Practice session (3 steps): full name (inline check), target role, education, city, experience, skills (tags, suggestions), My words (prefilled), voice accent; "Edit my details" on Mock, Practice and Profile
+- [x] Practice: expected-text matching (word DP alignment, O(n x m)), saved words written, colours (said, corrected, extra, missed), score, best score per question, Read it / From memory with Hint, intro answer from a template
+- [x] Mock: free dictation with the user's vocabulary, chips (name, My words, question keywords), learned corrections with Undo, interview vocabulary hints
+- [x] Home: compact horizontal hero (<= 140 px), feature cards in a scroll-snap row with dots, skeletons, empty states
+- [x] Mock session page: banner at the bottom (BOTTOM_CENTER, measured), top banner on every other page
+- [x] New logo: `assets/logo/glyph.svg` (IoU 0.94 with the reference), brand gradient tokens, adaptive + monochrome + legacy launcher icons, splash, Play icon, favicon, manifest; CI checks the icon sizes
+- [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
+- [ ] Bottom banner position on a real phone (gesture bar, 3-button bar): **NOT CHECKED**
+- [ ] Practice matching with real speech (voice report: expected, heard, alignment, score): **NOT CHECKED**
+

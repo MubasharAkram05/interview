@@ -9,7 +9,7 @@ Answers for Play Console > Policy and programs > **App content**. Every answer i
 | No account, no login, no own server, no `fetch`/XHR/WebSocket calls in app code | searched `src/` and `index.html` |
 | Profile, answers, history, favorites saved only on the phone (localStorage + IndexedDB) | `src/services/storage.js` |
 | Ads: Google Mobile Ads SDK via `@capacitor-community/admob`, with UMP consent | `src/services/admob.js` |
-| Voice input: Android `SpeechRecognizer` via the app's own `VoicePlugin` (also asks for the mic permission). The app does not record or save audio; it receives only text. On Android 13+ it sends the speech service a few hint words (profile name, a short list of tech terms) | `src/services/voice.js`, `src/services/voice-filter.js`, `VoicePlugin.java` |
+| Voice input: Android `SpeechRecognizer` via the app's own `VoicePlugin` (also asks for the mic permission). The app does not record or save audio; it receives only text. On Android 13+ it sends the speech service up to 100 hint words (name, city, skills, My words, the Practice answer, interview terms) | `src/services/voice.js`, `src/services/vocab.js`, `VoicePlugin.java` |
 | Read aloud: Android text-to-speech via `@capacitor-community/text-to-speech` | `src/services/tts.js` |
 | Transcript sharing only through the Android share menu when the user taps it | `exportT()` in `src/main.js` |
 | Permissions you declare: INTERNET, ACCESS_NETWORK_STATE, RECORD_AUDIO, AD_ID | `app/src/main/AndroidManifest.xml` |
@@ -126,3 +126,8 @@ Why this conservative answer: the app itself never records or uploads audio. It 
 - App category: **Education**
 - Contact details: sussalproductions@gmail.com (required), website optional
 - External marketing: your choice
+
+## Setup details (name, role, education, city, experience, skills, My words)
+
+For the Data safety form these are **not collected**: the app stores them only on the phone (app-private storage) and uses them on the phone to personalise questions, the "Introduce yourself" answer and voice matching. They are never sent to us or to any server we control. Answer **No** for Personal info > Name and Other info for them. Only the hint words (see Voice input above) reach the phone's speech service together with the audio, which is already declared under Audio.
+

@@ -355,29 +355,40 @@ The phone (not the app) turns speech into text with Android's speech service (us
 
 Pauses: the app asks for 4 s complete silence, 3 s possibly complete and 15 s minimum length, so a 3 to 4 second pause should not end the session. Google's service may ignore these on some phones; the voice report shows how long each session ran.
 
-### No word changes
+### Your details and words
 
-The app writes exactly what the phone heard. There is no vocabulary system: no My words, no name matching, no learned corrections and no chips. The only ways the app helps:
+Before the first Mock or Practice session the app asks for your details (setup screen): full name, target role, education or current role, city, experience, key skills, **My words** (prefilled with your name and city) and the voice accent. They stay on the phone. Edit them any time: **Edit my details** on the Mock and Practice start screens, or Profile.
 
-- **Hints** (Android 13+): your profile name, then a short tech list (AWS, DevOps, Kubernetes, Docker, React, Node.js, JavaScript, Python, SQL, API, CI/CD, GitHub, Linux). The list is `TECH_HINTS` in `src/config/app.js`.
-- **Picking a guess:** if one of the phone's 5 guesses contains your profile name, that guess wins.
-- The demo profile ("Alex Khan") is sample data: its name is never used. Use your own profile so your name is sent as a hint.
+- **Hints** (Android 13+, at most 100): My words, your name, city and skills; in Practice the words of the answer you read; then interview words and phrases that appear in the question; then the rest of `src/data/interview-vocab.js`.
+- **Picking a guess:** the guess with the most of your words wins, else the most confident one. Guesses are never merged.
+- **Name matching (Mock):** a heard word becomes one of your words only if it is spelled close (edit distance <= 0.35) or sounds the same, and it is not a common English word (a name slot like "my name is" is the exception). Countries, cities, numbers, short words and every word of the interview list are never changed. At most 3 changes per sentence.
+- **Learned corrections:** fix one wrong word by hand right after dictation and the app remembers it (Undo in the toast; delete in Profile > Voice).
+- **Chips:** under the Mock answer box: your name and My words, then keywords of the question. Tap to insert at the cursor.
+
+### Practice: expected-text matching
+
+Google cannot know names in free dictation, so Practice compares what it heard with your **saved answer** and writes the saved words: "Mubashir" becomes Mubashar, Pakpattan stays Pakpattan.
+
+- **Read it** shows the answer; **From memory** hides it (**Hint** shows the next 3 words for 3 seconds).
+- After each phrase the heard words are aligned to the answer with word-level dynamic programming. A pair costs 1 - similarity and is allowed when the words are at least 60% similar or sound the same; an extra or missed word costs 1. Time O(n x m), space O(n x m) (n heard, m answer words); a 120-word answer takes a few ms.
+- Colours: said = green, corrected = green with a dot, extra = amber (kept as heard), missed = red underline (never written). Score = matched answer words / all answer words. The best score per question is kept.
+- "Introduce yourself" without a saved answer uses a template: "My name is {name}. I am a {education} from {city}. My skills include {skills}. I am looking for a {role} position." Edit and save it like any answer.
 
 ### Cost
 
-- Dedupe and picking a guess: O(guesses x words), a fraction of a millisecond.
+- Name matching: sound-code and length buckets, under 1 ms per sentence. Practice alignment: O(n x m). Dedupe and picking a guess: O(guesses x words).
 
 ### If voice is still wrong
 
 Use the debug APK. Hold the app title 1 s > **Copy voice report**. For each session it lists: language, hints sent, max RMS, every guess with its confidence, which guess was picked and why, what was dropped and why, and the text written. Send it with what you really said.
 
-### Phone test (start each test with an empty box)
+### Phone test
 
-1. Tap the mic and stay silent for 10 seconds. The box stays empty; "I did not catch that. Tap the mic to continue."
-2. Say "I am from Pakistan" once. It appears once.
-3. Say "My name is Mubashar" (with your name in your profile).
-4. Say "My name is Mubashar Akram", pause 3 seconds, "I am a student from Pakpattan". Both parts appear once, Pakpattan stays Pakpattan.
-5. Say "I know AWS and DevOps".
-6. Airplane mode: tap the mic, see the offline message, typing works. Deny the mic permission twice: the dialog has an **Open settings** button.
-7. Put the cursor in the middle of typed text and dictate: the words go in at the cursor; the rest of the box stays.
-Then copy the voice report from the debug panel.
+a) Fresh install: tap Practice. The setup screen appears; no Alex or Khan anywhere. Enter name Mubashar Akram, city Pakpattan.
+b) Home: the hero is one compact horizontal row, the cards scroll sideways with dots, no empty gap above the header.
+c) Launcher icon and splash show the new logo (on Android 13+ also the themed icon: long-press the home screen > Wallpaper & style > Themed icons).
+d) Practice, "Introduce yourself": the generated answer shows. Read it aloud. Names come out as saved. Check the score and colours.
+e) Practice: say some words wrong on purpose. Wrong words show as extra (amber), skipped words as missed (red underline).
+f) Mock: the banner is at the bottom and never covers the mic or the Prev/Next buttons. Other pages still have the top banner.
+g) Mock: Edit my details, change the name, Save: the chips show the new name.
+h) Copy the voice report from the debug panel (Practice lines show expected text, heard text, alignment and score).

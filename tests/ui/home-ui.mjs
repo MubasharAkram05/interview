@@ -9,7 +9,13 @@ const p = await b.newPage({ viewport: { width: 375, height: 740 } });
 const errors = [];
 p.on('pageerror', e => errors.push(e.message));
 await p.goto('http://localhost:4173/');
-await p.evaluate(() => localStorage.setItem('is_hist', JSON.stringify([{ c: 'Software Developer', d: '10/14/2026', s: 7, ts: Date.now() - 864e5 }])));
+await p.evaluate(() => {
+  localStorage.setItem('is_hist', JSON.stringify([{ c: 'Software Developer', d: '10/14/2026', s: 7, ts: Date.now() - 864e5 }]));
+  // A user who finished setup (the app has no demo profile any more).
+  const me = { name: 'Test User', role: 'Software Engineer', roleKey: 'Software Engineer', edu: 'BS IT student', degree: 'BS IT student', city: 'Testcity', exp: 'fresher', skillTags: ['JavaScript'], skills: 'JavaScript', words: ['Test', 'User', 'Testcity'], setup: 1 };
+  localStorage.setItem('is_profiles', JSON.stringify({ 'Test User': me }));
+  localStorage.setItem('is_active', JSON.stringify('Test User'));
+});
 await p.reload();
 await p.waitForTimeout(900);
 
@@ -17,7 +23,23 @@ const homeText = await p.textContent('#home');
 check('home has no "Last session" card (history exists)', !/Last session/i.test(homeText) && (await p.locator('#retryLastBtn').count()) === 0);
 check('header has no theme button', (await p.locator('header.bar [data-i="moon"], header.bar [onclick*="Theme"]').count()) === 0);
 check('header shows logo on home', await p.isVisible('#hLogo'));
-check('home hero: title, 3 features, Get Started, date', (await p.textContent('.htitle')).includes('Simulator') && (await p.locator('.hfeat .hf').count()) === 3 && await p.isVisible('.hcta') && /\d{4}/.test(await p.textContent('#dFull')));
+const hero = await p.$eval('.hhero', e => {
+  const r = e.getBoundingClientRect();
+  const btn = e.querySelector('.hcta').getBoundingClientRect();
+  const logo = e.querySelector('.hlogo').getBoundingClientRect();
+  return { h: r.height, row: logo.left > btn.left && Math.abs(logo.top + logo.height / 2 - (r.top + r.height / 2)) < r.height / 2, btnH: btn.height };
+});
+check(`home hero: one compact horizontal row, <= 140px (${Math.round(hero.h)}px)`, hero.h <= 140 && hero.row);
+check('home hero: greeting with the saved name, subtitle, Start Mock Interview', (await p.textContent('#hi')) === 'Test' && (await p.textContent('.hcta')).includes('Start Mock Interview') && hero.btnH >= 44);
+check('home hero: logo glyph shown', (await p.locator('.hhero .hlogo svg').count()) === 1);
+const cards = await p.$$eval('#hCards .hcard', cs => cs.map(c => ({ t: c.querySelector('h4').textContent, w: c.getBoundingClientRect().width })));
+const rowW = await p.$eval('#hCards', e => e.clientWidth);
+check(`home cards: QOTD, Mock, Practice, History in a scroll row (${cards.map(c => c.t).join(', ')})`, cards.map(c => c.t).join() === 'Question of the day,Mock interview,Practice,History');
+check(`home cards: about 1.2 visible, next one peeks (${Math.round(cards[0].w)} of ${rowW}px)`, cards[0].w < rowW * 0.9 && cards[0].w > rowW * 0.7);
+check('home cards: snap and dots', (await p.$eval('#hCards', e => getComputedStyle(e).scrollSnapType)).includes('x') && (await p.locator('#hDots .hdot').count()) === 4);
+const heroGap = await p.evaluate(() => document.querySelector('.hhero').getBoundingClientRect().top - document.querySelector('header.bar').getBoundingClientRect().bottom);
+check(`home: no empty gap above the hero (${Math.round(heroGap)}px)`, heroGap <= 20);
+check('no Alex or Khan anywhere on Home', !/\bAlex\b|\bKhan\b/.test(await p.textContent('body')));
 await p.click('.hcta');
 await p.waitForTimeout(400);
 check('Get Started opens the Mock page', await p.isVisible('#mock'));

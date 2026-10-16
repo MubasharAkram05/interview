@@ -139,6 +139,14 @@ function sessionLines() {
   if (!list.length) return ['-- sessions: none yet (tap the mic first) --'];
   const out = [`-- last ${list.length} sessions --`];
   list.forEach(r => {
+    if (r.kind === 'practice') {
+      out.push(`[Practice] ${r.at} score ${r.score}% (${r.matched}/${r.total} words, ${r.extra} extra, ${r.missed} missed)`);
+      out.push(`   expected: "${r.expected}"`);
+      out.push(`   heard: "${r.heard}"`);
+      out.push(`   alignment: ${r.alignment}`);
+      out.push(`   written: "${r.text}"`);
+      return;
+    }
     out.push(`[${r.n}] ${r.at} lang ${r.language} | hints sent ${r.hints} | max RMS ${r.maxRms === null ? '-' : Number(r.maxRms).toFixed(1)} | end ${r.end || '-'}`);
     if (!r.nbest.length) out.push('   n-best: (no final result)');
     r.nbest.forEach((c, i) => out.push(`   n-best ${i + 1}: "${c.text}" conf ${c.score === null ? '-' : c.score}`));
