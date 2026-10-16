@@ -25,18 +25,15 @@ check('header has no theme button', (await p.locator('header.bar [data-i="moon"]
 check('header shows logo on home', await p.isVisible('#hLogo'));
 const hero = await p.$eval('.hhero', e => {
   const r = e.getBoundingClientRect();
+  const tx = e.querySelector('.htx').getBoundingClientRect();
+  const art = e.querySelector('.hart').getBoundingClientRect();
   const btn = e.querySelector('.hcta').getBoundingClientRect();
-  const logo = e.querySelector('.hlogo').getBoundingClientRect();
-  return { h: r.height, row: logo.left > btn.left && Math.abs(logo.top + logo.height / 2 - (r.top + r.height / 2)) < r.height / 2, btnH: btn.height };
+  return { h: r.height, row: art.left >= tx.right - 1 && art.top < tx.bottom && art.bottom > tx.top, inside: art.right <= r.right + 1, btnH: btn.height, feats: e.querySelectorAll('.hfeat .hf').length };
 });
-check(`home hero: one compact horizontal row, <= 140px (${Math.round(hero.h)}px)`, hero.h <= 140 && hero.row);
-check('home hero: greeting with the saved name, subtitle, Start Mock Interview', (await p.textContent('#hi')) === 'Test' && (await p.textContent('.hcta')).includes('Start Mock Interview') && hero.btnH >= 44);
-check('home hero: logo glyph shown', (await p.locator('.hhero .hlogo svg').count()) === 1);
-const cards = await p.$$eval('#hCards .hcard', cs => cs.map(c => ({ t: c.querySelector('h4').textContent, w: c.getBoundingClientRect().width })));
-const rowW = await p.$eval('#hCards', e => e.clientWidth);
-check(`home cards: QOTD, Mock, Practice, History in a scroll row (${cards.map(c => c.t).join(', ')})`, cards.map(c => c.t).join() === 'Question of the day,Mock interview,Practice,History');
-check(`home cards: about 1.2 visible, next one peeks (${Math.round(cards[0].w)} of ${rowW}px)`, cards[0].w < rowW * 0.9 && cards[0].w > rowW * 0.7);
-check('home cards: snap and dots', (await p.$eval('#hCards', e => getComputedStyle(e).scrollSnapType)).includes('x') && (await p.locator('#hDots .hdot').count()) === 4);
+check(`home hero: text left, illustration right (one horizontal row, ${Math.round(hero.h)}px)`, hero.row && hero.inside && hero.h <= 320);
+check('home hero: greeting, title, tagline, 3 features, Get Started', (await p.textContent('#hi')) === 'Test' && /Interview\s*Simulator/.test(await p.textContent('.htitle')) && (await p.textContent('.htag')) === 'Practice. Improve. Succeed.' && hero.feats === 3 && (await p.textContent('.hcta')).includes('Get Started') && hero.btnH >= 44);
+const cards = await p.$$eval('#hCards .hcard', cs => cs.map(c => c.querySelector('h4').textContent));
+check(`home: only one card under the hero, Question of the day (${cards.join(', ')})`, cards.join() === 'Question of the day' && (await p.locator('#hDots').count()) === 0);
 const heroGap = await p.evaluate(() => document.querySelector('.hhero').getBoundingClientRect().top - document.querySelector('header.bar').getBoundingClientRect().bottom);
 check(`home: no empty gap above the hero (${Math.round(heroGap)}px)`, heroGap <= 20);
 check('no Alex or Khan anywhere on Home', !/\bAlex\b|\bKhan\b/.test(await p.textContent('body')));

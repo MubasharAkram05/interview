@@ -144,6 +144,11 @@
 - [x] Home: compact horizontal hero (<= 140 px), feature cards in a scroll-snap row with dots, skeletons, empty states
 - [x] Mock session page: banner at the bottom (BOTTOM_CENTER, measured), top banner on every other page
 - [x] New logo: `assets/logo/glyph.svg` (IoU 0.94 with the reference), brand gradient tokens, adaptive + monochrome + legacy launcher icons, splash, Play icon, favicon, manifest; CI checks the icon sizes
+- [x] From memory moved from Practice to Mock (Free answer / From memory, Hint, saved words written, score toast); Practice is Read it only
+- [x] Key skill suggestions follow the target role (`ROLE_SKILLS`)
+- [x] Categories first: the setup form opens after a category is picked; the role comes from it and that category opens after saving
+- [x] Setup is 2 steps; My words removed from the UI and made automatically (name, city, skills, role, education); Profile > Voice shows only the accent and learned corrections
+- [x] Home hero like the reference, horizontal (text, 3 features, Get Started left; picture right); only the Question of the day card below
 - [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
 - [ ] Bottom banner position on a real phone (gesture bar, 3-button bar): **NOT CHECKED**
 - [ ] Practice matching with real speech (voice report: expected, heard, alignment, score): **NOT CHECKED**

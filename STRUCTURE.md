@@ -27,7 +27,7 @@ interview/
 │       ├── voice-prefs.js              EDIT     Voice accent, learned corrections, the user's vocabulary and chips
 │       ├── vocab.js                    CAREFUL  Safe name matching, hint list (100 max), keywords; thresholds in VOCAB_CONFIG
 │       ├── expected.js                 CAREFUL  Practice: word-level DP alignment to the saved answer, score, intro template
-│       ├── setup.js                    EDIT     Setup screen rules: name check, roles, experience, tags, My words
+│       ├── setup.js                    EDIT     Setup screen rules: name check, roles, role skills, experience, tags, automatic words
 │       ├── readalong.js                EDIT     Read-along matching: accents, misheard and skipped words
 │       ├── tts.js                      CAREFUL  Read aloud via phone text-to-speech
 │       ├── online.js                   EDIT     Internet check + offline messages for online features

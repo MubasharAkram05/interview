@@ -271,32 +271,49 @@ header.bar{min-height:0;padding-top:calc(4px + max(env(safe-area-inset-top,0px),
 .mstart small{font-size:12.5px;font-weight:500;opacity:.88}
 @media(prefers-reduced-motion:reduce){.mt,.mt .mc,.mck{transition:none}}
 
-/* ---- Home hero: one compact horizontal row (logo palette, light glass) ---- */
-.hhero{position:relative;display:flex;align-items:center;gap:12px;max-height:140px;overflow:hidden;border-radius:22px;padding:14px 14px 14px 16px;color:#fff;
-  background:radial-gradient(90% 120% at 100% 0%,rgba(255,255,255,.22),transparent 60%),var(--brand-grad);box-shadow:0 12px 28px color-mix(in srgb,var(--brand-2) 35%,transparent);animation:hin .45s ease both}
-.hhero::after{content:"";position:absolute;inset:0;border-radius:inherit;border:1px solid rgba(255,255,255,.28);pointer-events:none}
+/* ---- Home hero: light card, text and features on the left, illustration on the right ---- */
+.hhero{position:relative;display:flex;align-items:center;gap:6px;overflow:hidden;border-radius:24px;padding:16px 12px 16px 16px;border:1px solid color-mix(in srgb,var(--brand-2) 16%,var(--line));
+  background:radial-gradient(120% 90% at 100% 0%,color-mix(in srgb,var(--brand-1) 20%,transparent),transparent 60%),linear-gradient(160deg,var(--card),color-mix(in srgb,var(--card) 84%,var(--brand-1)));
+  box-shadow:0 14px 34px color-mix(in srgb,var(--brand-2) 16%,transparent);animation:hin .45s ease both}
+.hhero>*{position:relative;z-index:1}
+.hb{position:absolute!important;z-index:0!important;border-radius:50%;pointer-events:none}
+.hb1{width:140px;height:140px;left:-60px;top:-60px;background:radial-gradient(circle at 70% 70%,color-mix(in srgb,var(--brand-3) 35%,transparent),transparent 70%)}
+.hb2{width:180px;height:180px;right:-70px;bottom:-90px;background:radial-gradient(circle at 30% 30%,color-mix(in srgb,var(--brand-1) 30%,transparent),transparent 70%)}
 .htx{flex:1;min-width:0}
-.hhi{margin:0;font-size:13px;line-height:1.3;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hhi b{display:inline;font-size:18px;font-weight:800;opacity:1;letter-spacing:-.01em}
-.hsub{margin:2px 0 10px;font-size:13px;line-height:1.35;opacity:.88;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hcta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border:0;border-radius:999px;font-size:14.5px;font-weight:700;color:var(--brand-2);
-  background:rgba(255,255,255,.94);box-shadow:0 6px 16px rgba(15,23,42,.18);white-space:nowrap;max-width:100%;transition:transform .15s,box-shadow .2s}
+.hhi{margin:0 0 4px;font-size:13px;line-height:1.3;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hhi b{font-weight:700;color:var(--ink)}
+.htitle{margin:0;font-size:28px;line-height:1.05;font-weight:800;letter-spacing:-.025em;color:var(--ink)}
+.htitle span{background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.htag{margin:6px 0 0;font-size:14px;font-weight:700;color:color-mix(in srgb,var(--ink) 75%,var(--brand-2))}
+.hart{width:clamp(96px,32vw,150px);height:auto;flex:none;filter:drop-shadow(0 10px 18px color-mix(in srgb,var(--brand-2) 25%,transparent))}
+.hart .hchat{animation:hbob 3.2s ease-in-out infinite}
+.hart .hlist{animation:hbob 3.8s ease-in-out .6s infinite;transform-box:fill-box}
+@keyframes hbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.hfeat{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:12px}
+.hf{display:flex;flex-direction:column;align-items:center;gap:5px;min-height:44px;padding:4px 0;border:0;background:none;color:color-mix(in srgb,var(--ink) 80%,var(--mute));font-size:11px;font-weight:600;line-height:1.2;border-radius:12px}
+.hfi{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;transition:transform .2s}
+.hfi svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.hfp{background:color-mix(in srgb,var(--brand-3) 20%,transparent);color:#6b4fb8}
+.hfb{background:color-mix(in srgb,var(--brand-1) 18%,transparent);color:var(--brand-2)}
+.hfg{background:color-mix(in srgb,#10b981 16%,transparent);color:#059669}
+[data-theme=dark] .hfp{color:#c9b8f0}[data-theme=dark] .hfb{color:#93c5fd}[data-theme=dark] .hfg{color:#6ee7b7}
+.hf:active .hfi{transform:scale(.9)}
+.hf:focus-visible{outline:2px solid var(--brand-1);outline-offset:2px}
+@media(hover:hover){.hf:hover .hfi{transform:translateY(-2px)}}
+.hcta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;margin-top:12px;padding:0 20px;border:0;border-radius:999px;color:#fff;font-size:15px;font-weight:700;
+  background:var(--brand-grad);box-shadow:0 10px 22px color-mix(in srgb,var(--brand-2) 35%,transparent);white-space:nowrap;max-width:100%;transition:transform .15s,box-shadow .2s}
 .hcta svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
 .hcta:active{transform:scale(.97)}
-.hcta:focus-visible{outline:2px solid #fff;outline-offset:3px}
-@media(hover:hover){.hcta:hover{box-shadow:0 10px 22px rgba(15,23,42,.26)}.hcta:hover svg{transform:translateX(3px)}}
-.hside{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px}
-.hlogo{width:72px;height:72px;border-radius:22px;display:grid;place-items:center;background:rgba(255,255,255,.16);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.3)}
-.hlogo svg{width:58px;height:58px}
-.hchip{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.2);white-space:nowrap}
-@media(max-width:360px){.hlogo{width:56px;height:56px;border-radius:18px}.hlogo svg{width:44px;height:44px}.hcta{padding:0 12px;font-size:13.5px}.hhi b{font-size:16px}}
+.hcta:focus-visible{outline:2px solid var(--brand-1);outline-offset:3px}
+@media(hover:hover){.hcta:hover{box-shadow:0 14px 28px color-mix(in srgb,var(--brand-2) 45%,transparent)}.hcta:hover svg{transform:translateX(3px)}}
+@media(max-width:360px){.htitle{font-size:24px}.hf{font-size:10.5px}.hfi{width:34px;height:34px}.hcta{padding:0 14px;font-size:14px}}
+@media(min-width:600px){.htitle{font-size:34px}.hf{font-size:12.5px}.hfi{width:46px;height:46px}}
+@media(prefers-reduced-motion:reduce){.hart .hchat,.hart .hlist{animation:none}}
 @keyframes hin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-/* Feature cards: horizontal scroll-snap row, the next card peeks */
-.hcards{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:14px -16px 0;padding:2px 16px 6px;scroll-padding:0 16px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.hcards::-webkit-scrollbar{display:none}
-.hcard{flex:0 0 82%;max-width:340px;scroll-snap-align:start;display:flex;flex-direction:column;gap:6px;min-height:150px;padding:14px;border-radius:18px;background:color-mix(in srgb,var(--card) 88%,transparent);
+/* Question of the day card under the hero */
+.hcards{display:flex;margin:14px 0 0}
+.hcard{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;min-height:150px;padding:14px;border-radius:18px;background:color-mix(in srgb,var(--card) 88%,transparent);
   border:1px solid color-mix(in srgb,var(--brand-2) 16%,var(--line));box-shadow:0 8px 20px rgba(15,23,42,.07);backdrop-filter:blur(6px);animation:hin .45s ease both}
-.hcard:nth-child(2){animation-delay:.06s}.hcard:nth-child(3){animation-delay:.12s}.hcard:nth-child(4){animation-delay:.18s}
 .hct{display:flex;align-items:center;gap:8px}.hct h4{margin:0;font-size:15px}
 .hci{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:17px;background:color-mix(in srgb,var(--brand-1) 14%,transparent)}
 .hcard p{margin:0;font-size:14px;line-height:1.45;color:color-mix(in srgb,var(--ink) 85%,var(--mute))}
@@ -309,12 +326,7 @@ button.sm{min-height:44px;padding:0 16px;width:auto;border-radius:999px;font-siz
 .hcard.skel{gap:10px}.hcard.skel i{display:block;height:14px;border-radius:7px;background:linear-gradient(90deg,var(--line),var(--fill),var(--line));background-size:200% 100%;animation:skel 1.2s linear infinite}
 .hcard.skel i:first-child{width:50%;height:18px}.hcard.skel i:last-child{width:70%}
 @keyframes skel{to{background-position:-200% 0}}
-.hdots{display:flex;justify-content:center;gap:2px;margin:2px 0 4px}
-.hdot{width:24px;height:24px;min-height:24px;padding:0;border:0;background:none;display:grid;place-items:center}
-.hdot::before{content:"";width:7px;height:7px;border-radius:4px;background:var(--line);transition:width .2s,background .2s}
-.hdot.on::before{width:18px;background:var(--brand-2)}
-[data-theme=dark] .hdot.on::before{background:var(--brand-3)}
-@media(prefers-reduced-motion:reduce){.hhero,.hcard{animation:none}.hcard.skel i{animation:none}.hcta,.hcta svg,.hdot::before{transition:none}}
+@media(prefers-reduced-motion:reduce){.hhero,.hcard{animation:none}.hcard.skel i{animation:none}.hcta,.hcta svg{transition:none}}
 
 /* Profile hero: one fixed color (no moving gradient or floating blobs). */
 .hero.pcard{background:#4f46e5;background-size:auto;animation:none}
@@ -375,8 +387,10 @@ header.bar .logo svg{width:30px;height:30px;stroke:none}
 /* ---- Practice: modes, expected text, result ---- */
 .pmodes{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;margin:0 0 10px;border-radius:14px;background:var(--fill);border:1px solid var(--line)}
 .pmodes button{min-height:44px;border:0;border-radius:10px;background:none;font-weight:700;color:var(--mute)}
+.mmodes{grid-template-columns:1fr 1fr auto;margin:0 0 10px}
+.mmodes .hintb{margin:0;min-height:44px;padding:0 14px}
+.mhintt{margin-top:8px}
 .pmodes button.on{background:var(--card);color:var(--ink);box-shadow:0 2px 8px rgba(15,23,42,.08)}
-#pWrap.hidetext #pA .pw:not(.hl):not(.peek){filter:blur(5px);opacity:.55}
 #pA .pw{transition:filter .25s,opacity .25s,color .2s}
 #pA .pw.fixd{position:relative}
 #pA .pw.fixd::after{content:"";position:absolute;right:-3px;top:-1px;width:6px;height:6px;border-radius:50%;background:var(--ok)}

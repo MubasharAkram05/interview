@@ -57,7 +57,7 @@ import {
 import { voiceAccent, setAccentPref, corrections, addCorrection, removeCorrection, userVocab, chipWords } from './services/voice-prefs.js';
 import { correctText, hintWords, keywordsIn, learnFromEdit, rareWords, norm } from './services/vocab.js';
 import { alignToExpected, introTemplate, isIntroQuestion } from './services/expected.js';
-import { ROLES, EXPERIENCE, MAX_SKILLS, MAX_WORDS, nameError, cleanTags, defaultWords, updateWords, buildProfile, setupDone, roleToCat, expToLevel, LEGACY_DEMO_NAMES } from './services/setup.js';
+import { ROLES, EXPERIENCE, MAX_SKILLS, ROLE_SKILLS, nameError, cleanTags, buildProfile, setupDone, catToRole, autoWords, LEGACY_DEMO_NAMES } from './services/setup.js';
 import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
 import { pickCandidate } from './services/voice-filter.js';
 
@@ -360,7 +360,10 @@ function render(id) {
   if (id === 'mock') fillMock();
   if (id === 'privacy') fillPrivacy();
   if (id === 'setup') renderSetup();
-  if (id === 'interview' && cur.length) renderChips(); // details may have changed (Edit my details)
+  if (id === 'interview' && cur.length) {
+    renderChips(); // details may have changed (Edit my details)
+    applyMMode();
+  }
 
   // Mock interview session page: banner at the bottom (below Prev/Next); everywhere else at the top.
   const adBottom = id === 'interview';
@@ -441,18 +444,15 @@ function stats() {
   const first = p && p.name ? p.name.split(' ')[0] : '';
   $('gr').textContent = first ? (g < 12 ? 'Good morning,' : g < 18 ? 'Good afternoon,' : 'Good evening,') : '';
   $('hi').textContent = first || 'Welcome';
-  $('hSub').textContent = p && p.role ? `Ready for your ${p.role} interview?` : 'Practise answers, then try a mock interview.';
 }
 
-// Home cards: one horizontal row that snaps (about 1.2 cards visible, so the next one peeks).
+// Home: one card under the hero, the Question of the day.
 function fillHx() {
   const h = getItem('is_hist', []) || [];
   const streak = calculateStreak(h);
   const hs = $('hStreak');
   hs.classList.toggle('on', streak > 0);
   hs.dataset.n = streak;
-  $('hChip').textContent = streak > 0 ? `🔥 ${streak} day${streak === 1 ? '' : 's'}` : '';
-  $('hChip').classList.toggle('hidden', !streak);
 
   const card = (cls, icon, title, body, btn, extra = '') =>
     `<article class="hcard ${cls}"><div class="hct"><span class="hci" aria-hidden="true">${icon}</span><h4>${title}</h4></div>${body}<div class="hcb">${extra}${btn}</div></article>`;
@@ -465,19 +465,7 @@ function fillHx() {
   } else {
     o += card('qotd', '💡', 'Question of the day', '<p class="hce">No question today. Add your own in Practice.</p>', '<button class="sm" onclick="startPractice()">Open Practice</button>');
   }
-  o += card('hmock', '🎙️', 'Mock interview', '<p>Answer real questions by voice or typing, then get a score and tips.</p>', '<button class="pri sm" onclick="startMock()">Start</button>');
-  o += card('hprac', '📖', 'Practice', '<p>Say your saved answers aloud. Names come out exactly as you saved them.</p>', '<button class="pri sm" onclick="startPractice()">Open</button>');
-  const last = h[h.length - 1];
-  o += card(
-    'hhist',
-    '📈',
-    'History',
-    last ? `<p>Last score <b>${last.s}/10</b> · ${h.length} interview${h.length === 1 ? '' : 's'}</p>` : '<p class="hce">No interviews yet. Your scores show here after your first mock interview.</p>',
-    `<button class="sm" onclick="openHistory()">${last ? 'View history' : 'Start one'}</button>`
-  );
   $('hCards').innerHTML = o;
-  const n = $('hCards').children.length;
-  $('hDots').innerHTML = Array.from({ length: n }, (_, i) => `<button class="hdot${i ? '' : ' on'}" data-k="${i}" aria-label="Card ${i + 1}"></button>`).join('');
 
   $('qotdBtn')?.addEventListener('click', () => {
     const { c, lv, q } = res.pick;
@@ -491,22 +479,6 @@ function openHistory() {
   if (!(getItem('is_hist', []) || []).length) return startMock();
   showProfile();
   if ($('hList').classList.contains('hidden')) toggleHist();
-}
-
-function watchHomeCards() {
-  const row = $('hCards');
-  const dots = () => {
-    const w = row.firstElementChild ? row.firstElementChild.getBoundingClientRect().width + 12 : 1;
-    const k = Math.round(row.scrollLeft / w);
-    $('hDots').querySelectorAll('.hdot').forEach((d, i) => d.classList.toggle('on', i === k));
-  };
-  row.addEventListener('scroll', () => requestAnimationFrame(dots), { passive: true });
-  $('hDots').addEventListener('click', e => {
-    const d = e.target.closest('.hdot');
-    if (!d) return;
-    const c = row.children[Number(d.dataset.k)];
-    if (c) row.scrollTo({ left: c.offsetLeft - row.offsetLeft, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  });
 }
 
 const favs = () => getItem('is_fav', []) || [];
@@ -598,7 +570,7 @@ function closeCS() {
 function csGo(m, c0) {
   const c = c0 || csC;
   closeCS();
-  if (!need(() => csGo(m, c))) return;
+  if (!need(() => csGo(m, c), c)) return;
   if (m === 0) {
     pcGo(c, 0);
     return;
@@ -689,8 +661,7 @@ const ABOUT = [
   ['Education / role', p => p.edu || p.degree],
   ['City', p => p.city],
   ['Experience', p => EXPERIENCE[p.exp]],
-  ['Skills', p => p.skills],
-  ['My words', p => (p.words || []).join(', ')]
+  ['Skills', p => p.skills]
 ];
 
 function newProfile() {
@@ -778,9 +749,10 @@ function _delProfile() {
 }
 
 // Mock and Practice need the setup details first. `go` runs after they are saved.
-function need(go) {
+// `cat` is the interview type the user just picked: it fills in the target role.
+function need(go, cat = '') {
   if (setupDone(profiles[active])) return true;
-  openSetup(go || null);
+  openSetup(go || null, { cat });
   return false;
 }
 
@@ -789,10 +761,10 @@ let setupThen = null; // what to open after saving
 let setupNew = false; // create a new profile instead of editing the active one
 let sData = null; // form state while the setup screen is open
 let sStep = 0;
-const SETUP_STEPS = 3;
-const SETUP_TITLES = ['About you', 'Your goal', 'Voice'];
+const SETUP_STEPS = 2;
+const SETUP_TITLES = ['About you', 'Your goal and voice'];
 
-function openSetup(then = null, { fresh = false, step = 0 } = {}) {
+function openSetup(then = null, { fresh = false, step = 0, cat = '' } = {}) {
   setupThen = then;
   setupNew = fresh;
   const p = !fresh && profiles[active] ? profiles[active] : {};
@@ -801,11 +773,10 @@ function openSetup(then = null, { fresh = false, step = 0 } = {}) {
     name: p.name || '',
     edu: p.edu || p.degree || '',
     city: p.city || '',
-    role: custom ? 'Other' : p.roleKey || p.role || '',
+    role: custom ? 'Other' : p.roleKey || p.role || catToRole(cat),
     roleOther: custom ? p.role : '',
     exp: EXPERIENCE[p.exp] ? p.exp : 'fresher',
     skills: p.skillTags || (p.skills ? String(p.skills).split(/,\s*|\s+and\s+/).map(x => x.trim()).filter(Boolean).slice(0, MAX_SKILLS) : []),
-    words: p.words || defaultWords(p.name, p.city),
     accent: voiceAccent(),
     before: { name: p.name || '', city: p.city || '' }
   };
@@ -842,7 +813,6 @@ function renderSetup() {
     .join('');
   $('sAccent').innerHTML = Object.entries(VOICE_ACCENTS).map(([k, v]) => `<option value="${k}"${k === sData.accent ? ' selected' : ''}>${esc(v.label)}</option>`).join('');
   renderTags('sSkills', sData.skills, MAX_SKILLS);
-  renderTags('sWords', sData.words, MAX_WORDS);
   renderSuggestions();
   showSetupStep();
   nameCheck(false);
@@ -877,10 +847,7 @@ function setupStep(d) {
     return;
   }
   if (d > 0 && sStep === SETUP_STEPS - 1) return saveSetup();
-  if (d > 0 && sStep === 0) sData.words = updateWords(sData.words, sData.before, { name: sData.name, city: sData.city });
-  if (d > 0 && sStep === 0) sData.before = { name: sData.name, city: sData.city };
   sStep = Math.max(0, Math.min(SETUP_STEPS - 1, sStep + d));
-  renderTags('sWords', sData.words, MAX_WORDS);
   showSetupStep();
 }
 
@@ -891,7 +858,6 @@ function saveSetup() {
     showSetupStep();
     return;
   }
-  sData.words = updateWords(sData.words, sData.before, { name: sData.name, city: sData.city });
   const oldName = setupNew ? '' : active;
   const old = oldName && profiles[oldName] ? profiles[oldName] : {};
   const p = buildProfile(sData, old);
@@ -913,15 +879,6 @@ function saveSetup() {
   setActive(p.name);
   setAccentPref(sData.accent);
   setVoiceAccent(voiceAccent());
-  if (!old.setup) {
-    // First setup: start Mock and Practice at the user's role and level.
-    pcLv = expToLevel(p.exp);
-    setItem('is_pclv', pcLv);
-    fillHome();
-    $('cat').value = roleToCat(p.roleKey);
-    $('lvl').value = pcLv;
-    $('cat').dispatchEvent(new Event('change', { bubbles: true }));
-  }
   sData = null;
   toast('Saved on this phone');
   const go = setupThen;
@@ -949,25 +906,30 @@ function renderTags(id, list, max) {
 
 function addTag(kind, value) {
   if (!sData) return;
-  const max = kind === 'skills' ? MAX_SKILLS : MAX_WORDS;
+  const max = MAX_SKILLS;
   const parts = String(value || '').split(',').map(x => x.trim()).filter(Boolean);
   if (!parts.length) return;
   sData[kind] = cleanTags([...sData[kind], ...parts], max);
-  renderTags(kind === 'skills' ? 'sSkills' : 'sWords', sData[kind], max);
-  if (kind === 'skills') renderSuggestions();
+  renderTags('sSkills', sData[kind], max);
+  renderSuggestions();
 }
 
 function renderSuggestions() {
   const q = ($('sSkillIn').value || '').trim().toLowerCase();
   const have = new Set(sData.skills.map(x => x.toLowerCase()));
-  const list = SKILL_SUGGESTIONS.filter(x => !have.has(x.toLowerCase()) && (!q || x.toLowerCase().includes(q))).slice(0, 8);
+  // Suggestions for the chosen target role first, then the general interview list.
+  const pool = [...new Set([...(ROLE_SKILLS[$('sRole').value] || []), ...(q ? SKILL_SUGGESTIONS : [])])];
+  const list = (pool.length ? pool : SKILL_SUGGESTIONS).filter(x => !have.has(x.toLowerCase()) && (!q || x.toLowerCase().includes(q))).slice(0, 8);
   $('sSugg').innerHTML = sData.skills.length >= MAX_SKILLS ? '' : list.map(x => `<button type="button" class="sg" data-s="${esc(x)}">+ ${esc(x)}</button>`).join('');
 }
 
 function initSetup() {
   $('sName').addEventListener('input', () => nameCheck(true));
   $('sName').addEventListener('blur', () => nameCheck(true));
-  $('sRole').addEventListener('change', () => $('sRoleOther').classList.toggle('hidden', $('sRole').value !== 'Other'));
+  $('sRole').addEventListener('change', () => {
+    $('sRoleOther').classList.toggle('hidden', $('sRole').value !== 'Other');
+    renderSuggestions();
+  });
   $('sExp').addEventListener('click', e => {
     const b = e.target.closest('[data-exp]');
     if (!b || !sData) return;
@@ -978,7 +940,7 @@ function initSetup() {
       x.setAttribute('aria-checked', String(x === b));
     });
   });
-  [['sSkills', 'skills'], ['sWords', 'words']].forEach(([id, kind]) => {
+  [['sSkills', 'skills']].forEach(([id, kind]) => {
     const box = $(id);
     const input = box.querySelector('input');
     input.dataset.ph = input.placeholder;
@@ -990,7 +952,7 @@ function initSetup() {
         addTag(kind, v);
       } else if (e.key === 'Backspace' && !input.value && sData && sData[kind].length) {
         sData[kind].pop();
-        renderTags(id, sData[kind], kind === 'skills' ? MAX_SKILLS : MAX_WORDS);
+        renderTags(id, sData[kind], MAX_SKILLS);
       }
     });
     input.addEventListener('input', () => {
@@ -999,7 +961,7 @@ function initSetup() {
         input.value = '';
         addTag(kind, v);
       }
-      if (kind === 'skills') renderSuggestions();
+      renderSuggestions();
     });
     input.addEventListener('blur', () => {
       if (input.value.trim()) {
@@ -1013,8 +975,8 @@ function initSetup() {
       if (b && sData) {
         playTapSound();
         sData[kind].splice(Number(b.dataset.k), 1);
-        renderTags(id, sData[kind], kind === 'skills' ? MAX_SKILLS : MAX_WORDS);
-        if (kind === 'skills') renderSuggestions();
+        renderTags(id, sData[kind], MAX_SKILLS);
+        renderSuggestions();
       } else input.focus();
     });
   });
@@ -1033,8 +995,7 @@ function initSetup() {
 // Practice Flow
 function startMock() {
   playTapSound();
-  if (!need(() => show('mock'))) return;
-  show('mock');
+  show('mock'); // pick the interview type first; the details form comes after (startInterview)
 }
 
 function fillMock() {
@@ -1085,8 +1046,7 @@ function mSync() {
 
 function startPractice() {
   playTapSound();
-  if (!need(() => show('pcat'))) return;
-  show('pcat');
+  show('pcat'); // pick the interview type first; the details form comes after (pcGo)
 }
 
 function pcLevel(v) {
@@ -1098,7 +1058,7 @@ function pcLevel(v) {
 
 function pcGo(c, i, lv, one = null) {
   playTapSound();
-  if (!need(() => pcGo(c, i, lv, one))) return;
+  if (!need(() => pcGo(c, i, lv, one), c)) return;
   const v = LEVELS[lv] ? lv : pcLv;
   P = { cat: c, lv: v, list: [], i: 0, one };
   const l = (P.list = plist());
@@ -1247,7 +1207,6 @@ function pr() {
   $('pCount').textContent = `${CL(P.cat, P.lv)} · ${P.i + 1} / ${n}`;
   pWords(ansText(it) || 'No answer yet. Tap the pencil to write one.');
   pReveal(it.q);
-  applyPMode();
   renderPRes(null);
   pLive('');
   const best = pBest()[ekey(it)];
@@ -1444,41 +1403,9 @@ function chooser(vocab) {
 }
 
 // ---- Practice: expected-text matching ----
-// "Read it" shows the saved answer; "From memory" hides it (Hint shows the next words). Either way
-// the phone's words are aligned to the saved answer and the saved words are written.
-let pMode = 'read';
+// The saved answer is shown; the phone's words are aligned to it and the saved words are written.
 const pBest = () => getItem('is_pbest', {}) || {};
 const pIdx = () => PW.map((x, i) => (norm(x.textContent) ? i : -1)).filter(i => i >= 0);
-
-function setPMode(m) {
-  playTapSound();
-  pMode = m === 'memory' ? 'memory' : 'read';
-  setItem('is_pmode', pMode);
-  applyPMode();
-}
-
-function applyPMode() {
-  const mem = pMode === 'memory';
-  $('pWrap').classList.toggle('hidetext', mem);
-  $('pHint').classList.toggle('hidden', !mem);
-  document.querySelectorAll('#pModes button').forEach(b => {
-    const on = b.dataset.m === pMode;
-    b.classList.toggle('on', on);
-    b.setAttribute('aria-pressed', String(on));
-  });
-}
-
-// From memory: show the next 3 words not said yet for 3 seconds.
-function pHint() {
-  playTapSound();
-  const done = PW.map(x => x.classList.contains('hl'));
-  const ids = pIdx();
-  const start = ids.findIndex(i => !done[i]);
-  if (start < 0) return;
-  const show = ids.slice(start, start + 3);
-  show.forEach(i => PW[i].classList.add('peek'));
-  setTimeout(() => show.forEach(i => PW[i] && PW[i].classList.remove('peek')), 3000);
-}
 
 // Paint the saved answer from an alignment: said = green, corrected = green with a dot,
 // missed = red underline. Scroll to the last said word.
@@ -1626,7 +1553,7 @@ async function togglePMic() {
     onState: st => {
       if (!here() || finished) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
-      pMicNote(st === 'ready' || st === 'listening' ? (pMode === 'memory' ? 'Speak now. Say your answer from memory.' : 'Speak now. Read at your own pace.') : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : '');
+      pMicNote(st === 'ready' || st === 'listening' ? 'Speak now. Read at your own pace.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : '');
     },
     onLevel: db => micLevel($('pMic'), db),
     onPartial: text => here() && !finished && pLive(text), // grey live bar only
@@ -1800,7 +1727,7 @@ function shuffle(a) {
 
 function startInterview() {
   playTapSound();
-  if (!need(() => show('mock'))) return;
+  if (!need(() => startInterview(), $('cat').value)) return;
   cat = $('cat').value;
   lv = $('lvl').value;
   timerOn = false;
@@ -2041,7 +1968,7 @@ function renderChips() {
   const p = profiles[active] || {};
   const mine = chipWords(p);
   const it = cur[idx];
-  const keys = it ? keywordsIn(ansText(it), 4).filter(k => !mine.some(m => m.toLowerCase() === k.toLowerCase())) : [];
+  const keys = it ? keywordsIn(refText(it), 4).filter(k => !mine.some(m => m.toLowerCase() === k.toLowerCase())) : [];
   const chip = (w, cls) => `<button type="button" class="vchip${cls}" data-w="${esc(w)}">${esc(w)}</button>`;
   el.innerHTML = mine.map(w => chip(w, '')).join('') + (keys.length ? `<span class="vkl">Keywords</span>${keys.map(w => chip(w, ' kw')).join('')}` : '');
   el.classList.toggle('hidden', !mine.length && !keys.length);
@@ -2097,6 +2024,45 @@ function watchAnswerCursor() {
   });
 }
 
+// ---- Mock: Free answer / From memory ----
+// From memory: the phone's words are aligned to the saved answer and the saved words are written.
+// Hint shows the next 3 words not said yet.
+let mMode = 'free';
+let mMem = null; // { i, heard: [], said } while a From memory attempt runs
+
+function setMMode(m) {
+  playTapSound();
+  mMode = m === 'memory' ? 'memory' : 'free';
+  setItem('is_mmode', mMode);
+  applyMMode();
+}
+
+function applyMMode() {
+  const mem = mMode === 'memory';
+  $('mHint').classList.toggle('hidden', !mem);
+  $('mHintT').classList.add('hidden');
+  document.querySelectorAll('#mModes button').forEach(b => {
+    const on = b.dataset.m === mMode;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
+function mHint() {
+  playTapSound();
+  const it = cur[idx];
+  if (!it) return;
+  const ref = refText(it).split(/\s+/).filter(Boolean);
+  if (!ref.length) return toast('No saved answer for this question yet.');
+  const said = mMem && mMem.i === idx ? mMem.said : 0;
+  const next = ref.slice(said, said + 3).join(' ');
+  const el = $('mHintT');
+  el.textContent = next ? `Next: ${next}` : 'You said it all.';
+  el.classList.remove('hidden');
+  clearTimeout(mHint.t);
+  mHint.t = setTimeout(() => el.classList.add('hidden'), 3000);
+}
+
 async function toggleMic() {
   playTapSound();
   if (mMicOn || isListening()) {
@@ -2118,23 +2084,70 @@ async function toggleMic() {
   const vocab = vocabFor();
   const keepCase = [...Object.values(FIX), ...[...vocab.targets.values()].map(t => t.text)];
   const here = () => idx === myIdx && cs === 'interview';
+  const mem = mMode === 'memory' && it ? refText(it) : '';
   let readyOnce = false;
+  if (mem) {
+    // The attempt's text goes where the cursor is; the rest of the box stays.
+    const box = $('ansBox');
+    const v = box.value;
+    const pos = ansCursor !== null ? Math.min(ansCursor, v.length) : v.length;
+    mMem = { i: myIdx, heard: [], said: 0, pre: v.slice(0, pos), post: v.slice(pos), r: null };
+  } else mMem = null;
+  const memWrite = final => {
+    const m = mMem;
+    if (!m || m.i !== myIdx) return null;
+    const r = alignToExpected(m.heard.join(' '), mem, { partial: !final });
+    m.r = r;
+    m.said = r.ops.reduce((n, o) => (o.j != null && (o.type === 'match' || o.type === 'fix') ? Math.max(n, o.j + 1) : n), 0);
+    const a = m.pre && r.text && !/\s$/.test(m.pre) ? ' ' : '';
+    const z = m.post && r.text && !/^[\s.,!?]/.test(m.post) ? ' ' : '';
+    const nv = m.pre + a + r.text + z + m.post;
+    answers[myIdx] = nv.trim();
+    if (here()) {
+      $('ansBox').value = nv;
+      ansCursor = (m.pre + a + r.text).length;
+    }
+    saveScr();
+    return r;
+  };
+  const memDone = () => {
+    const m = mMem;
+    if (!m || m.i !== myIdx || !m.heard.length) return;
+    const r = memWrite(true);
+    mMem = null;
+    if (!here() || !r) return;
+    toast(!r.matched ? 'No words of your saved answer were heard.' : r.missed ? `${r.score}% matched. ${r.missed} word${r.missed === 1 ? '' : 's'} missed.` : `${r.score}% matched. Well done!`);
+  };
   mMicOn = true;
   $('mic').classList.add('on');
   mockNote('Getting the mic ready...');
 
   const started = await startListening({
-    bias: hintWords(vocab, { context: it && it.q }),
-    choose: chooser(vocab),
+    bias: mem ? hintWords(vocab, { first: [...rareWords(mem, 100), ...mem.split(/\s+/).map(w => w.replace(/[^\w'+#./-]/g, ''))], context: it.q }) : hintWords(vocab, { context: it && it.q }),
+    choose: mem ? cands => {
+      let best = cands[0];
+      let bestN = -1;
+      cands.forEach(c => {
+        const n = alignToExpected([...mMem.heard, c.text].join(' '), mem, { partial: true }).matched;
+        if (n > bestN) {
+          best = c;
+          bestN = n;
+        }
+      });
+      return { text: best.text, index: best.index, changes: [], why: `best fit to your answer (${bestN} words)` };
+    } : chooser(vocab),
     onState: st => {
       if (!here()) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
-      mockNote(st === 'ready' || st === 'listening' ? 'Speak now. Tap the mic when you finish.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : st === 'stopping' ? 'Finishing...' : '');
+      mockNote(st === 'ready' || st === 'listening' ? (mem ? 'Speak now. Say your answer from memory.' : 'Speak now. Tap the mic when you finish.') : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : st === 'stopping' ? 'Finishing...' : '');
     },
     onLevel: db => micLevel($('mic'), db),
     onPartial: text => here() && mockLive(text), // grey live bar only
     onFinal: (text, info) => {
-      addSpoken(myIdx, text, keepCase, info);
+      if (mem && mMem && mMem.i === myIdx) {
+        mMem.heard.push(text);
+        memWrite(false);
+      } else addSpoken(myIdx, text, keepCase, info);
       if (here()) mockLive('');
     },
     onEnd: ({ reason, message }) => {
@@ -2142,6 +2155,7 @@ async function toggleMic() {
       mMicOn = false;
       $('mic').classList.remove('on');
       mockLive('');
+      if (mem) memDone();
       if (!here()) return;
       mockNote(reason === 'cancelled' ? '' : message);
     }
@@ -2176,10 +2190,16 @@ const near = (a, b) => {
   return e + (a.length - i) + (b.length - j) <= 1;
 };
 
+// The saved answer of a Mock question (same rules as Practice: saved edit, then the
+// "Introduce yourself" answer from setup, then the sample answer filled from the profile).
 function refText(q) {
   const k = `${active}|${CK(cat, lv)}|${q.i}`;
   if (k in E) return E[k];
   const p = profiles[active];
+  if (p && isIntroQuestion(q.q)) {
+    const t = introTemplate({ name: p.name, edu: p.edu || p.degree, city: p.city, skills: p.skillTags || p.skills, role: p.role });
+    if (t) return t;
+  }
   return q.a ? fill(q.a, p && { ...p, role: ROLE[cat] || p.role }) : '';
 }
 
@@ -2530,9 +2550,7 @@ async function initApp() {
   setVoiceAccent(voiceAccent());
   watchAnswerCursor();
   initSetup();
-  watchHomeCards();
   $('hLogo').innerHTML = logoSvg();
-  $('hLogoBig').innerHTML = logoSvg();
 
   const savedTheme = getItem('is_theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = savedTheme;
@@ -2556,18 +2574,13 @@ async function initApp() {
   if (!profiles[active]) {
     active = Object.keys(profiles)[0] || '';
   }
-  // My words of an older version (one list for the phone) move into the active profile.
-  const oldWords = getItem('is_voice_words', '');
-  if (oldWords && profiles[active]) {
-    const w = String(oldWords).split(/[\n;]+/).map(l => l.split(':')[0].trim()).filter(Boolean);
-    profiles[active].words = cleanTags([...(profiles[active].words || []), ...w], MAX_WORDS);
-    setItem('is_profiles', profiles);
-  }
+  // My words are made from the details (hidden from the user); refresh them for saved profiles.
+  Object.values(profiles).forEach(p => p && p.setup && (p.words = autoWords(p)));
   ['is_voice_smart', 'is_voice_words'].forEach(k => removeItem(k));
   H = getItem('is_hidden', {}) || {};
   C = getItem('is_custom', {}) || {};
   pcLv = getItem('is_pclv', 'fresher') || 'fresher';
-  pMode = getItem('is_pmode', 'read') === 'memory' ? 'memory' : 'read';
+  mMode = getItem('is_mmode', 'free') === 'memory' ? 'memory' : 'free';
 
   initEventListeners();
   setupSwipeGestures();
@@ -2701,14 +2714,12 @@ async function initApp() {
 }
 
 
-// Profile > Voice: accent, My words (edited in the setup screen) and learned corrections.
+// Profile > Voice: accent and learned corrections (My words are automatic and not shown).
 function renderVoiceSettings() {
   const a = voiceAccent();
   $('vAccent').innerHTML = Object.entries(VOICE_ACCENTS)
     .map(([k, v]) => `<option value="${k}"${k === a ? ' selected' : ''}>${esc(v.label)}</option>`)
     .join('');
-  const w = (profiles[active] || {}).words || [];
-  $('vWords').innerHTML = w.length ? w.map(x => `<span class="tg"><span>${esc(x)}</span></span>`).join('') : '<small class="vempty">Add names and rare words here, so voice input spells them right.</small>';
   renderVoiceMemory();
 }
 
@@ -2778,8 +2789,8 @@ Object.assign(window, {
   saveVoiceAccent,
   delVoiceMemory,
   openHistory,
-  setPMode,
-  pHint,
+  setMMode,
+  mHint,
   homeLevel,
   pcLevel,
   pcGo,

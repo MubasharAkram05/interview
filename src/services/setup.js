@@ -2,7 +2,7 @@
 // city, experience, skills, My words, voice accent). Stored on the phone only.
 // Pure helpers, unit tested in tests/practice/setup.test.mjs.
 
-export const ROLES = ['Software Engineer', 'Web Developer', 'Cloud/DevOps', 'IT Support', 'Data/AI', 'Fresher/General', 'Other'];
+export const ROLES = ['Software Engineer', 'Web Developer', 'Cloud/DevOps', 'IT Support', 'Data/AI', 'Marketing/Sales', 'Customer Service', 'Teaching', 'Fresher/General', 'Other'];
 export const EXPERIENCE = { fresher: 'Fresher', mid: '1 to 2 years', senior: '3 plus years' };
 export const MAX_SKILLS = 10;
 export const MAX_WORDS = 20;
@@ -14,11 +14,45 @@ const ROLE_CAT = {
   'Cloud/DevOps': 'cloud',
   'IT Support': 'software',
   'Data/AI': 'software',
+  'Marketing/Sales': 'marketing',
+  'Customer Service': 'customer',
+  Teaching: 'teaching',
   'Fresher/General': 'fresh',
   Other: 'fresh'
 };
 const EXP_LEVEL = { fresher: 'fresher', mid: 'junior', senior: 'senior' };
 export const roleToCat = role => ROLE_CAT[role] || 'fresh';
+// The interview type the user picked first fills in the target role.
+const CAT_ROLE = { software: 'Software Engineer', cloud: 'Cloud/DevOps', marketing: 'Marketing/Sales', customer: 'Customer Service', teaching: 'Teaching', fresh: 'Fresher/General' };
+export const catToRole = cat => CAT_ROLE[cat] || '';
+
+// Key skill suggestions for each target role (setup screen).
+export const ROLE_SKILLS = {
+  'Software Engineer': ['JavaScript', 'TypeScript', 'Python', 'Java', 'React', 'Node.js', 'SQL', 'Git', 'REST API', 'Data structures', 'Algorithms', 'OOP', 'Unit testing', 'Agile'],
+  'Web Developer': ['HTML', 'CSS', 'JavaScript', 'React', 'Angular', 'Vue', 'Node.js', 'Express', 'PHP', 'WordPress', 'MySQL', 'REST API', 'Responsive design', 'Git'],
+  'Cloud/DevOps': ['AWS', 'Azure', 'Google Cloud', 'Docker', 'Kubernetes', 'Terraform', 'Ansible', 'Jenkins', 'CI/CD', 'Linux', 'Bash', 'Monitoring', 'Networking', 'Cloud security'],
+  'IT Support': ['Windows', 'Linux', 'Networking', 'TCP/IP', 'DNS', 'Active Directory', 'Troubleshooting', 'Hardware', 'Office 365', 'Ticketing', 'CCNA', 'Firewall', 'VPN', 'Customer service'],
+  'Data/AI': ['Python', 'SQL', 'Excel', 'Power BI', 'Tableau', 'Pandas', 'NumPy', 'Machine learning', 'Statistics', 'Data analysis', 'Data visualization', 'TensorFlow', 'AI'],
+  'Marketing/Sales': ['SEO', 'Social media', 'Content writing', 'Google Ads', 'Email marketing', 'CRM', 'Negotiation', 'Communication', 'Market research', 'Lead generation', 'Canva', 'Sales'],
+  'Customer Service': ['Communication', 'Problem solving', 'Patience', 'CRM', 'Call handling', 'Complaint handling', 'Teamwork', 'Time management', 'MS Office', 'Empathy'],
+  Teaching: ['Lesson planning', 'Classroom management', 'Communication', 'Curriculum', 'Assessment', 'MS Office', 'Online teaching', 'Mentoring', 'Patience'],
+  'Fresher/General': ['Communication', 'Teamwork', 'MS Office', 'Excel', 'Time management', 'Problem solving', 'Leadership', 'Adaptability', 'Quick learner']
+};
+
+/**
+ * My words, made automatically from the details (never shown to the user): name parts, city,
+ * education, role and skills. They feed voice hints, name matching and the Mock chips.
+ */
+export function autoWords(p = {}) {
+  const parts = [
+    ...String(p.name || '').split(/\s+/),
+    ...String(p.city || '').split(/[,\s]+/),
+    ...(p.skillTags || []),
+    ...String(p.role || '').split(/[\s/]+/),
+    ...String(p.edu || '').split(/[,\s]+/)
+  ];
+  return cleanTags(parts.filter(w => w.length > 1 && !/^(and|of|the|in|at|a|an|from)$/i.test(w)), MAX_WORDS);
+}
 export const expToLevel = exp => EXP_LEVEL[exp] || 'fresher';
 
 /** Full name: 2 to 40 characters, letters and spaces only. Returns '' when valid, else the message. */
@@ -61,7 +95,7 @@ export function buildProfile(form, old = {}) {
   const name = String(form.name || '').trim().replace(/\s+/g, ' ');
   const role = form.role === 'Other' ? String(form.roleOther || '').trim() || 'Other' : form.role;
   const skillTags = cleanTags(form.skills, MAX_SKILLS);
-  return {
+  const p = {
     ...old,
     name,
     role,
@@ -72,9 +106,10 @@ export function buildProfile(form, old = {}) {
     exp: EXPERIENCE[form.exp] ? form.exp : 'fresher',
     skillTags,
     skills: joinList(skillTags),
-    words: cleanTags(form.words, MAX_WORDS),
     setup: 1
   };
+  p.words = autoWords(p);
+  return p;
 }
 
 /** Setup is complete when the active profile was saved through the setup screen with a valid name. */
