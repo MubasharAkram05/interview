@@ -1,5 +1,5 @@
 // Practice expected-text matching (src/services/expected.js). Run: node tests/practice/expected.test.mjs
-import { alignToExpected, introTemplate, isIntroQuestion } from '../../src/services/expected.js';
+import { alignToExpected, introTemplate, isIntroQuestion, wordStatus } from '../../src/services/expected.js';
 
 const out = [];
 const check = (name, ok, extra = '') => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : '   ' + extra}`);
@@ -51,6 +51,16 @@ const t0 = performance.now();
 for (let k = 0; k < 20; k++) alignToExpected(long + ' extra words here and there', long);
 const ms = (performance.now() - t0) / 20;
 check(`speed: ${ms.toFixed(1)} ms for 125 x 120 words`, ms < 60);
+
+// wordStatus: the whole answer, coloured like a language app
+const ws = h => wordStatus(alignToExpected(h, EXP, { partial: true })).join(' ');
+const W = EXP.split(/\s+/).length;
+check('wordStatus: one entry per answer word', wordStatus(alignToExpected('', EXP)).length === W);
+check('wordStatus: nothing said = all dull', ws('') === Array(W).fill('dim').join(' '));
+check('wordStatus: said words ok, rest dull', ws('my name is Mubashir Akram') === ['ok', 'ok', 'ok', 'ok', 'ok', ...Array(W - 5).fill('dim')].join(' '), ws('my name is Mubashir Akram'));
+check('wordStatus: a wrong word in its place is red ("Lahore" for "Pakpattan")', ws('I am a BS IT student from Lahore').split(' ').slice(-1)[0] === 'bad', ws('I am a BS IT student from Lahore'));
+check('wordStatus: skipped words stay dull, not red', ws('my name is Akram').split(' ')[3] === 'dim', ws('my name is Akram'));
+check('wordStatus: one extra word marks one word', (ws('my name is Ali Akram').match(/bad/g) || []).length === 1, ws('my name is Ali Akram'));
 
 console.log(out.join('\n'));
 console.log(`${out.filter(l => l.startsWith('PASS')).length}/${out.length} passed`);

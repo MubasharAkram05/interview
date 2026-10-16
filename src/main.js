@@ -56,7 +56,7 @@ import {
 } from './services/voice.js';
 import { voiceAccent, setAccentPref, corrections, removeCorrection, userVocab } from './services/voice-prefs.js';
 import { hintWords, rareWords, norm } from './services/vocab.js';
-import { alignToExpected, introTemplate, isIntroQuestion } from './services/expected.js';
+import { alignToExpected, introTemplate, isIntroQuestion, wordStatus } from './services/expected.js';
 import { ROLES, EXPERIENCE, MAX_SKILLS, ROLE_SKILLS, nameError, cleanTags, buildProfile, setupDone, catToRole, autoWords, LEGACY_DEMO_NAMES } from './services/setup.js';
 import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
 
@@ -1842,10 +1842,11 @@ function mockNote(m) {
 }
 
 // ---- Mock: From memory ----
-// The user says the saved answer from memory (like a language app): words show in the answer box
-// while speaking, but only words of the saved answer, in its spelling (aligned with
-// src/services/expected.js). Anything else the phone heard is never written.
-// mHeard[i]: heard words of question i ({ w, keep }), the source of the box and of answers[i].
+// The user says the saved answer from memory (like a language app). Once they speak, the box shows
+// the whole saved answer in its order and spelling, coloured by what was heard (aligned with
+// src/services/expected.js): said = dark, said wrong = red, not said = dull. Words the phone heard
+// that are not in the answer are never written.
+// mHeard[i]: heard (or typed) words of question i ({ w }), the source of the box and of answers[i].
 let mHeard = [];
 const mWords = t => String(t || '').split(/\s+/).filter(w => norm(w));
 
@@ -1859,41 +1860,35 @@ function mRender(i, live = '') {
   const box = $('ansBox');
   const H = mHeard[i] || [];
   if (!H.length && !live) {
-    box.innerHTML = answers[i] ? esc(answers[i]) : '<span class="aph">Tap the mic and say your answer from memory. Only the words of your saved answer are written.</span>';
+    box.innerHTML = answers[i] ? esc(answers[i]) : '<span class="aph">Tap the mic and say your answer from memory.</span>';
     return;
   }
-  if (!refText(cur[i])) {
-    box.textContent = H.filter(x => x.keep).map(x => x.w).join(' ');
+  const ref = refText(cur[i]);
+  if (!ref) {
+    box.textContent = [...H.map(x => x.w), ...mWords(live)].join(' ');
     return;
   }
   const { r } = mAlign(i, live);
-  const html = r.ops
-    .map(o => {
-      if (o.type === 'missed' || o.type === 'pending') return '';
-      const lv = o.i >= H.length ? ' lv' : '';
-      // Voice never writes free text: a heard word that is not in the saved answer is dropped.
-      // Typed words (keep) stay as typed.
-      if (o.type === 'extra') return !lv && H[o.i].keep ? `<span class="aw">${esc(o.heard)}</span>` : '';
-      return `<span class="aw${lv}">${esc(o.expected)}</span>`;
-    })
-    .filter(Boolean)
+  const st = wordStatus(r);
+  const CLS = { ok: 'said', bad: 'wrongw', dim: 'notsaid' };
+  box.innerHTML = mWords(ref)
+    .map((w, j) => `<span class="aw ${CLS[st[j]]}">${esc(w)}</span>`)
     .join(' ');
-  box.innerHTML = html || '<span class="aph">Listening... say the words of your saved answer.</span>';
-  box.scrollTop = box.scrollHeight;
+  const last = box.querySelectorAll('.aw.said, .aw.wrongw');
+  const x = last[last.length - 1];
+  if (x && x.offsetTop + x.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = x.offsetTop - box.clientHeight / 2;
 }
 
-// Write what was heard into answers[i]: saved-answer words only (plus typed words) and redraw.
+// answers[i] (used for feedback): the saved-answer words the user said, in order.
 function mCommit(i) {
   const H = mHeard[i] || [];
   const ref = refText(cur[i]);
-  if (!ref) answers[i] = H.filter(x => x.keep).map(x => x.w).join(' ');
-  else {
-    const r = alignToExpected(H.map(x => x.w).join(' '), ref);
-    answers[i] = r.ops
-      .filter(o => o.type === 'match' || o.type === 'fix' || (o.type === 'extra' && H[o.i].keep))
-      .map(o => (o.type === 'extra' ? o.heard : o.expected))
-      .join(' ');
-  }
+  answers[i] = !ref
+    ? H.map(x => x.w).join(' ')
+    : alignToExpected(H.map(x => x.w).join(' '), ref)
+        .ops.filter(o => o.type === 'match' || o.type === 'fix')
+        .map(o => o.expected)
+        .join(' ');
   saveScr();
   mRender(i);
 }
@@ -1931,7 +1926,7 @@ function mType() {
     box.onblur = null;
     box.contentEditable = 'false';
     box.classList.remove('typing');
-    mHeard[i] = mWords(box.innerText).map(w => ({ w, keep: 1 })); // typed words stay as typed
+    mHeard[i] = mWords(box.innerText).map(w => ({ w })); // typed words are checked like spoken ones
     mCommit(i);
   };
 }
@@ -2012,7 +2007,7 @@ async function toggleMic() {
       if (H.length > before && ref) {
         const r = alignToExpected(H.map(x => x.w).join(' '), ref, { partial: true });
         mockNote('');
-        return toast(r.matched ? `${r.score}% of your answer said.` : 'No words of your saved answer were heard. Try again.');
+        return toast(r.matched ? `${r.score}% of your answer said. Red = said wrong, grey = missed.` : 'No words of your saved answer were heard. Try again.');
       }
       mockNote(reason === 'cancelled' ? '' : message);
     }

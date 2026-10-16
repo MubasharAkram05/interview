@@ -369,7 +369,7 @@ Mock and Practice show the categories first. When you pick a category (or tap St
 Google cannot know names in free dictation, so Practice compares what it heard with your **saved answer** and writes the saved words: "Mubashir" becomes Mubashar, Pakpattan stays Pakpattan.
 
 - **Practice** always shows the answer (read it aloud).
-- **Mock** is From memory only, like a language app: say the saved answer without seeing it. Words appear in the box while you speak (grey until the phone confirms them), but **only words of the saved answer**, in its spelling. Anything else the phone heard is never written. **Hint** shows the next 3 words for 3 seconds; **Type** lets you type (typed words stay; words that match the answer get its spelling); **Clear** starts the answer again. A toast shows how much of the answer was said.
+- **Mock** is From memory only, like a language app: say the saved answer without seeing it. Once you speak, the box shows the **whole saved answer** in its order and spelling, coloured as you go: said words dark, a word said wrong (other words said in its place) **red**, words not said yet dull grey. Anything else the phone heard is never written. The colours come from `wordStatus` in `src/services/expected.js` (one extra heard word marks one answer word in the same gap). **Hint** shows the next 3 words for 3 seconds; **Type** lets you type (typed words stay; words that match the answer get its spelling); **Clear** starts the answer again. A toast shows how much of the answer was said.
 - If the phone sends no final result, or one with low confidence, the live words are still written when at least half of them are words of the saved answer (`keepLive` in `voice.js`). Noise that does not match the answer is never written.
 - After each phrase the heard words are aligned to the answer with word-level dynamic programming. A pair costs 1 - similarity and is allowed when the words are at least 60% similar or sound the same; an extra or missed word costs 1. Time O(n x m), space O(n x m) (n heard, m answer words); a 120-word answer takes a few ms.
 - Colours: said = green, corrected = green with a dot, extra = amber (kept as heard), missed = red underline (never written). Score = matched answer words / all answer words. The best score per question is kept.
@@ -392,7 +392,7 @@ d) Practice, "Introduce yourself": the generated answer shows. Read it aloud. Na
 e) Practice: say some words wrong on purpose. Wrong words show as extra (amber), skipped words as missed (red underline).
 f) Mock: the banner is at the bottom and never covers the mic or the Prev/Next buttons. Other pages still have the top banner.
 g) Mock: Edit my details, change the name, Save: the chips show the new name.
-g2) Mock: pick the level, tap a type: the interview starts (no Start button). Say "Introduce yourself" from memory: words appear while you speak; say an extra word on purpose, it is not written.
+g2) Mock: pick the level, tap a type: the interview starts (no Start button). Say "Introduce yourself" from memory: words appear while you speak; say one word wrong on purpose (e.g. another city): it turns red; skipped words stay grey.
 g3) Practice the Question of the day: back on Home the card says Done today.
 g4) Profile has no Switch profile or New profile; only one profile is kept.
 h) Copy the voice report from the debug panel (Practice lines show expected text, heard text, alignment and score).

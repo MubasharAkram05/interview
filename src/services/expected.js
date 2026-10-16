@@ -99,6 +99,34 @@ export function alignToExpected(heardText, expectedText, { partial = false, cfg 
   };
 }
 
+/**
+ * Colour of every expected word, like a language app (the whole saved answer is shown):
+ *  'ok'  = said (match or fix),
+ *  'bad' = said wrong: the user said other words in its place (an extra heard word in the same
+ *          gap between two said words; one extra marks one word, in order),
+ *  'dim' = not said (missed or not reached yet).
+ * Uses the ops of alignToExpected. Time O(n + m).
+ */
+export function wordStatus(r) {
+  const st = new Array(r.total).fill('dim');
+  let miss = [];
+  let extra = 0;
+  const flush = () => {
+    miss.slice(0, extra).forEach(j => (st[j] = 'bad'));
+    miss = [];
+    extra = 0;
+  };
+  r.ops.forEach(o => {
+    if (o.type === 'match' || o.type === 'fix') {
+      flush();
+      st[o.j] = 'ok';
+    } else if (o.type === 'extra') extra++;
+    else miss.push(o.j);
+  });
+  flush();
+  return st;
+}
+
 const list = a => (a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
 const article = w => (/^[aeiou]/i.test(w) ? 'an' : 'a');
 
