@@ -31,8 +31,8 @@ check('My words loaded', (await p.inputValue('#vWords')).includes('Kubernetes'))
 await p.selectOption('#vAccent', 'uk');
 check('accent change is saved', (await p.evaluate(() => localStorage.getItem('is_voice_accent'))) === '"uk"');
 await p.fill('#vWords', 'Kubernetes\nTestcity: Test city\nDevOps');
-await p.click('[onclick="saveMyWords()"]');
-check('My words saved', (await p.evaluate(() => JSON.parse(localStorage.getItem('is_voice_words')))).includes('DevOps'));
+check('no Save my words button (saves while typing)', (await p.locator('text=Save my words').count()) === 0);
+check('My words saved by typing', (await p.evaluate(() => JSON.parse(localStorage.getItem('is_voice_words')))).includes('DevOps'));
 check('empty learned list shows guidance', (await p.textContent('#vMem')).includes('Nothing learned yet'));
 await p.evaluate(() => window.editProfile());
 await p.waitForTimeout(200);
@@ -92,6 +92,21 @@ await p.waitForTimeout(900);
 const demoChips = await p.$$eval('#vChips .vchip', c => c.map(x => x.textContent));
 check(`demo profile: no Alex/Khan chips (${demoChips.join(', ') || 'none'})`, !demoChips.includes('Alex') && !demoChips.includes('Khan'));
 check('no chips -> row hidden', demoChips.length > 0 || !(await p.isVisible('#vChips')));
+// The phone case: an "Alex Khan" demo profile saved by an older version (different details).
+await p.evaluate(() => {
+  const old = { name: 'Alex Khan', degree: 'BSCS', uni: 'Old University', role: 'Developer', skills: 'Java' };
+  localStorage.setItem('is_profiles', JSON.stringify({ 'Alex Khan': old, 'Sara Ali': { name: 'Sara Ali', role: 'Tester' } }));
+  localStorage.setItem('is_active', JSON.stringify('Alex Khan'));
+  indexedDB.deleteDatabase('InterviewSimulator');
+});
+await p.reload();
+await p.waitForTimeout(900);
+await p.evaluate(() => window.startMock());
+await p.waitForTimeout(400);
+await p.click('#mStart');
+await p.waitForTimeout(900);
+const oldChips = await p.$$eval('#vChips .vchip', c => c.map(x => x.textContent));
+check(`old saved demo profile: no Alex/Khan chips (${oldChips.join(', ') || 'none'})`, !oldChips.includes('Alex') && !oldChips.includes('Khan') && !(await p.isVisible('#vChips')));
 check('no page errors', errors.length === 0);
 await b.close();
 console.log(out.join('\n'));

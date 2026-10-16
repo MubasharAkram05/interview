@@ -48,14 +48,14 @@ export function removeCorrection(i) {
 }
 
 /**
- * The profile name used for voice, or '' for the built-in demo profile ("Alex Khan" is sample data,
- * not the user: its name must never become a chip, a hint or a name-matching target).
+ * The profile name used for voice, or '' for the built-in demo profile. "Alex Khan" is sample
+ * data, not the user: its name never becomes a chip, a hint or a name-matching target, even if
+ * the demo profile was saved by an older version or its details were edited.
  */
 export function realName(profile = {}) {
   const name = String(profile.name || '').trim();
-  if (!name) return '';
-  const demo = DEMO[name];
-  return demo && Object.keys(demo).every(k => demo[k] === profile[k]) ? '' : name;
+  const demo = Object.keys(DEMO).map(n => n.toLowerCase());
+  return !name || demo.includes(name.toLowerCase()) ? '' : name;
 }
 
 // Cached candidate list: rebuilt only when My words, the profile name or learned corrections change.

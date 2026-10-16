@@ -2358,9 +2358,9 @@ function saveSmart(on) {
   toast(on ? 'Smart name matching is on' : 'Smart name matching is off');
 }
 
+// My words save by themselves while typing (no Save button).
 function saveMyWords() {
   setMyWordsText($('vWords').value);
-  toast('My words saved');
 }
 
 function delVoiceMemory(i) {
