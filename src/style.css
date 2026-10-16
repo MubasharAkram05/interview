@@ -40,7 +40,7 @@ html,body{height:100%}body{padding:0;display:flex;justify-content:center;backgro
 .bar{display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;background:var(--card);border-bottom:1px solid var(--line)}
 .bar h1{flex:1;margin:0;font-size:18px}.bar .ic{width:40px;height:40px;min-height:40px;font-size:20px}
 #main{flex:1;overflow-y:auto;padding:16px 16px 24px;-webkit-overflow-scrolling:touch}
-nav{display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+nav{display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 6px calc(6px + var(--sab))}
 .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;color:var(--mute);font-size:11px;font-weight:600;padding:6px 0;min-height:52px;border-radius:12px}
 .tab svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
 .tab.on{color:var(--acc);background:var(--accl)}.tab.on svg{transform:translateY(-2px)}
@@ -72,7 +72,7 @@ select{appearance:none;-webkit-appearance:none;padding-right:38px;background-ima
 .hh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .psum{display:flex;gap:14px;align-items:center;min-width:0}.psum .av{width:58px;height:58px;font-size:20px;background:rgba(255,255,255,.2)}.psum b{font-size:19px;display:block;line-height:1.25}.prole{font-size:13px;color:rgba(255,255,255,.8);margin-top:2px}.pcard .pbtn{background:rgba(255,255,255,.18);border:0;color:#fff}.pcard .stats{margin-top:16px}.hs{min-width:56px;text-align:center;background:var(--accl);color:var(--acc);border-radius:10px;padding:6px 8px}.hist:last-of-type{border-bottom:0}#pHistBox .empty{padding:8px 0}
 .kv{margin-top:12px;font-size:14px}.kv>div{display:flex;flex-direction:column;gap:3px;padding:11px 0;border-top:1px solid var(--line)}.kv>div:first-child{border-top:0;padding-top:4px}.ft{min-height:120px;max-height:240px;overflow-y:auto;resize:none}.kv span{color:var(--mute);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}.kv b{font-weight:600;text-align:left;line-height:1.45}
-#toast{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(20,24,36,.92);color:#fff;padding:10px 18px;border-radius:22px;font-size:13px;z-index:99;white-space:nowrap}
+#toast{position:fixed;left:50%;bottom:calc(86px + var(--sab));transform:translateX(-50%);background:rgba(20,24,36,.92);color:#fff;padding:10px 18px;border-radius:22px;font-size:13px;z-index:99;white-space:nowrap}
 .dlg{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(15,23,42,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:dfade .18s}
 .dcard{width:100%;max-width:340px;margin-top:34px;background:var(--card);border:1px solid var(--line);border-radius:26px;padding:0 22px 20px;text-align:center;box-shadow:0 24px 60px rgba(15,23,42,.35);animation:dpop .28s cubic-bezier(.2,1.2,.4,1)}
 .dem{width:68px;height:68px;margin:-34px auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:34px;background:var(--accl);border:4px solid var(--card);box-shadow:var(--sh)}
@@ -180,7 +180,7 @@ header.bar #hStreak{color:var(--mute)}header.bar #hStreak.on{color:#f97316;backg
 
 /* Play Store prep: mobile fixes */
 html,body{overflow-x:hidden}
-#toast{white-space:normal;max-width:calc(100% - 32px);width:max-content;text-align:center;line-height:1.4;bottom:calc(86px + env(safe-area-inset-bottom))}
+#toast{white-space:normal;max-width:calc(100% - 32px);width:max-content;text-align:center;line-height:1.4;bottom:calc(86px + var(--sab))}
 .app{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
 .bar .ic{width:44px;height:44px;min-height:44px}
 .pbtn{width:44px;height:44px}
@@ -207,7 +207,7 @@ header.bar .ic{width:44px;height:44px;min-height:44px}
 #safeTopProbe{position:fixed;top:0;left:0;width:0;visibility:hidden;pointer-events:none;height:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px))}
 /* Use Capacitor's injected inset vars too (older Android WebViews have no env() insets). */
 header.bar{padding-top:calc(12px + max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px)))}
-nav{padding-bottom:calc(6px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
+nav{padding-bottom:calc(6px + var(--sab))}
 @media(prefers-reduced-motion:reduce){#adSlot{transition:none}}
 
 
@@ -311,7 +311,7 @@ header.bar{min-height:0;padding-top:calc(4px + max(env(safe-area-inset-top,0px),
 @keyframes hin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
 /* ---- Welcome screen: shown while the app loads; Get Started appears when ready ---- */
-.intro{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;overflow-y:auto;background:var(--bg);color:var(--ink);text-align:center;padding-bottom:calc(16px + env(safe-area-inset-bottom));transition:opacity .35s ease,visibility .35s}
+.intro{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;overflow-y:auto;background:var(--bg);color:var(--ink);text-align:center;padding-bottom:calc(16px + var(--sab));transition:opacity .35s ease,visibility .35s}
 .intro.out{opacity:0;visibility:hidden}
 .itop{position:relative;width:100%;padding:calc(36px + env(safe-area-inset-top)) 20px 64px;color:#fff;background:radial-gradient(120% 80% at 0% 0%,#7c5ce0 0%,transparent 55%),linear-gradient(160deg,#4338ca,#2a45b5 55%,#2d7dca)}
 .ilogo{width:76px;height:76px;filter:drop-shadow(0 8px 16px rgba(0,0,0,.25));animation:hin .5s ease both}
@@ -496,9 +496,9 @@ header.bar .logo svg{width:30px;height:30px;stroke:none}
 .hcb button{white-space:nowrap}
 
 /* ---- Banner at the bottom on the Mock interview session page ---- */
-#safeBotProbe{position:fixed;bottom:0;left:0;width:0;visibility:hidden;pointer-events:none;height:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px))}
+#safeBotProbe{position:fixed;bottom:0;left:0;width:0;visibility:hidden;pointer-events:none;height:var(--sab)}
 .ad-bottom #adSlot{height:0}
-.ad-bottom #interview{padding-bottom:calc(var(--ad-h,0px) + 22px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
+.ad-bottom #interview{padding-bottom:calc(var(--ad-h,0px) + 22px + var(--sab))}
 #mock .mgrid{margin-top:16px}
 
 /* Bubble above a red word: what was said instead */
@@ -524,3 +524,26 @@ html{background:var(--bg)}
 
 /* Toasts (e.g. 'Press back again to exit') show above the welcome screen */
 #toast{z-index:1100}
+
+/* ---- Fit every phone: small screens, 3-button navigation, large system font ----
+   --sab: space for the gesture / navigation bar under the page. On phones where the WebView already
+   ends ABOVE the navigation bar, Android still reports its height as an inset, so the space was
+   added twice (empty strip under the Mock banner, page too tall). main.js sets .wv-above-navbar there. */
+:root{--sab:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px))}
+.wv-above-navbar{--sab:0px}
+/* Practice fills the screen like Mock: the answer card takes the space that is left, its text scrolls inside. */
+#practice:not(.hidden){display:flex;flex-direction:column;min-height:100%}
+#practice:not(.hidden) > *{flex:none}
+#practice:not(.hidden) > #pCard{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+#pCard .acard{flex:1 1 0;height:auto;min-height:140px}
+#interview #ansBox{min-height:110px}
+/* Short screens: smaller mic and gaps so the question, answer and controls fit without scrolling. */
+@media (max-height:700px){
+  #main{padding-top:10px;padding-bottom:12px}
+  .mic{width:64px;height:64px;min-height:64px}.mic svg{width:28px;height:28px}
+  .mctl{margin-top:8px}.mnote{margin:4px 0 0;min-height:18px}
+  .dots{margin-top:8px}
+  #qText,#pQt{font-size:19px}
+  #interview .qbody{max-height:96px}
+  #pCard .acard{min-height:110px}
+}
