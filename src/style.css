@@ -478,3 +478,4 @@ header.bar .logo svg{width:30px;height:30px;stroke:none}
 #safeBotProbe{position:fixed;bottom:0;left:0;width:0;visibility:hidden;pointer-events:none;height:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px))}
 .ad-bottom #adSlot{height:0}
 .ad-bottom #interview{padding-bottom:calc(var(--ad-h,0px) + 12px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
+#mock .mgrid{margin-top:16px}

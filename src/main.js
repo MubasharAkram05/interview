@@ -1491,6 +1491,11 @@ async function togglePMic() {
     }
     toast(r.missed ? `${r.score}% matched. ${r.missed} word${r.missed === 1 ? '' : 's'} missed (red).` : r.extra ? `${r.score}% matched. Extra words are amber.` : 'Perfect! You said it all 🎉');
   };
+  let doneT = null;
+  // The last word was said: wait 2 s (the user may still be finishing), then end the attempt.
+  const completeSoon = () => {
+    if (!doneT) doneT = setTimeout(complete, DONE_WAIT_MS);
+  };
   const complete = () => {
     if (finished) return;
     finished = true;
@@ -1530,14 +1535,19 @@ async function togglePMic() {
       pMicNote(st === 'ready' || st === 'listening' ? 'Speak now. Read at your own pace.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : '');
     },
     onLevel: db => micLevel($('pMic'), db),
-    onPartial: text => here() && !finished && pLive(text), // grey live bar only
+    onPartial: text => {
+      if (!here() || finished) return;
+      pLive(text); // grey live bar
+      // Highlight the answer words as they are said (saved for good when the phrase is final).
+      pPaintAlign(alignToExpected(heard(text), ref, { partial: true }));
+    },
     onFinal: text => {
       if (!here() || finished) return;
       pSpoken.push(text);
       pLive('');
       const r = update(false);
       const lastJ = r.total - 1;
-      if (r.ops.some(o => (o.type === 'match' || o.type === 'fix') && o.j === lastJ)) complete();
+      if (r.ops.some(o => (o.type === 'match' || o.type === 'fix') && o.j === lastJ)) completeSoon();
     },
     onEnd: ({ message }) => {
       $('pMic').style.removeProperty('--lvl');
@@ -1836,6 +1846,8 @@ function reveal(t, sp) {
 }
 
 // Mock interview: speak your answer and it is typed into the answer box.
+// After the last word of the saved answer is said, wait this long before the mic stops.
+const DONE_WAIT_MS = 2000;
 let mMicOn = false; // mock interview: keep listening through pauses until the user taps stop
 
 function mockNote(m) {
@@ -1980,6 +1992,18 @@ async function toggleMic() {
   const before = H.length;
   const here = () => idx === myIdx && cs === 'interview';
   let readyOnce = false;
+  let doneT = null;
+  // The whole answer is said: wait 2 s (the user may still be finishing), then stop the mic.
+  const stopSoon = () => {
+    if (doneT) return;
+    doneT = setTimeout(() => {
+      if (!mMicOn || !here()) return;
+      mMicOn = false;
+      $('mic').classList.remove('on');
+      mockNote('Finishing...');
+      stopListening(); // the last phrase still arrives and is added
+    }, DONE_WAIT_MS);
+  };
   mMicOn = true;
   $('mic').classList.add('on');
   mockNote('Getting the mic ready...');
@@ -2010,17 +2034,12 @@ async function toggleMic() {
     onLevel: db => micLevel($('mic'), db),
     onPartial: text => {
       mRender(myIdx, text); // shown in the box at once, saved when final
-      if (ref && mDone(myIdx, text)) stopListening(); // last word reached: the final still comes
+      if (ref && mDone(myIdx, text)) stopSoon(); // last word reached
     },
     onFinal: text => {
       H.push(...mWords(text).map(w => ({ w })));
       mCommit(myIdx);
-      if (ref && mMicOn && mDone(myIdx)) {
-        // The whole answer is said: stop the mic by itself.
-        mMicOn = false;
-        $('mic').classList.remove('on');
-        stopListening();
-      }
+      if (ref && mDone(myIdx)) stopSoon();
     },
     onEnd: ({ reason, message }) => {
       $('mic').style.removeProperty('--lvl');

@@ -88,9 +88,12 @@ export const VOICE_TIMING = {
   busyRetryMs: 600, // error 8 (recognizer busy): retry once after this
   stopWaitMs: 2000, // after "stop", wait this long for the last final
   maxSessionMs: 300000, // never listen longer than 5 minutes per tap
-  completeMs: 4000, // EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS
-  possiblyMs: 3000, // EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS
-  minimumMs: 15000 // EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS
+  // A 2 second pause ends a sentence: it is written, and the next session starts at once for
+  // the next sentence (the mic stays on until the user taps stop).
+  completeMs: 2000, // EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS
+  possiblyMs: 1500, // EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS
+  minimumMs: 2000, // EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS
+  silentRestarts: 2 // after something was written, keep listening through this many silent sessions
 };
 
 const ERROR_TEXT = {
@@ -311,11 +314,22 @@ function onEnd(s, d) {
       s.busyRetried = true;
       return next(s, VOICE_TIMING.busyRetryMs);
     }
-    if ((code === 6 || code === 7) && !(s.run && s.run.speech)) return finish(s, 'empty');
+    if ((code === 6 || code === 7) && !(s.run && s.run.speech)) return silent(s);
     return finish(s, 'error', code);
   }
-  // done / nomatch: continue only after real speech.
-  if (s.run && s.run.speech) return next(s, VOICE_TIMING.nextSessionMs);
+  // done / nomatch: continue after real speech.
+  if (s.run && s.run.speech) {
+    s.silent = 0;
+    return next(s, VOICE_TIMING.nextSessionMs);
+  }
+  return silent(s);
+}
+
+// A session without speech. A short pause between sentences is normal: once something was
+// written, listen again a few times; then stop (never an endless loop on noise or silence).
+function silent(s) {
+  s.silent = (s.silent || 0) + 1;
+  if (s.committed > 0 && s.silent <= VOICE_TIMING.silentRestarts) return next(s, VOICE_TIMING.nextSessionMs);
   return finish(s, 'empty');
 }
 
