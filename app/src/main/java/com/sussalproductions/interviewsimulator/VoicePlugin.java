@@ -19,50 +19,40 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.util.ArrayList;
 
 /**
- * Speech to text with full control over Android's SpeechRecognizer (the community plugin is still
- * used for availability and the mic permission).
+ * Speech to text with Android's SpeechRecognizer. One start() = one recognition run; the
+ * JavaScript voice manager (src/services/voice.js) decides when to restart, so restarts, back-off
+ * and duplicate checks live in one tested place. (The community plugin is still used for
+ * availability and the mic permission.)
  *
- * Why this exists:
- *  - Biasing: on Android 13+ the expected words (the answer being read, tech terms) are passed to the
- *    recognizer, so it picks "JavaScript" or "teamwork" instead of a similar sounding word.
- *  - Continuous listening: on Android 13+ a segmented session keeps one session open through pauses.
- *    On older phones (or if segmented sessions are not supported) the recognizer is restarted at once
- *    inside native code, so far fewer words are lost than with a restart from JavaScript.
- *  - Longer silence before the end of a phrase, and real error codes (language, network, no speech).
+ *  - Hints: on Android 13+ a short word list (names, My words, rare terms) is passed with
+ *    EXTRA_BIASING_STRINGS.
+ *  - Segmented session (Android 13+, if the recognizer accepts it): one run stays open through
+ *    pauses and sends one final result per phrase. If the recognizer rejects it, the run is
+ *    retried once in normal mode and "segmented-rejected" is reported.
+ *  - No beeps: music, notification and system sounds are muted while the mic is on (only streams
+ *    that were not already muted) and restored 800 ms after a run ends unless the next run started.
  *
- *  - No beeps: the speech service plays a beep every time listening (re)starts. While the mic is on,
- *    the music, notification and system sounds are muted, and restored as soon as it stops (also when
- *    the app goes to the background). Only streams that were not already muted are touched.
- *
- * Events: "partial" {matches}, "segment" {matches}, "level" {db}, "end" {reason, code}.
+ * Events: ready, speech, speechEnd, partial {matches, scores}, final {matches, scores, segment},
+ * level {db}, note {msg}, end {reason: done | nomatch | error | stopped, code, ms}.
  * No audio is recorded or stored by the app. Only text comes back.
  */
 @CapacitorPlugin(name = "Voice")
 public class VoicePlugin extends Plugin {
 
-    // SpeechRecognizer error codes (literals: some constants are newer than minSdk).
-    private static final int ERR_NETWORK_TIMEOUT = 1;
-    private static final int ERR_NETWORK = 2;
     private static final int ERR_CLIENT = 5;
     private static final int ERR_SPEECH_TIMEOUT = 6;
     private static final int ERR_NO_MATCH = 7;
-    private static final int ERR_BUSY = 8;
-    private static final int ERR_LANG_NOT_SUPPORTED = 12;
-    private static final int ERR_LANG_UNAVAILABLE = 13;
 
     private static boolean segmentedBroken = false; // this phone rejected segmented sessions once
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private SpeechRecognizer rec;
-    private int session = 0; // grows with every start(); stale callbacks are ignored
-    private boolean active = false; // the user wants to keep listening
-    private boolean continuous = true;
-    private int emptyRuns = 0;
-    private int errorRuns = 0; // transient service errors in a row (server, disconnect, timeout)
-    private int maxEmpty = 2;
+    private int run = 0; // grows with every start(); stale callbacks are ignored
+    private boolean active = false;
+    private boolean stopping = false;
+    private boolean useSegmented = false;
     private long runStartedAt = 0;
     private long lastLevelAt = 0;
-    private boolean useSegmented = false;
     private String language = "en-IN";
     private int maxResults = 5;
     private long silenceMs = 3000;
@@ -71,21 +61,29 @@ public class VoicePlugin extends Plugin {
     private static final int[] BEEP_STREAMS = { AudioManager.STREAM_MUSIC, AudioManager.STREAM_NOTIFICATION, AudioManager.STREAM_SYSTEM };
 
     @PluginMethod
+    public void info(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("sdk", Build.VERSION.SDK_INT);
+        ret.put("available", SpeechRecognizer.isRecognitionAvailable(getContext()));
+        ret.put("segmentedBroken", segmentedBroken);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
     public void start(PluginCall call) {
         language = call.getString("language", "en-IN");
         maxResults = call.getInt("maxResults", 5);
-        continuous = call.getBoolean("continuous", true);
-        maxEmpty = call.getInt("maxEmpty", 2);
         silenceMs = call.getInt("silenceMs", 3000);
+        final boolean wantSegmented = call.getBoolean("segmented", true);
         bias = new ArrayList<>();
         JSArray b = call.getArray("bias", new JSArray());
         try {
-            for (int i = 0; i < b.length() && bias.size() < 200; i++) {
+            for (int i = 0; i < b.length() && bias.size() < 100; i++) {
                 String s = b.getString(i);
-                if (s != null && !s.trim().isEmpty()) bias.add(s.trim());
+                if (s != null && !s.trim().isEmpty() && s.length() <= 40) bias.add(s.trim());
             }
         } catch (Exception ignored) {
-            // bad bias list: listen without it
+            // bad hint list: listen without it
         }
         getActivity()
             .runOnUiThread(() -> {
@@ -94,28 +92,31 @@ public class VoicePlugin extends Plugin {
                     return;
                 }
                 destroyRecognizer();
-                session++;
+                run++;
                 active = true;
-                emptyRuns = 0;
-                errorRuns = 0;
-                useSegmented = continuous && Build.VERSION.SDK_INT >= 33 && !segmentedBroken;
+                stopping = false;
+                useSegmented = wantSegmented && Build.VERSION.SDK_INT >= 33 && !segmentedBroken;
                 muteBeeps();
                 rec = SpeechRecognizer.createSpeechRecognizer(getContext());
-                rec.setRecognitionListener(new Listener(session));
+                rec.setRecognitionListener(new Listener(run));
                 begin();
                 JSObject ret = new JSObject();
+                ret.put("sdk", Build.VERSION.SDK_INT);
                 ret.put("segmented", useSegmented);
+                ret.put("biasing", Build.VERSION.SDK_INT >= 33 && !bias.isEmpty());
+                ret.put("hints", bias.size());
+                ret.put("language", language);
                 call.resolve(ret);
             });
     }
 
-    /** Stop listening but keep what was said (final result still arrives). */
+    /** Stop listening but keep what was said (the final result still arrives). */
     @PluginMethod
     public void stop(PluginCall call) {
-        final int my = session;
+        final int my = run;
         getActivity()
             .runOnUiThread(() -> {
-                active = false;
+                stopping = true;
                 if (rec != null) {
                     try {
                         rec.stopListening();
@@ -123,12 +124,11 @@ public class VoicePlugin extends Plugin {
                         // already stopped
                     }
                 }
-                // Some recognizers never answer after stop(): end the session anyway.
+                // Some recognizers never answer after stop(): end the run anyway.
                 main.postDelayed(() -> end(my, "stopped", 0), 1500);
-                // Safety: sound always comes back, even if the session was already over.
                 main.postDelayed(() -> {
                     if (!active) unmuteBeeps();
-                }, 2000);
+                }, 2500);
                 call.resolve();
             });
     }
@@ -136,11 +136,12 @@ public class VoicePlugin extends Plugin {
     /** Stop now and drop anything not yet delivered. */
     @PluginMethod
     public void cancel(PluginCall call) {
-        final int my = session;
+        final int my = run;
         getActivity()
             .runOnUiThread(() -> {
-                active = false;
+                stopping = true;
                 end(my, "stopped", 0);
+                unmuteBeeps();
                 call.resolve();
             });
     }
@@ -149,8 +150,8 @@ public class VoicePlugin extends Plugin {
     protected void handleOnPause() {
         // App in background: stop listening and give the sound back right away.
         if (rec != null) {
-            active = false;
-            end(session, "stopped", 0);
+            stopping = true;
+            end(run, "stopped", 0);
         }
         unmuteBeeps();
     }
@@ -163,7 +164,7 @@ public class VoicePlugin extends Plugin {
     }
 
     private void muteBeeps() {
-        if (!mutedStreams.isEmpty()) return; // already muted by this session
+        if (!mutedStreams.isEmpty()) return; // already muted (restart within the grace time)
         try {
             AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
             if (am == null) return;
@@ -210,6 +211,7 @@ public class VoicePlugin extends Plugin {
         i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         i.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getContext().getPackageName());
         i.putExtra("android.speech.extra.DICTATION_MODE", true);
+        // Many recognizers (Google's included) ignore these; the run length in the logs shows it.
         i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, silenceMs);
         i.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, silenceMs);
         if (Build.VERSION.SDK_INT >= 33) {
@@ -227,33 +229,22 @@ public class VoicePlugin extends Plugin {
         try {
             rec.startListening(buildIntent());
         } catch (Exception e) {
-            end(session, "error", ERR_CLIENT);
-        }
-    }
-
-    /** One run finished. Start again at once (continuous) or end the session. */
-    private void next(int my) {
-        if (my != session) return;
-        if (active && continuous && emptyRuns < maxEmpty) {
-            main.postDelayed(() -> {
-                if (my == session && active) begin();
-            }, 40);
-        } else {
-            end(my, active ? "ended" : "stopped", 0);
+            end(run, "error", ERR_CLIENT);
         }
     }
 
     private void end(int my, String reason, int code) {
-        if (my != session || rec == null) return;
+        if (my != run || rec == null) return;
         active = false;
         destroyRecognizer();
-        // Wait for the closing beep to pass, then give the sound back (unless a new session started).
+        // The JS manager restarts within ~300 ms; keep the sound muted over that gap.
         main.postDelayed(() -> {
             if (!active) unmuteBeeps();
-        }, 400);
+        }, 800);
         JSObject ret = new JSObject();
         ret.put("reason", reason);
         ret.put("code", code);
+        ret.put("ms", System.currentTimeMillis() - runStartedAt);
         notifyListeners("end", ret);
     }
 
@@ -268,17 +259,31 @@ public class VoicePlugin extends Plugin {
         rec = null;
     }
 
-    private void emit(String event, Bundle b) {
+    private void emit(String event, Bundle b, boolean segment) {
         ArrayList<String> m = b == null ? null : b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
         if (m == null || m.isEmpty()) return;
         JSObject ret = new JSObject();
         ret.put("matches", new JSArray(m));
+        float[] sc = b.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES);
+        if (sc != null) {
+            JSArray a = new JSArray();
+            for (float f : sc) {
+                try {
+                    a.put((double) f);
+                } catch (Exception ignored) {
+                    // skip a bad score
+                }
+            }
+            ret.put("scores", a);
+        }
+        ret.put("segment", segment);
         notifyListeners(event, ret);
     }
 
-    // Errors worth one quiet retry. No internet (2), no permission (9) and language errors are not.
-    private static boolean isTransient(int error) {
-        return error == ERR_NETWORK_TIMEOUT || error == 3 || error == 4 || error == ERR_CLIENT || error == 11;
+    private void simple(String event) {
+        JSObject ret = new JSObject();
+        ret.put("ms", System.currentTimeMillis() - runStartedAt);
+        notifyListeners(event, ret);
     }
 
     private static boolean hasText(Bundle b) {
@@ -295,15 +300,19 @@ public class VoicePlugin extends Plugin {
         }
 
         @Override
-        public void onReadyForSpeech(Bundle params) {}
+        public void onReadyForSpeech(Bundle params) {
+            if (my == run) simple("ready");
+        }
 
         @Override
-        public void onBeginningOfSpeech() {}
+        public void onBeginningOfSpeech() {
+            if (my == run) simple("speech");
+        }
 
         @Override
         public void onRmsChanged(float db) {
             long now = System.currentTimeMillis();
-            if (my != session || now - lastLevelAt < 120) return;
+            if (my != run || now - lastLevelAt < 120) return;
             lastLevelAt = now;
             JSObject ret = new JSObject();
             ret.put("db", db);
@@ -314,74 +323,52 @@ public class VoicePlugin extends Plugin {
         public void onBufferReceived(byte[] buffer) {}
 
         @Override
-        public void onEndOfSpeech() {}
+        public void onEndOfSpeech() {
+            if (my == run) simple("speechEnd");
+        }
 
         @Override
         public void onError(int error) {
-            if (my != session) return;
+            if (my != run) return;
             long ran = System.currentTimeMillis() - runStartedAt;
             // Segmented session not supported by this recognizer: retry once in normal mode.
-            if (useSegmented && ran < 1500 && error != ERR_NO_MATCH && error != ERR_SPEECH_TIMEOUT && active) {
+            if (useSegmented && ran < 1500 && error != ERR_NO_MATCH && error != ERR_SPEECH_TIMEOUT && !stopping) {
                 segmentedBroken = true;
                 useSegmented = false;
+                JSObject n = new JSObject();
+                n.put("msg", "segmented-rejected code " + error);
+                notifyListeners("note", n);
                 main.postDelayed(() -> {
-                    if (my == session && active) begin();
-                }, 100);
+                    if (my == run && !stopping) begin();
+                }, 150);
                 return;
             }
-            if (error == ERR_NO_MATCH || error == ERR_SPEECH_TIMEOUT) {
-                emptyRuns++;
-                next(my);
-            } else if (error == ERR_BUSY && active) {
-                main.postDelayed(() -> {
-                    if (my == session && active) begin();
-                }, 300);
-            } else if (error == ERR_CLIENT && !active) {
-                end(my, "stopped", 0);
-            } else if (active && isTransient(error) && errorRuns < 3) {
-                // Long answers: the online service sometimes closes the session (server error,
-                // disconnect, slow network). Start again quietly instead of ending the mic.
-                errorRuns++;
-                main.postDelayed(() -> {
-                    if (my == session && active) begin();
-                }, 300L * errorRuns);
-            } else {
-                end(my, "error", error);
-            }
+            if (stopping && error == ERR_CLIENT) end(my, "stopped", 0);
+            else if (error == ERR_NO_MATCH || error == ERR_SPEECH_TIMEOUT) end(my, stopping ? "stopped" : "nomatch", error);
+            else end(my, stopping ? "stopped" : "error", error);
         }
 
         @Override
         public void onResults(Bundle results) {
-            if (my != session) return;
-            if (hasText(results)) {
-                emit("segment", results);
-                emptyRuns = 0;
-                errorRuns = 0;
-            } else emptyRuns++;
-            next(my);
+            if (my != run) return;
+            if (hasText(results)) emit("final", results, false);
+            end(my, stopping ? "stopped" : (hasText(results) ? "done" : "nomatch"), 0);
         }
 
         @Override
         public void onPartialResults(Bundle partialResults) {
-            if (my != session) return;
-            emit("partial", partialResults);
+            if (my == run) emit("partial", partialResults, false);
         }
 
-        // Android 13+: one result per spoken segment inside a single long session.
+        // Android 13+: one result per spoken phrase inside a segmented run.
         @Override
         public void onSegmentResults(Bundle segmentResults) {
-            if (my != session) return;
-            if (hasText(segmentResults)) {
-                emit("segment", segmentResults);
-                emptyRuns = 0;
-                errorRuns = 0;
-            }
+            if (my == run && hasText(segmentResults)) emit("final", segmentResults, true);
         }
 
         @Override
         public void onEndOfSegmentedSession() {
-            if (my != session) return;
-            next(my);
+            if (my == run) end(my, stopping ? "stopped" : "done", 0);
         }
 
         @Override

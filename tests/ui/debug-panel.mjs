@@ -42,6 +42,12 @@ if (mode === 'debug') {
   await p.click('#dbgCopy');
   await p.waitForTimeout(300);
   check('copy gives feedback', (await p.textContent('#dbgMsg')).length > 0);
+  check('Voice section in the panel', text.includes('== Voice ==') && /Android SDK/.test(text) && /locale/i.test(text));
+  const vb = await p.$eval('#dbgVoice', x => ({ t: x.textContent.trim(), h: x.getBoundingClientRect().height }));
+  check('Copy voice report button, >= 44px', vb.t === 'Copy voice report' && vb.h >= 44);
+  await p.click('#dbgVoice');
+  await p.waitForTimeout(200);
+  check('voice report copy gives feedback', (await p.textContent('#dbgMsg')).length > 0);
   await p.click('#dbgClose');
   check('close removes panel', (await p.locator('#dbgPanel').count()) === 0);
   await p.click('#nProfile');

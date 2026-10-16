@@ -24,6 +24,7 @@ export const FIELDS = [
   ["name", "Full name"],
   ["degree", "Degree / program"],
   ["uni", "University / institute"],
+  ["city", "Hometown / city"],
   ["role", "Target role"],
   ["certs", "Certifications"],
   ["skills", "Key skills"],

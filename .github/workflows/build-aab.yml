@@ -65,8 +65,11 @@ jobs:
       - name: Test question of the day
         run: npm run test:home
 
-      - name: Test voice (read-along matching, language fallback)
+      - name: Test voice (read-along matching, session manager)
         run: npm run test:voice
+
+      - name: Test voice vocabulary (corrections, false-positive sweep)
+        run: npm run test:vocab
 
       - name: Build web app (release, no debug tools)
         run: npm run build

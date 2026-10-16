@@ -222,7 +222,7 @@ Use the `app-debug.apk` from the workflow first, then the release build from the
 ### Online voice works
 1. Wi-Fi on. Mock tab > Start mock interview > tap the big mic.
 2. A short message explains why the mic is needed > Continue > Android asks > **Allow**.
-3. Speak a sentence. Check: mic turns red, "Listening..." shows, words appear live in the answer box.
+3. Speak a sentence. Check: mic turns red, "Speak now" shows, words appear live under the answer box and move into the box when each phrase is final.
 4. Stop talking or tap the mic. Check: text stays, mic turns back to normal.
 5. Practice tab > open a question > tap the mic > read the answer aloud. Words get highlighted as you speak.
 
@@ -334,3 +334,36 @@ The **debug APK** has a hidden **Ads status** panel. You do not need a PC or adb
 1. Reproduce the problem (for example: open the app, wait 15 s, finish a mock interview).
 2. Open the panel, tap **Copy report**, paste it into your message.
 3. Add one screenshot of the screen where the banner looks wrong (if it is a banner problem), and say what you did step by step.
+
+## 16. How voice recognition works
+
+The phone (not the app) turns speech into text. The app only decides what to send and what to keep.
+
+1. **Start.** Tap the mic. Read-aloud stops first. The app asks Android's speech service to listen in your **Voice accent** (Profile > Voice). Pakistan tries en-PK, then en-IN, en-GB, en-US. If the phone rejects one (error 12 or 13), the next is used. The voice report shows the locale really used.
+2. **Ready.** "Speak now" shows only after the service says it is ready, so your first words are not lost.
+3. **Live words.** While you speak, a grey line under the answer box shows what the phone hears. Each new guess replaces the old one. Nothing is written into the box yet.
+4. **Final phrase.** When a phrase is final, the phone gives up to 5 guesses. The app corrects each guess with your words and picks the best one. It is added to the **end** of the box. Text you typed is never replaced.
+5. **Duplicates.** A phrase that is the same as the last one, already at the end of the box, or 90% similar is dropped.
+6. **Pauses.** After silence the phone ends its session. The app starts a new one after about 0.3 s. A few words said exactly in that gap can be missed, so pause between sentences, not in the middle. After 3 failed restarts in a row the mic stops with a message.
+7. **Nothing heard.** If you say nothing, you see "I did not catch that. Try again or type." and the box stays empty.
+
+### Your words (Smart name matching)
+
+The app builds a word list from: My words (Profile > Voice), your profile name and hometown, your saved Practice answers, the current question and common tech terms (AWS, DevOps, Kubernetes...).
+
+- A heard word is changed only if it sounds like one of your words (same phonetic code and at least 50% similar) or is at least 78% similar. Limits live in `VOCAB_CONFIG` in `src/services/vocab.js`.
+- Common English words, numbers, countries and cities are **never** changed, unless you add an alias in My words, for example `Pakpattan: Pak pattan`.
+- After "my name is" or "myself" the next word is treated as a name. After "I am" it is not ("I am working" stays).
+- If you fix a word by hand, the app remembers it (with Undo). See or delete these in Profile > Voice > Learned corrections.
+- Chips under the answer box insert My words at the cursor.
+- On Android 13+ the app also sends up to 100 single hint words to the speech service. Turn off Smart name matching to send none and keep only aliases and learned corrections.
+
+### Cost
+
+- Correction: each heard word is compared with every target of similar length: O(a x w x t x L^2) time (a guesses up to 5, w words, t targets, L word length) and O(t) memory for the cached list. Measured on a PC: about 0.6 ms for 5 guesses against 325 targets (a phone is slower, still well under one frame).
+- Common word list: about 30 KB gzipped in the app.
+
+### If voice is still wrong
+
+Use the debug APK. Hold the app title 1 s > **Copy voice report**. It lists the locale, start options, every guess with its confidence, which guess was used, corrections and error codes. Send it with what you really said.
+
