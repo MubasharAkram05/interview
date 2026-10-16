@@ -88,9 +88,12 @@ export const VOICE_TIMING = {
   busyRetryMs: 600, // error 8 (recognizer busy): retry once after this
   stopWaitMs: 2000, // after "stop", wait this long for the last final
   maxSessionMs: 300000, // never listen longer than 5 minutes per tap
-  completeMs: 4000, // EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS
-  possiblyMs: 3000, // EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS
-  minimumMs: 15000 // EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS
+  // A 2 second pause ends a sentence: it is written, and the next session starts at once for
+  // the next sentence (the mic stays on until the user taps stop).
+  completeMs: 2000, // EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS
+  possiblyMs: 1500, // EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS
+  minimumMs: 2000, // EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS
+  silentRestarts: 2 // after something was written, keep listening through this many silent sessions
 };
 
 const ERROR_TEXT = {
@@ -311,11 +314,30 @@ function onEnd(s, d) {
       s.busyRetried = true;
       return next(s, VOICE_TIMING.busyRetryMs);
     }
-    if ((code === 6 || code === 7) && !(s.run && s.run.speech)) return finish(s, 'empty');
+    if ((code === 6 || code === 7) && !(s.run && s.run.speech)) return silent(s);
+    // Network slow or dropped (1, 2) in the middle of an answer: the service often times out on
+    // long sessions. Try once more before giving up (what was said so far is already written).
+    if ((code === 1 || code === 2) && s.committed > 0 && !s.netRetried && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+      s.netRetried = true;
+      voiceLog('network error, trying again', code);
+      return next(s, VOICE_TIMING.busyRetryMs);
+    }
     return finish(s, 'error', code);
   }
-  // done / nomatch: continue only after real speech.
-  if (s.run && s.run.speech) return next(s, VOICE_TIMING.nextSessionMs);
+  // done / nomatch: continue after real speech.
+  if (s.run && s.run.speech) {
+    s.silent = 0;
+    return next(s, VOICE_TIMING.nextSessionMs);
+  }
+  return silent(s);
+}
+
+// A session without speech. A short pause between sentences is normal: once something was
+// written, listen again a few times; then stop (never an endless loop on noise or silence).
+function silent(s) {
+  s.silent = (s.silent || 0) + 1;
+  const max = s.o.silentRestarts ?? VOICE_TIMING.silentRestarts;
+  if (s.committed > 0 && s.silent <= max) return next(s, VOICE_TIMING.nextSessionMs);
   return finish(s, 'empty');
 }
 
@@ -330,6 +352,7 @@ function next(s, ms) {
  *  bias: hint strings (Android 13+). choose(cands) -> { text, index, changes, why }: picks and
  *  corrects one of the guesses ({ text, score, index }). onState(state), onPartial(text) (show
  *  only), onFinal(text, info) (write it), onLevel(db), onEnd({ reason, code, heard, message }).
+ *  silentRestarts: how many silent sessions in a row to listen through once something was written.
  *  keepLive(text) -> bool: live words the screen trusts (they match the saved answer); they are
  *  written even when no final comes or its confidence is low.
  *  filter: overrides for VOICE_FILTER (tests).

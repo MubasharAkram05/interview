@@ -53,7 +53,7 @@ let b = box();
 await startListening(b.opts({ bias: ['Mubashar', 'Akram', 'Mubashar'] }));
 const o = state.starts[0];
 check('default language is en-IN', o.language === 'en-IN');
-check('5 guesses, silence 4000 / 3000 / minimum 15000 ms', o.maxResults === 5 && o.completeMs === 4000 && o.possiblyMs === 3000 && o.minimumMs === 15000);
+check('5 guesses, silence 2000 / 1500 / minimum 2000 ms (a 2 s pause ends a sentence)', o.maxResults === 5 && o.completeMs === 2000 && o.possiblyMs === 1500 && o.minimumMs === 2000);
 check('hints sent once each', JSON.stringify(o.bias) === '["Mubashar","Akram"]');
 check('"starting" until the recognizer is ready', voiceState() === 'starting');
 emit('ready');
@@ -88,10 +88,15 @@ fin(['I am from Pakpattan I am a student']);
 check('repeated start trimmed, only the new part added', b.value === 'I am from Pakpattan I am a student', b.value);
 end('done');
 await wait(20);
-// An empty session (silence) after real speech: stop and ask for a tap.
+// Silence after real speech: a pause between sentences, so listen again (up to 2 times), then stop.
 end('nomatch', 6, 1.2);
 await wait(20);
-check('1 empty session -> stop, no new session', !isListening() && state.starts.length === 4, `starts ${state.starts.length}`);
+check('1 silent session after speech -> listens again (pause between sentences)', isListening() && state.starts.length === 5, `starts ${state.starts.length}`);
+end('nomatch', 6, 1.2);
+await wait(20);
+end('nomatch', 6, 1.2);
+await wait(20);
+check('3 silent sessions in a row -> stop, no endless loop', !isListening() && state.starts.length === 6, `starts ${state.starts.length}`);
 check('message: Tap the mic to continue', b.ends[0] && b.ends[0].message === TAP_TO_CONTINUE, JSON.stringify(b.ends));
 
 // 4. Noise gate
@@ -220,11 +225,17 @@ for (const [m, scores, rms] of sessions) {
   end('done', 0, rms);
   await wait(15);
 }
+// Silence after the noise: the mic keeps listening a few times (pause between sentences), then stops.
+for (let k = 0; k < 5 && isListening(); k++) {
+  await wait(15);
+  end('nomatch', 7, 1);
+}
+await wait(15);
 console.log('replay box:', JSON.stringify(b.value));
 check('replay: invented words never written (Python, amritsar ka, aapka)', !/Python|amritsar|aapka/i.test(b.value), b.value);
 check('replay: the name comes out right', b.value.includes('I am Mubashar Akram'), b.value);
 check('replay: no phrase written twice', (b.value.match(/I am from Pakistan/g) || []).length === 1, b.value);
-check('replay: mic stopped after the noise session (no loop)', !isListening() && b.ends.length === 1);
+check('replay: mic stopped after a few silent sessions (no loop)', !isListening() && b.ends.length === 1);
 
 // keepLive: the screen trusts live words that match the saved answer
 reset();
@@ -253,6 +264,36 @@ part('Python amritsar');
 stopListening();
 await wait(60);
 check('keepLive: untrusted live words are still never written', b.value === '', b.value);
+
+// Network error after speech: one retry, then the error is shown
+reset();
+if (isListening()) cancelListening();
+b = box();
+await startListening(b.opts());
+emit('ready');
+fin(['I am from Pakpattan']);
+end('error', 2);
+await wait(20);
+check('network error after speech: tries once more', isListening() && state.starts.length === 2, `starts ${state.starts.length}`);
+end('error', 2);
+await wait(20);
+check('second network error: stops with the message', !isListening() && b.ends.length === 1 && b.ends[0].reason === 'error');
+
+// silentRestarts option (Mock and Practice listen through longer pauses)
+reset();
+b = box();
+await startListening(b.opts({ silentRestarts: 5 }));
+fin(['I am from Pakpattan']);
+end('done');
+for (let k = 0; k < 5; k++) {
+  await wait(15);
+  end('nomatch', 7, 1);
+}
+await wait(15);
+check('silentRestarts 5: still listening after 5 silent sessions', isListening());
+end('nomatch', 7, 1);
+await wait(15);
+check('silentRestarts 5: stops after the 6th', !isListening());
 
 console.log(out.join('\n'));
 console.log(`${out.filter(l => l.startsWith('PASS')).length}/${out.length} passed`);

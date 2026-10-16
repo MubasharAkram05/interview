@@ -30,7 +30,7 @@ import java.util.ArrayList;
  *
  *  - Language: EXTRA_LANGUAGE and EXTRA_LANGUAGE_PREFERENCE from the Voice accent setting.
  *    Language detection is off, so the service never switches to Urdu or Hindi on its own.
- *  - Pauses: complete silence 4000 ms, possibly complete 3000 ms, minimum length 15000 ms.
+ *  - Pauses: complete silence 2000 ms, possibly complete 1500 ms, minimum length 2000 ms.
  *    Many recognizers (Google's included) may ignore these; the session length is in the logs.
  *  - Hints: on Android 13+ the profile name and a few tech words are passed with
  *    EXTRA_BIASING_STRINGS.
@@ -273,16 +273,27 @@ public class VoicePlugin extends Plugin {
     }
 
     private void emit(String event, Bundle b) {
-        ArrayList<String> m = b == null ? null : b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-        if (m == null || m.isEmpty()) return;
+        ArrayList<String> all = b == null ? null : b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        if (all == null || all.isEmpty()) return;
+        // Some Google versions put an empty string first in the final result: keep only real text.
+        ArrayList<String> m = new ArrayList<>();
+        ArrayList<Integer> keep = new ArrayList<>();
+        for (int k = 0; k < all.size(); k++) {
+            String t = all.get(k);
+            if (t != null && !t.trim().isEmpty()) {
+                m.add(t);
+                keep.add(k);
+            }
+        }
+        if (m.isEmpty()) return;
         JSObject ret = new JSObject();
         ret.put("matches", new JSArray(m));
         float[] sc = b.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES);
         if (sc != null) {
             JSArray a = new JSArray();
-            for (float f : sc) {
+            for (int k : keep) {
                 try {
-                    a.put((double) f);
+                    a.put(k < sc.length ? (double) sc[k] : -1d);
                 } catch (Exception ignored) {
                     // skip a bad score
                 }
@@ -301,7 +312,9 @@ public class VoicePlugin extends Plugin {
 
     private static boolean hasText(Bundle b) {
         ArrayList<String> m = b == null ? null : b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-        return m != null && !m.isEmpty() && m.get(0) != null && !m.get(0).trim().isEmpty();
+        if (m == null) return false;
+        for (String t : m) if (t != null && !t.trim().isEmpty()) return true;
+        return false;
     }
 
     private class Listener implements RecognitionListener {

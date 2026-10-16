@@ -54,8 +54,8 @@ import {
   openAppSettings,
   notePractice
 } from './services/voice.js';
-import { voiceAccent, setAccentPref, corrections, removeCorrection, userVocab } from './services/voice-prefs.js';
-import { hintWords, rareWords, norm } from './services/vocab.js';
+import { voiceAccent, setAccentPref, corrections, removeCorrection } from './services/voice-prefs.js';
+import { rareWords, norm } from './services/vocab.js';
 import { alignToExpected, introTemplate, isIntroQuestion, wordStatus, wordDetail } from './services/expected.js';
 import { ROLES, EXPERIENCE, MAX_SKILLS, ROLE_SKILLS, nameError, cleanTags, buildProfile, setupDone, catToRole, autoWords, LEGACY_DEMO_NAMES } from './services/setup.js';
 import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
@@ -1367,10 +1367,17 @@ function pMicNote(m) {
   if (el) el.textContent = m || PMIC_IDLE;
 }
 
-// ---- Voice: shared helpers for Mock and Practice ----
-// The user's own words (setup details, My words, learned corrections) for hints and matching.
-function vocabFor() {
-  return userVocab(profiles[active] || {});
+// Hints for saying a saved answer: only the user's name and city, then the answer's own words
+// (rare ones first). A short, focused list biases the recognizer more than 100 general words.
+const SILENT_RESTARTS = 5; // keep listening through about 15 s of silence while answering
+function answerHints(ref) {
+  const p = profiles[active] || {};
+  const own = [p.name, ...String(p.name || '').split(/\s+/), p.city].filter(Boolean);
+  const words = String(ref || '')
+    .split(/\s+/)
+    .map(w => w.replace(/[^\w'+#./-]/g, '').replace(/[.]+$/, ''))
+    .filter(w => w.length > 1);
+  return [...new Set([...own, ...rareWords(ref, 40), ...words])].slice(0, 60);
 }
 
 // ---- Practice: expected-text matching ----
@@ -1451,7 +1458,6 @@ async function togglePMic() {
   const card = P.i;
   const it = P.list[P.i];
   const ref = ansText(it);
-  const vocab = vocabFor();
   let finished = false;
   let readyOnce = false;
   const here = () => cs === 'practice' && P.i === card;
@@ -1491,6 +1497,11 @@ async function togglePMic() {
     }
     toast(r.missed ? `${r.score}% matched. ${r.missed} word${r.missed === 1 ? '' : 's'} missed (red).` : r.extra ? `${r.score}% matched. Extra words are amber.` : 'Perfect! You said it all 🎉');
   };
+  let doneT = null;
+  // The last word was said: wait 2 s (the user may still be finishing), then end the attempt.
+  const completeSoon = () => {
+    if (!doneT) doneT = setTimeout(complete, DONE_WAIT_MS);
+  };
   const complete = () => {
     if (finished) return;
     finished = true;
@@ -1520,7 +1531,8 @@ async function togglePMic() {
 
   const started = await startListening({
     // Hints: the user's own words first, then the words of the saved answer (rare ones first).
-    bias: hintWords(vocab, { first: [...rareWords(ref, 100), ...ref.split(/\s+/).map(w => w.replace(/[^\w'+#./-]/g, ''))], context: it.q }),
+    bias: answerHints(ref),
+    silentRestarts: SILENT_RESTARTS,
     choose,
     // Live words that are mostly from the saved answer are kept even if the phone sends no final.
     keepLive: t => alignToExpected(t, ref, { partial: true }).matched >= Math.max(1, Math.ceil(t.split(/\s+/).filter(w => norm(w)).length / 2)),
@@ -1530,14 +1542,19 @@ async function togglePMic() {
       pMicNote(st === 'ready' || st === 'listening' ? 'Speak now. Read at your own pace.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : '');
     },
     onLevel: db => micLevel($('pMic'), db),
-    onPartial: text => here() && !finished && pLive(text), // grey live bar only
+    onPartial: text => {
+      if (!here() || finished) return;
+      pLive(text); // grey live bar
+      // Highlight the answer words as they are said (saved for good when the phrase is final).
+      pPaintAlign(alignToExpected(heard(text), ref, { partial: true }));
+    },
     onFinal: text => {
       if (!here() || finished) return;
       pSpoken.push(text);
       pLive('');
       const r = update(false);
       const lastJ = r.total - 1;
-      if (r.ops.some(o => (o.type === 'match' || o.type === 'fix') && o.j === lastJ)) complete();
+      if (r.ops.some(o => (o.type === 'match' || o.type === 'fix') && o.j === lastJ)) completeSoon();
     },
     onEnd: ({ message }) => {
       $('pMic').style.removeProperty('--lvl');
@@ -1726,6 +1743,7 @@ function showQ() {
   $('qCount').textContent = `${idx + 1}/${cur.length}`;
   reveal(cur[idx].q, $('rd').checked);
   $('mHintT').classList.add('hidden');
+  $('wTip').classList.add('hidden');
   mRender(idx);
   $('qBar').style.width = ((idx + 1) / cur.length) * 100 + '%';
   $('nBtn').dataset.i = idx === cur.length - 1 ? 'check' : 'right';
@@ -1836,6 +1854,8 @@ function reveal(t, sp) {
 }
 
 // Mock interview: speak your answer and it is typed into the answer box.
+// After the last word of the saved answer is said, wait this long before the mic stops.
+const DONE_WAIT_MS = 2000;
 let mMicOn = false; // mock interview: keep listening through pauses until the user taps stop
 
 function mockNote(m) {
@@ -1886,6 +1906,22 @@ function mRender(i, live = '') {
   const last = box.querySelectorAll('.aw.said, .aw.wrongw');
   const x = last[last.length - 1];
   if (x && x.offsetTop + x.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = x.offsetTop - box.clientHeight / 2;
+}
+
+// A small bubble just above the tapped word (what was said instead).
+function showWordTip(el, text) {
+  const tip = $('wTip');
+  const host = $('interview').getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  tip.textContent = text;
+  tip.classList.remove('hidden');
+  const w = tip.offsetWidth;
+  const left = Math.max(8, Math.min(r.left - host.left + r.width / 2 - w / 2, host.width - w - 8));
+  tip.style.left = `${left}px`;
+  tip.style.top = `${r.top - host.top - tip.offsetHeight - 8}px`;
+  tip.style.setProperty('--ax', `${r.left - host.left + r.width / 2 - left}px`);
+  clearTimeout(showWordTip.t);
+  showWordTip.t = setTimeout(() => tip.classList.add('hidden'), 3500);
 }
 
 // The last word of the saved answer has been said (right or wrong).
@@ -1980,13 +2016,26 @@ async function toggleMic() {
   const before = H.length;
   const here = () => idx === myIdx && cs === 'interview';
   let readyOnce = false;
+  let doneT = null;
+  // The whole answer is said: wait 2 s (the user may still be finishing), then stop the mic.
+  const stopSoon = () => {
+    if (doneT) return;
+    doneT = setTimeout(() => {
+      if (!mMicOn || !here()) return;
+      mMicOn = false;
+      $('mic').classList.remove('on');
+      mockNote('Finishing...');
+      stopListening(); // the last phrase still arrives and is added
+    }, DONE_WAIT_MS);
+  };
   mMicOn = true;
   $('mic').classList.add('on');
   mockNote('Getting the mic ready...');
 
   const started = await startListening({
     // Hints: the user's own words, then the words of the saved answer (rare ones first).
-    bias: hintWords(vocabFor(), { first: [...rareWords(ref, 100), ...mWords(ref).map(w => w.replace(/[^\w'+#./-]/g, ''))], context: it.q }),
+    bias: answerHints(ref),
+    silentRestarts: SILENT_RESTARTS,
     // N-best: the guess that matches the most words of the saved answer wins.
     choose: cands => {
       let best = cands[0];
@@ -2010,17 +2059,12 @@ async function toggleMic() {
     onLevel: db => micLevel($('mic'), db),
     onPartial: text => {
       mRender(myIdx, text); // shown in the box at once, saved when final
-      if (ref && mDone(myIdx, text)) stopListening(); // last word reached: the final still comes
+      if (ref && mDone(myIdx, text)) stopSoon(); // last word reached
     },
     onFinal: text => {
       H.push(...mWords(text).map(w => ({ w })));
       mCommit(myIdx);
-      if (ref && mMicOn && mDone(myIdx)) {
-        // The whole answer is said: stop the mic by itself.
-        mMicOn = false;
-        $('mic').classList.remove('on');
-        stopListening();
-      }
+      if (ref && mDone(myIdx)) stopSoon();
     },
     onEnd: ({ reason, message }) => {
       $('mic').style.removeProperty('--lvl');
@@ -2342,7 +2386,10 @@ function initEventListeners() {
     const b = e.target.closest('.aw.wrongw');
     if (!b || $('ansBox').isContentEditable) return;
     playTapSound();
-    toast(b.dataset.heard ? `You said "${b.dataset.heard}" instead of "${b.textContent}"` : `"${b.textContent}" was not said right`);
+    showWordTip(b, b.dataset.heard ? `You said "${b.dataset.heard}"` : 'Not said right');
+  });
+  document.addEventListener('pointerdown', e => {
+    if (!e.target.closest('#wTip, .aw.wrongw')) $('wTip')?.classList.add('hidden');
   });
 
   // Feedback actions
