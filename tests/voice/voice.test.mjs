@@ -1,41 +1,70 @@
-// voice.js with a mocked Android speech plugin: language, alternatives, fallback, session end.
-import { state, reset, emitPartial, endSpeech } from './mocks.mjs';
-import { startListening, stopListening, voiceLanguage, isListening } from '../../src/services/voice.js';
+// voice.js with a mocked native Voice plugin: language, bias, alternatives, stop/cancel, fallback.
+import { state, reset, emit } from './mocks.mjs';
+import { startListening, stopListening, cancelListening, voiceLanguage, isListening, voiceErrorText } from '../../src/services/voice.js';
 
 const out = [];
 const check = (name, ok) => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}`);
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-// 1. Normal session: en-IN, 5 alternatives, partial text and alternatives reach the app.
+// 1. Start options, live text, phrases, natural end.
 reset();
-let got = null;
-let ended = null;
-await startListening({ onText: (t, alts) => (got = { t, alts }), onEnd: e => (ended = e) });
-check('starts with Indian English (en-IN)', state.starts[0].language === 'en-IN');
-check('asks for 5 alternatives', state.starts[0].maxResults === 5 && state.starts[0].partialResults === true);
-emitPartial(['I have vorked', 'I have worked', 'I have walked']);
-check('live text and all alternatives passed on', got && got.t === 'I have vorked' && got.alts.length === 3);
-endSpeech();
-await wait(1300);
-check('session ends by itself after speech stops (reason "ended")', ended && ended.reason === 'ended' && ended.text === 'I have vorked' && ended.alts.length === 3);
-check('not listening after end', !isListening());
+const ev = { partial: [], segment: [], level: [], end: null };
+await startListening({
+  bias: ['JavaScript', 'teamwork', 'JavaScript'],
+  onPartial: a => ev.partial.push(a),
+  onSegment: a => ev.segment.push(a),
+  onLevel: d => ev.level.push(d),
+  onEnd: e => (ev.end = e)
+});
+const o = state.starts[0];
+check('starts with Indian English (en-IN), 5 alternatives, continuous', o.language === 'en-IN' && o.maxResults === 5 && o.continuous === true);
+check('bias words sent once each (for Android 13+ biasing)', JSON.stringify(o.bias) === '["JavaScript","teamwork"]');
+emit('partial', { matches: ['I have vorked', 'I have worked'] });
+emit('segment', { matches: ['I have worked with Java Script', 'I have worked with JavaScript'] });
+emit('segment', { matches: ['I have worked with Java Script'] });
+emit('level', { db: 6 });
+check('live guesses and finished phrases reach the app (all alternatives)', ev.partial[0].length === 2 && ev.segment[0].length === 2);
+check('the same phrase sent twice is passed on once', ev.segment.length === 1);
+check('mic level passed on', ev.level[0] === 6);
+emit('end', { reason: 'ended', code: 0 });
+check('natural end reported once with heard=true', ev.end && ev.end.reason === 'ended' && ev.end.heard === true && !isListening());
 
-// 2. User stops.
+// 2. User stop keeps the last phrase: onEnd only after native end.
 reset();
-ended = null;
-await startListening({ onText: () => {}, onEnd: e => (ended = e) });
+let end2 = null;
+const seg2 = [];
+await startListening({ onSegment: a => seg2.push(a[0]), onEnd: e => (end2 = e) });
 stopListening();
-check('user stop gives reason "stopped"', ended && ended.reason === 'stopped');
+check('stop asks native to stop (not cancel) and waits', state.stops === 1 && end2 === null && !isListening());
+emit('segment', { matches: ['last words'] });
+emit('end', { reason: 'stopped', code: 0 });
+check('last phrase after stop is kept, then end = stopped', seg2[0] === 'last words' && end2 && end2.reason === 'stopped');
 
-// 3. Phone does not support en-IN: falls back to en-US once and keeps working.
+// 3. Cancel (screen change) ends at once and ignores late events.
 reset();
-state.rejectLang = 'en-IN';
-ended = null;
-await startListening({ onText: () => {}, onEnd: e => (ended = e) });
-await wait(1200);
-check('falls back to en-US when en-IN stops at once', state.starts.length === 2 && state.starts[1].language === 'en-US' && isListening() && !ended);
-check('fallback language kept for the next session', voiceLanguage() === 'en-US');
-stopListening();
+let end3 = null;
+const seg3 = [];
+await startListening({ onSegment: a => seg3.push(a[0]), onEnd: e => (end3 = e) });
+cancelListening();
+emit('segment', { matches: ['late'] });
+check('cancel ends at once and drops late text', state.cancels === 1 && end3 && end3.reason === 'stopped' && seg3.length === 0);
+
+// 4. Errors give a clear message.
+reset();
+let end4 = null;
+await startListening({ onEnd: e => (end4 = e) });
+emit('end', { reason: 'error', code: 2 });
+check('network error reported with a message', end4 && end4.reason === 'error' && /internet/i.test(voiceErrorText(end4.code)));
+
+// 5. Phone rejects en-IN: falls back to en-US and keeps listening.
+reset();
+state.failLang = 'en-IN';
+let end5 = null;
+await startListening({ onEnd: e => (end5 = e) });
+await wait(80);
+check('falls back to en-US when en-IN is not supported (error 12)', state.starts.length === 2 && state.starts[1].language === 'en-US' && !end5 && isListening());
+check('fallback language kept for later sessions', voiceLanguage() === 'en-US');
+cancelListening();
 
 console.log(out.join('\n'));
 if (out.some(l => l.startsWith('FAIL'))) process.exit(1);

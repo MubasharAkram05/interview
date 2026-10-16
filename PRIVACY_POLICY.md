@@ -1,6 +1,6 @@
 # Privacy Policy for Interview Simulator
 
-**Last updated: October 15, 2026**
+**Last updated: October 16, 2026**
 
 Interview Simulator ("the app") is a free Android app made by Sussal Productions ("we", "us"). The app helps you practice job interview questions. This policy explains what data the app uses and why.
 
@@ -32,6 +32,7 @@ If Android backup is turned on for your Google account, Android may include this
 - When you use voice input, the app uses the speech recognition service that is installed on your phone. On most phones this is provided by Google.
 - Your voice is processed by that service to turn it into text. The service may send your voice to Google's servers to do this. Google's handling of this data is covered by the Google Privacy Policy: https://policies.google.com/privacy
 - The app itself does not record, save or upload audio files. Only the recognized text comes back to the app and is shown in your answer box on your phone.
+- To hear you more accurately, the app also gives the speech service a short list of words you are likely to say: the words of the answer you are reading in Practice, and in a mock interview the question, common technical terms and the role, skills, certifications and project you entered in your profile. Your name and university are not included.
 - Listening stops when you tap the mic again, leave the screen, or put the app in the background.
 
 ## Read aloud

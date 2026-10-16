@@ -320,3 +320,7 @@ header.bar{min-height:0;padding-top:calc(4px + max(env(safe-area-inset-top,0px),
 /* Read-along: said words green-accent, skipped words orange with a wavy underline. */
 .pw.miss{color:#ea580c;text-decoration:underline wavy rgba(234,88,12,.55);text-underline-offset:4px}
 [data-theme=dark] .pw.miss{color:#fb923c}
+
+/* Mic reacts to your voice level (set from the native "level" events). */
+#pMic.on,#mic.on{transform:scale(calc(1 + var(--lvl,0) * .14));box-shadow:0 0 0 calc(var(--lvl,0) * 14px) rgba(220,38,38,.18);transition:transform .12s ease-out,box-shadow .12s ease-out}
+@media(prefers-reduced-motion:reduce){#pMic.on,#mic.on{transform:none}}
