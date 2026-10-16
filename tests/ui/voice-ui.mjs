@@ -93,9 +93,8 @@ await wait(300);
 await p.evaluate(() => window.startMock());
 await wait(500);
 check('Mock start screen: Edit my details link', await p.isVisible('#mock .linkb'));
-await p.click('#mGrid .mt[data-c=fresh]');
 await p.click('#mSeg button:nth-child(1)');
-await p.click('#mStart');
+await p.click('#mGrid .mt[data-c=fresh]');
 await wait(1200);
 if (await p.isVisible('#dlg')) {
   await p.click('#dYes');
@@ -112,13 +111,14 @@ check(`Mock: Hint shows the next 3 words of the saved answer ("${hintT}")`, (awa
 const hintH = await p.$eval('#mHint', e => e.getBoundingClientRect().height);
 check(`Mock: Hint button >= 44px (${hintH}px)`, hintH >= 44);
 // What the phone heard (restored from storage): "Mubashir" is written as the saved "Mubashar",
-// "Python" is not in the answer and is red.
+// "Python" is not in the answer and is not written at all.
 const q0 = await p.textContent('#qText');
 await p.evaluate(() => {
   const o = JSON.parse(localStorage.getItem('is_scr'));
   o.idx = 0;
   o.heard = o.cur.map(() => []);
   o.heard[0] = 'my name is Mubashir Akram Python I am'.split(' ').map(w => ({ w }));
+  o.answers[0] = 'My name is Mubashar Akram. I am';
   localStorage.setItem('is_scr', JSON.stringify(o));
 });
 // The app reads IndexedDB first; drop it so the edited localStorage copy is used.
@@ -128,24 +128,13 @@ await wait(1200);
 const shown = (await p.textContent('#ansBox')).replace(/\s+/g, ' ').trim();
 const intro = /introduce yourself|tell me about yourself/i.test(q0);
 check(`Mock: heard words written with the saved spelling ("${shown}")`, intro ? shown.startsWith('My name is Mubashar Akram') : shown.length > 0);
-check('Mock: a word not in the answer is red', intro ? (await p.textContent('#ansBox .aw.bad')) === 'Python' : true);
-if (intro) {
-  await p.click('#ansBox .aw.bad');
-  await wait(200);
-  check('Mock: tap the red word: suggestions with Keep and Remove', (await p.isVisible('#wSug')) && /Keep/.test(await p.textContent('#wSug')) && /Remove/.test(await p.textContent('#wSug')));
-  await p.click('#wSug [data-a=del]');
-  await wait(200);
-  const after = (await p.textContent('#ansBox')).replace(/\s+/g, ' ').trim();
-  check(`Mock: Remove deletes it from the answer ("${after}")`, !/Python/.test(after) && (await p.locator('#ansBox .aw.bad').count()) === 0 && !(await p.isVisible('#wSug')));
-  const saved = await p.evaluate(() => JSON.parse(localStorage.getItem('is_scr')).answers[0]);
-  check(`Mock: answer saved for feedback ("${saved}")`, saved.startsWith('My name is Mubashar Akram') && !/Python/.test(saved));
-}
+check(`Mock: voice never writes free text ("Python" is not in the answer)`, !/Python/.test(shown) && (await p.locator('#ansBox .aw.bad, #wSug').count()) === 0);
 await p.click('#mTypeB');
 await p.keyboard.type(' from Pakpatan');
 await p.click('#qText');
 await wait(200);
 const typed = await p.evaluate(() => JSON.parse(localStorage.getItem('is_scr')).answers[0]);
-check(`Mock: Type adds words, checked like spoken ones ("${typed}")`, intro ? /from Pakpattan\.?$/.test(typed) : typed.length > 0);
+check(`Mock: Type adds words, saved spelling when they match the answer ("${typed}")`, intro ? /I am from Pakpattan\.?$/.test(typed) : typed.length > 0);
 await p.evaluate(() => window.editDetails());
 await wait(400);
 await p.fill('#sName', 'Sara Ali');

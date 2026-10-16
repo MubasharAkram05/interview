@@ -21,9 +21,11 @@
 <section class="scr" id="home">
   <div class="hhero">
     <i class="hb hb1" aria-hidden="true"></i><i class="hb hb2" aria-hidden="true"></i>
-    <div class="htx">
+    <div class="hhead">
       <p class="hhi"><span id="gr">Welcome</span> <b id="hi">Welcome</b></p>
-      <h2 class="htitle">Interview<br><span>Simulator</span></h2>
+      <h2 class="htitle">Interview <span>Simulator</span></h2>
+    </div>
+    <div class="htx">
       <p class="htag">Practice. Improve. Succeed.</p>
       <div class="hfeat">
         <button class="hf" onclick="startPractice()"><span class="hfi hfp"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></span>Realistic<br>Questions</button>
@@ -140,17 +142,15 @@
   <button class="linkb" onclick="editDetails()">Edit my details</button>
   <div class="hidden"><select id="mcat" onchange="mSync()" aria-label="Interview type"></select><select id="mlvl" onchange="mSync()" aria-label="Experience level"></select></div>
   <div class="pseg mseg" id="mSeg" role="tablist" aria-label="Experience level"></div>
-  <p class="mhint">Pick an interview type</p>
+  <p class="mhint">Pick a level, then tap an interview type to start</p>
   <div class="mgrid" id="mGrid"></div>
   <div class="sec mtipc"><h4><span aria-hidden="true">💡</span> Interview tip</h4><div id="mtip"></div></div>
-  <button class="pri mstart" id="mStart" onclick="startInterview()">Start</button>
 </section>
 
 <section class="scr hidden" id="interview">
   <div class="qcard"><div class="qtop"><span class="cnt" id="qCount"></span></div><div class="bar"><i id="qBar"></i></div><div class="qbody"><button class="spk" data-i="speaker" onclick="reveal(cur[idx].q,true)" aria-label="Read question aloud" title="Read aloud"></button><div class="q" id="qText"></div></div></div>
   <div id="tWrap" class="hidden" style="margin-top:12px"><div class="bar"><i id="tBar" style="width:100%;transition:width 1s linear"></i></div><div class="cnt" id="tText"></div></div>
   <div class="ansbox" id="ansBox" role="textbox" aria-readonly="true" aria-label="Your answer" aria-live="polite"></div>
-  <div class="wsug hidden" id="wSug" role="dialog" aria-label="Suggestions"></div>
   <div class="mtools"><div class="vlive mhintt hidden" id="mHintT" aria-live="polite"></div><button type="button" class="hintb" id="mHint" onclick="mHint()">Hint</button><button type="button" class="hintb" id="mTypeB" onclick="mType()">Type</button><button type="button" class="hintb" onclick="mClear()">Clear</button></div>
   <div class="dots" id="mDots"></div>
   <div class="micwrap"><button class="mic" id="mic" data-i="mic" onclick="toggleMic()" aria-label="Speak to type" title="Speak to type"></button><div class="note" id="micSt" aria-live="polite"></div></div>
