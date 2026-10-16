@@ -54,6 +54,7 @@ import {
 import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
 import { questionOfDay } from './services/qotd.js';
+import { tokens, bestAlignment, readingScore } from './services/readalong.js';
 import { nativeAdLayout } from './services/native-info.js';
 import { formatFullCurrentDate, formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
 import { playTapSound, playSuccessChime, playErrorBeep } from './services/sound.js';
@@ -132,7 +133,8 @@ let pRv = null;
 let base = '';
 let rv = null;
 let voiceOK = false; // phone has a speech recognition service
-let pSpoken = ''; // practice read-along text heard so far on this card
+let pSpoken = []; // practice read-along: final text of each listening session on this card
+let pMicOn = false; // read-along wants to keep listening (auto-restarts after a pause)
 
 const CK = (c, l) => (!l || l === 'fresher' ? c : `${c}@${l}`);
 const CL = (c, l) => `${CATS[c]} · ${LEVELS[l || 'fresher']}`;
@@ -927,7 +929,10 @@ function pFinish() {
 }
 
 function hlTo(k) {
-  PW.forEach((x, i) => x.classList.toggle('hl', i < k));
+  PW.forEach((x, i) => {
+    x.classList.toggle('hl', i < k);
+    x.classList.remove('miss');
+  });
   const a = $('pA');
   const x = PW[Math.min(k, PW.length) - 1];
   if (x && k > 0 && (x.offsetTop + x.offsetHeight > a.scrollTop + a.clientHeight - 10 || x.offsetTop < a.scrollTop)) {
@@ -950,7 +955,7 @@ function stopMic() {
 
 function pr() {
   stopMic();
-  pSpoken = '';
+  pSpoken = [];
   const n = P.list.length;
   $('pEmpty').classList.toggle('hidden', !!n);
   $('pCard').classList.toggle('hidden', !n);
@@ -1110,30 +1115,41 @@ function updateMicButtons() {
   if (!voiceOK) $('micSt').textContent = 'Voice input is not available on this phone. Type your answer.';
 }
 
-function pHighlight(sp) {
-  let pos = 0;
-  for (const w of sp.split(/\s+/).map(nrm).filter(Boolean)) {
-    let seen = 0;
-    for (let k = pos; k < PW.length && seen < 4; k++) {
-      const nw = nrm(PW[k].textContent);
-      if (!nw) continue;
-      seen++;
-      if (nw === w) {
-        pos = k + 1;
-        break;
-      }
-    }
+// Read-along: paint said words (green) and skipped words (orange), scroll to the last one.
+function pPaint(state, pos) {
+  PW.forEach((x, i) => {
+    x.classList.toggle('hl', state[i] === 'ok');
+    x.classList.toggle('miss', state[i] === 'miss');
+  });
+  const a = $('pA');
+  const x = PW[Math.min(pos, PW.length) - 1];
+  if (x && (x.offsetTop + x.offsetHeight > a.scrollTop + a.clientHeight - 10 || x.offsetTop < a.scrollTop)) {
+    a.scrollTop = Math.max(0, x.offsetTop - a.clientHeight / 3);
   }
-  while (pos < PW.length && !nrm(PW[pos].textContent)) pos++;
-  hlTo(pos);
-  return pos;
 }
 
-// Practice: read the answer aloud and the app highlights the words it hears.
+const pTarget = () => PW.map(x => tokens(x.textContent)[0] || '');
+
+function pStopReading(summary) {
+  pMicOn = false;
+  stopListening();
+  $('pMic').classList.remove('on');
+  if (!summary) return;
+  const r = bestAlignment(pTarget(), pSpoken, []);
+  const said = r.state.filter(x => x === 'ok').length;
+  if (!said) return;
+  const missed = r.state.filter(x => x === 'miss').length;
+  const pct = Math.round(readingScore(r.state) * 100);
+  toast(missed ? `${pct}% read. ${missed} word${missed === 1 ? '' : 's'} missed (orange). Tap the mic to try again.` : `${pct}% read. Keep going!`);
+}
+
+// Practice: read the answer aloud. Like Duolingo, words light up as you say them, small
+// recognition mistakes are accepted, skipped words turn orange instead of blocking you, and
+// the mic keeps listening through pauses until you finish or tap it again.
 async function togglePMic() {
   playTapSound();
-  if (isListening()) {
-    stopListening();
+  if (pMicOn || isListening()) {
+    pStopReading(true);
     return;
   }
   stopSpeaking();
@@ -1143,31 +1159,64 @@ async function togglePMic() {
 
   pFinish();
   hlTo(0);
-  pSpoken = '';
-  let done = false;
+  pSpoken = [];
+  pMicOn = true;
+  const card = P.i;
+  const target = pTarget();
+  let empty = 0;
   $('pMic').classList.add('on');
   toast('Listening... read the answer aloud');
-  const started = await startListening({
-    onText: t => {
-      if (done) return;
-      if (pHighlight(pSpoken + ' ' + t) >= PW.length) {
-        done = true;
-        playSuccessChime();
-        fireConfetti();
-        toast('Well done! You read it all 🎉');
-        stopListening();
-      }
-    },
-    onEnd: ({ text, reason }) => {
-      $('pMic').classList.remove('on');
-      if (text) pSpoken += ' ' + text;
-      else if (reason !== 'stopped') toast("Didn't catch that. Tap the mic and try again.");
-    }
-  });
-  if (!started) {
+
+  const done = () => {
+    pMicOn = false;
+    stopListening(); // runs onEnd now, which saves the last text
     $('pMic').classList.remove('on');
-    toast('Could not start voice input. Please try again.');
-  }
+    const r = bestAlignment(target, pSpoken, []);
+    pPaint(r.state, r.pos);
+    const pct = Math.round(readingScore(r.state) * 100);
+    const missed = r.state.filter(x => x === 'miss').length;
+    if (pct >= 80) {
+      playSuccessChime();
+      fireConfetti();
+    }
+    toast(missed ? `Finished! ${pct}% correct. ${missed} word${missed === 1 ? '' : 's'} missed (orange).` : 'Perfect! You read it all 🎉');
+  };
+
+  const listen = async () => {
+    const started = await startListening({
+      onText: (t, alts) => {
+        if (!pMicOn || cs !== 'practice' || P.i !== card) return;
+        const r = bestAlignment(target, pSpoken, alts);
+        pPaint(r.state, r.pos);
+        if (r.pos >= target.length) done(); // stopping saves this text via onEnd
+      },
+      onEnd: ({ text, alts, reason }) => {
+        if (P.i !== card || cs !== 'practice') {
+          pMicOn = false;
+          return;
+        }
+        if (text) {
+          pSpoken.push(bestAlignment(target, pSpoken, alts && alts.length ? alts : [text]).text);
+          empty = 0;
+        } else empty++;
+        if (!pMicOn) return; // finished or stopped by the user
+        if (reason === 'stopped') return pStopReading(false);
+        // Android ends a session after a short pause. Keep listening, unless nothing was
+        // heard twice in a row or the mic failed.
+        if (reason === 'ended' && empty < 2) {
+          setTimeout(() => pMicOn && cs === 'practice' && P.i === card && listen(), 250);
+          return;
+        }
+        pStopReading(true);
+        if (!pSpoken.length) toast("Didn't catch that. Tap the mic and try again.");
+      }
+    });
+    if (!started) {
+      pStopReading(false);
+      toast('Could not start voice input. Please try again.');
+    }
+  };
+  listen();
 }
 
 // Practice: listen to the answer with the phone's text-to-speech voice.
@@ -1468,48 +1517,68 @@ function fixTerms(t) {
 }
 
 // Mock interview: speak your answer and it is typed into the answer box.
+let mMicOn = false; // mock interview: keep listening through pauses until the user taps stop
+
 async function toggleMic() {
   playTapSound();
-  if (isListening()) {
+  const note = m => {
+    $('micSt').textContent = m;
+  };
+  if (mMicOn || isListening()) {
+    mMicOn = false;
     stopListening();
+    $('mic').classList.remove('on');
+    note('');
     return;
   }
   stopSpeaking();
   clearInterval(rv);
   clearTimeout(rv);
   document.querySelectorAll('#qText .w').forEach(x => x.classList.add('in'));
-  const note = m => {
-    $('micSt').textContent = m;
-  };
   if (!(await prepareVoice(note))) return;
   if (cs !== 'interview') return;
 
   const myIdx = idx;
-  base = $('ansBox').value;
-  if (base && !base.endsWith(' ')) base += ' ';
+  let empty = 0;
+  mMicOn = true;
   $('mic').classList.add('on');
-  note('Listening... speak now. Tap the mic to stop.');
+  note('Listening... speak now. Tap the mic when you finish.');
 
-  const started = await startListening({
-    onText: t => {
-      if (idx !== myIdx || cs !== 'interview') return;
-      $('ansBox').value = base + fixTerms(t);
-    },
-    onEnd: ({ text, reason }) => {
-      $('mic').classList.remove('on');
-      if (idx === myIdx && text) {
-        $('ansBox').value = base + fixTerms(text);
-        answers[myIdx] = $('ansBox').value.trim();
-        saveScr();
+  const listen = async () => {
+    base = $('ansBox').value;
+    if (base && !/\s$/.test(base)) base += ' ';
+    const started = await startListening({
+      onText: t => {
+        if (idx !== myIdx || cs !== 'interview') return;
+        $('ansBox').value = base + fixTerms(t);
+        answers[myIdx] = $('ansBox').value.trim(); // keep it even if the user moves on mid-sentence
+      },
+      onEnd: ({ text, reason }) => {
+        if (idx === myIdx && text) {
+          $('ansBox').value = base + fixTerms(text);
+          answers[myIdx] = $('ansBox').value.trim();
+          saveScr();
+          empty = 0;
+        } else if (!text) empty++;
+        base = $('ansBox').value;
+        // Android ends a session after a short pause; keep going for long answers.
+        if (mMicOn && reason === 'ended' && empty < 2 && idx === myIdx && cs === 'interview') {
+          setTimeout(() => mMicOn && idx === myIdx && cs === 'interview' && listen(), 250);
+          return;
+        }
+        const heard = !!$('ansBox').value.trim();
+        mMicOn = false;
+        $('mic').classList.remove('on');
+        note(heard || reason === 'stopped' ? '' : "Didn't catch that. Tap the mic and try again, or type your answer.");
       }
-      note(text || reason === 'stopped' ? '' : "Didn't catch that. Tap the mic and try again, or type your answer.");
-      base = $('ansBox').value;
+    });
+    if (!started) {
+      mMicOn = false;
+      $('mic').classList.remove('on');
+      note('Could not start voice input. Please try again or type your answer.');
     }
-  });
-  if (!started) {
-    $('mic').classList.remove('on');
-    note('Could not start voice input. Please try again or type your answer.');
-  }
+  };
+  listen();
 }
 
 // Evaluation & Feedback Scoring

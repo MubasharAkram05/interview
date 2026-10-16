@@ -19,7 +19,8 @@ interview/
 │   ├── data/questions.js               EDIT     Interview types, levels, questions, sample answers, tips
 │   └── services/
 │       ├── admob.js                    CAREFUL  Consent (UMP), banner, interstitial logic
-│       ├── voice.js                    CAREFUL  Speech-to-text via phone speech service
+│       ├── voice.js                    CAREFUL  Speech-to-text via phone speech service (en-IN, falls back to en-US)
+│       ├── readalong.js                EDIT     Read-along matching: accents, misheard and skipped words
 │       ├── tts.js                      CAREFUL  Read aloud via phone text-to-speech
 │       ├── online.js                   EDIT     Internet check + offline messages for online features
 │       ├── debug.js                    CAREFUL  ADS: logs (console only in debug builds) + ring buffer for the panel
@@ -87,6 +88,7 @@ interview/
 | `npm run build` | Build the web app into `dist/` (release: no debug tools) |
 | `npm run build:debug` | Build the web app with the hidden ads status panel (used for the debug APK) |
 | `npm run test:ads` | Unit tests for the ad rules with mocked AdMob |
+| `npm run test:voice` | Unit tests for read-along matching and voice language fallback |
 | `npm run test:home` | Unit tests for the question of the day (same all day, new each day) |
 | `npx cap sync android` | Copy `dist/` into the Android app and update plugin lists |
 | `npm run android:prep` | build + cap sync together |

@@ -15,6 +15,7 @@
     "policy:check": "node scripts/check-policy-sync.mjs",
     "test:ads": "node --import ./tests/ads/reg.mjs tests/ads/interstitial.test.mjs",
     "test:home": "node tests/home/qotd.test.mjs",
+    "test:voice": "node tests/voice/readalong.test.mjs && node --import ./tests/voice/reg.mjs tests/voice/voice.test.mjs",
     "build:debug": "vite build --mode debug"
   },
   "dependencies": {
