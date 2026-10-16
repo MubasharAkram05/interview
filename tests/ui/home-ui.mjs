@@ -9,7 +9,13 @@ const p = await b.newPage({ viewport: { width: 375, height: 740 } });
 const errors = [];
 p.on('pageerror', e => errors.push(e.message));
 await p.goto('http://localhost:4173/');
-await p.evaluate(() => localStorage.setItem('is_hist', JSON.stringify([{ c: 'Software Developer', d: '10/14/2026', s: 7, ts: Date.now() - 864e5 }])));
+await p.evaluate(() => {
+  localStorage.setItem('is_hist', JSON.stringify([{ c: 'Software Developer', d: '10/14/2026', s: 7, ts: Date.now() - 864e5 }]));
+  // A user who finished setup (the app has no demo profile any more).
+  const me = { name: 'Test User', role: 'Software Engineer', roleKey: 'Software Engineer', edu: 'BS IT student', degree: 'BS IT student', city: 'Testcity', exp: 'fresher', skillTags: ['JavaScript'], skills: 'JavaScript', words: ['Test', 'User', 'Testcity'], setup: 1 };
+  localStorage.setItem('is_profiles', JSON.stringify({ 'Test User': me }));
+  localStorage.setItem('is_active', JSON.stringify('Test User'));
+});
 await p.reload();
 await p.waitForTimeout(900);
 
@@ -17,7 +23,20 @@ const homeText = await p.textContent('#home');
 check('home has no "Last session" card (history exists)', !/Last session/i.test(homeText) && (await p.locator('#retryLastBtn').count()) === 0);
 check('header has no theme button', (await p.locator('header.bar [data-i="moon"], header.bar [onclick*="Theme"]').count()) === 0);
 check('header shows logo on home', await p.isVisible('#hLogo'));
-check('home hero: title, 3 features, Get Started, date', (await p.textContent('.htitle')).includes('Simulator') && (await p.locator('.hfeat .hf').count()) === 3 && await p.isVisible('.hcta') && /\d{4}/.test(await p.textContent('#dFull')));
+const hero = await p.$eval('.hhero', e => {
+  const r = e.getBoundingClientRect();
+  const tx = e.querySelector('.htx').getBoundingClientRect();
+  const art = e.querySelector('.hart').getBoundingClientRect();
+  const btn = e.querySelector('.hcta').getBoundingClientRect();
+  return { h: r.height, row: art.left >= tx.right - 1 && art.top < tx.bottom && art.bottom > tx.top, inside: art.right <= r.right + 1, btnH: btn.height, feats: e.querySelectorAll('.hfeat .hf').length };
+});
+check(`home hero: text left, illustration right (one horizontal row, ${Math.round(hero.h)}px)`, hero.row && hero.inside && hero.h <= 320);
+check('home hero: greeting, title, tagline, 3 features, Get Started', (await p.textContent('#hi')) === 'Test' && /Interview\s*Simulator/.test(await p.textContent('.htitle')) && (await p.textContent('.htag')) === 'Practice. Improve. Succeed.' && hero.feats === 3 && (await p.textContent('.hcta')).includes('Get Started') && hero.btnH >= 44);
+const cards = await p.$$eval('#hCards .hcard', cs => cs.map(c => c.querySelector('h4').textContent));
+check(`home: only one card under the hero, Question of the day (${cards.join(', ')})`, cards.join() === 'Question of the day' && (await p.locator('#hDots').count()) === 0);
+const heroGap = await p.evaluate(() => document.querySelector('.hhero').getBoundingClientRect().top - document.querySelector('header.bar').getBoundingClientRect().bottom);
+check(`home: no empty gap above the hero (${Math.round(heroGap)}px)`, heroGap <= 20);
+check('no Alex or Khan anywhere on Home', !/\bAlex\b|\bKhan\b/.test(await p.textContent('body')));
 await p.click('.hcta');
 await p.waitForTimeout(400);
 check('Get Started opens the Mock page', await p.isVisible('#mock'));

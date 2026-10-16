@@ -1,12 +1,10 @@
-// Voice settings and personal vocabulary, stored on the phone only (localStorage via storage.js):
+// Voice settings and the user's own words, stored on the phone only (localStorage via storage.js):
 //   is_voice_accent  'in' | 'pk' | 'us' | 'uk'
-//   is_voice_smart   true/false  (Smart name matching)
-//   is_voice_words   My words text, one per line ("Pakpattan: pak pattan" adds an alias)
 //   is_voice_mem     learned corrections [{ prev, heard, fix, at }]
+// My words, name, city and skills live in the profile (setup screen).
 import { getItem, setItem } from './storage.js';
 import { DEFAULT_VOICE_ACCENT, VOICE_ACCENTS } from '../config/app.js';
-import { buildVocab, parseMyWords } from './vocab.js';
-import { DEMO } from '../data/questions.js';
+import { buildVocab } from './vocab.js';
 
 const MAX_MEMORY = 50;
 
@@ -16,20 +14,6 @@ export function voiceAccent() {
 }
 export function setAccentPref(a) {
   setItem('is_voice_accent', VOICE_ACCENTS[a] ? a : DEFAULT_VOICE_ACCENT);
-}
-
-export function smartMatching() {
-  return getItem('is_voice_smart', true) !== false;
-}
-export function setSmartMatching(on) {
-  setItem('is_voice_smart', !!on);
-}
-
-export function myWordsText() {
-  return getItem('is_voice_words', '') || '';
-}
-export function setMyWordsText(t) {
-  setItem('is_voice_words', String(t || '').slice(0, 4000));
 }
 
 export function corrections() {
@@ -47,36 +31,24 @@ export function removeCorrection(i) {
   setItem('is_voice_mem', list);
 }
 
-/**
- * The profile name used for voice, or '' for the built-in demo profile ("Alex Khan" is sample data,
- * not the user: its name must never become a chip, a hint or a name-matching target).
- */
-export function realName(profile = {}) {
-  const name = String(profile.name || '').trim();
-  if (!name) return '';
-  const demo = DEMO[name];
-  return demo && Object.keys(demo).every(k => demo[k] === profile[k]) ? '' : name;
-}
-
-// Cached candidate list: rebuilt only when My words, the profile name or learned corrections change.
+// Cached vocabulary: rebuilt only when the profile's words or the learned corrections change.
 let cache = { key: '', vocab: null };
-export function userVocab(profile = {}) {
-  const words = myWordsText();
-  const name = realName(profile);
+export function userVocab(p = {}) {
+  const myWords = (p.words || []).map(word => ({ word, aliases: [] }));
   const memory = corrections();
-  const key = JSON.stringify([words, name, memory]);
-  if (cache.key !== key) cache = { key, vocab: buildVocab({ myWords: parseMyWords(words), name, memory }) };
+  const key = JSON.stringify([p.words || [], p.name || '', p.city || '', p.skillTags || [], memory]);
+  if (cache.key !== key) cache = { key, vocab: buildVocab({ myWords, name: p.name || '', city: p.city || '', skills: p.skillTags || [], memory }) };
   return cache.vocab;
 }
 
-/** Up to 6 chip words: My words first, then the profile name. Empty when there are none. */
-export function chipWords(profile = {}) {
+/** Chips under the answer box: the name parts and My words (max 6), only the user's own data. */
+export function chipWords(p = {}) {
   const out = [];
   const add = w => {
     const t = String(w || '').trim();
     if (t && t.length <= 24 && !out.some(x => x.toLowerCase() === t.toLowerCase()) && out.length < 6) out.push(t);
   };
-  parseMyWords(myWordsText()).forEach(m => add(m.word));
-  realName(profile).split(/\s+/).forEach(add);
+  String(p.name || '').split(/\s+/).forEach(add);
+  (p.words || []).forEach(add);
   return out;
 }

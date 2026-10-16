@@ -37,26 +37,15 @@ export const FIELDS = [
 export const FF = FIELDS.filter(([k]) => !["strength", "weakness", "project", "achievement"].includes(k));
 
 export const DEF = {
+  degree: "my degree",
+  uni: "my university",
+  certs: "relevant online courses",
   project: "a project I built and delivered",
   achievement: "I completed a project on time and learned a lot from it",
   strength: "solving problems and learning new tools quickly",
   weakness: "spending extra time on small details"
 };
 
-export const DEMO = {
-  "Alex Khan": {
-    name: "Alex Khan",
-    degree: "BS Computer Science",
-    uni: "Example University",
-    role: "Junior Software Developer",
-    certs: "an online web development course certificate",
-    skills: "JavaScript, HTML and CSS, SQL and basic cloud computing",
-    project: "a student task manager web app built with JavaScript and SQL",
-    strength: "solving problems and learning new tools quickly",
-    weakness: "spending extra time perfecting small details",
-    achievement: "I finished my final year project on time and presented it to my class"
-  }
-};
 
 export const HEAD = [
   ["Introduce yourself in 2 minutes.", "Good morning. My name is {name}, and I am a {degree} student at {uni}. I have hands-on experience with {skills}, and I hold {certs}. Most recently I worked on {project}. I am now looking for a {role} opportunity where I can apply these skills, keep learning and contribute from day one."],

@@ -1,10 +1,6 @@
 // Data for voice input (src/services/vocab.js). Edit freely; spelling and capitals here are
 // what the app writes.
 
-// Tech words sent to the speech service as hints (Android 13+), after My words and the profile
-// name. Keep this list short: every hint makes the service more likely to "hear" that word.
-export const TECH_HINTS = ['AWS', 'DevOps', 'Kubernetes', 'Docker', 'React', 'Node.js', 'JavaScript', 'Python', 'SQL', 'API', 'CI/CD', 'GitHub', 'Linux'];
-
 // Countries and cities. A heard word on this list is never changed automatically
 // ("Pakistan" stays "Pakistan" even if the speaker's hometown is Pakpattan), unless the user
 // adds an explicit alias in My words.

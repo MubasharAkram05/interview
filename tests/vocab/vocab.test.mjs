@@ -58,9 +58,13 @@ check('learned correction for a place needs the same previous word', correctText
 check('changes say why', correctText('I am Mubashir', v).changes[0].why.includes('My word') || correctText('I am Mubashir', v).changes[0].why.includes('profile name'));
 
 // Hints, learning, Practice
-const h = hintWords(v);
-check('hints: My words first, then name, then tech list', h[0] === 'Mubashar' && h.includes('Akram') && h.includes('AWS') && h.indexOf('Akram') < h.indexOf('AWS'));
-check('hints: no duplicates, no sentences', new Set(h.map(x => x.toLowerCase())).size === h.length && h.every(x => x.split(' ').length <= 2));
+const vh = buildVocab({ myWords: parseMyWords('Mubashar\nPakpattan'), name: 'Mubashar Akram', city: 'Pakpattan', skills: ['AWS'] });
+const h = hintWords(vh, { context: 'Tell me about a time you worked in a team' });
+check('hints: My words, name, city and skills first', h.slice(0, 4).join() === 'Mubashar,Pakpattan,Akram,AWS', h.slice(0, 6).join());
+check('hints: interview phrases from the question come next', h.indexOf('tell me about a time') > 3 && h.indexOf('tell me about a time') < h.indexOf('introduce'), h.slice(0, 8).join());
+check('hints: at most 100, no duplicates, short strings', h.length <= 100 && new Set(h.map(x => x.toLowerCase())).size === h.length && h.every(x => x.length <= 40));
+const hp = hintWords(vh, { first: ['Kubernetes', 'deployed'] });
+check('hints: Practice answer words right after the user\'s own words', hp.indexOf('Kubernetes') === 4, hp.slice(0, 6).join());
 check('rareWords keeps rare words only', rareWords('I deployed Kubernetes on Pakistan servers').join() === 'deployed,Kubernetes', rareWords('I deployed Kubernetes on Pakistan servers').join());
 check('learnFromEdit finds one changed word', JSON.stringify(learnFromEdit('I am officer', 'I am Mubashar')) === JSON.stringify({ prev: 'am', heard: 'officer', fix: 'Mubashar' }));
 check('learnFromEdit ignores bigger edits', learnFromEdit('I am officer', 'Hello I am Mubashar') === null);

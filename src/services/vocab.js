@@ -17,7 +17,8 @@
 import { distance } from 'fastest-levenshtein';
 import { doubleMetaphone } from 'double-metaphone';
 import COMMON_RAW from '../data/common-words.js';
-import { PLACES, TECH_HINTS } from '../data/voice-terms.js';
+import { PLACES } from '../data/voice-terms.js';
+import { INTERVIEW_VOCAB } from '../data/interview-vocab.js';
 
 // All thresholds in one place. Similarity is 1 - editDistance / longerLength (0..1).
 export const VOCAB_CONFIG = {
@@ -30,10 +31,25 @@ export const VOCAB_CONFIG = {
   maxChangesPerSentence: 3,
   alignWindow: 6, // Practice: how far ahead in the saved answer to look
   practiceSnap: 0.65, // Practice: heard word snaps to the saved answer word at this similarity
-  maxHints: 60 // strings sent to the speech service (Android 13+)
+  maxHints: 100, // strings sent to the speech service (Android 13+)
+  maxHintLen: 40 // longest hint string
 };
 
 const COMMON = new Set(COMMON_RAW.split(' '));
+// Interview vocabulary: built once, duplicate-free and case-insensitive (first spelling wins).
+export const IV_LIST = (() => {
+  const seen = new Map();
+  INTERVIEW_VOCAB.flat().forEach(t => {
+    const k = String(t).toLowerCase().trim();
+    if (k && !seen.has(k)) seen.set(k, String(t).trim());
+  });
+  return [...seen.values()];
+})();
+// Every word of the list is protected: the name matcher never replaces it ("Python" stays Python).
+const IV_WORDS = new Set(IV_LIST.flatMap(t => t.split(/\s+/).map(w => norm(w)).filter(Boolean)));
+export function isInterviewWord(w) {
+  return IV_WORDS.has(norm(w));
+}
 const PLACE_WORDS = new Set();
 PLACES.forEach(p => p.split(/\s+/).forEach(w => PLACE_WORDS.add(norm(w))));
 // Name slots: the word after these. For "i am", "im", "this is" only a capitalized word counts
@@ -71,6 +87,13 @@ export function similarity(a, b) {
 function codes(key) {
   const [p, s] = doubleMetaphone(key);
   return [...new Set([p, s].filter(c => c && c.length >= 2))];
+}
+
+/** Same double-metaphone sound code (words of 3+ letters only). */
+export function soundsAlike(a, b) {
+  if (!a || !b || a.length < 3 || b.length < 3) return false;
+  const cb = codes(b);
+  return codes(a).some(c => cb.includes(c));
 }
 
 /** Split text into word and space tokens; each word keeps its leading/trailing punctuation. */
@@ -114,10 +137,10 @@ export function parseMyWords(text) {
 
 /**
  * Build the candidate list.
- * opts: { myWords: [{word, aliases}], name: 'Mubashar Akram', memory: [{heard, fix}] }
+ * opts: { myWords: [{word, aliases}], name: 'Mubashar Akram', city, skills: [..], memory: [{heard, fix}] }
  * Returns { targets: Map key->{text,key,len,source}, keys: Set, byCode, byLen, alias, memory, nameTokens }.
  */
-export function buildVocab({ myWords = [], name = '', memory = [] } = {}) {
+export function buildVocab({ myWords = [], name = '', city = '', skills = [], memory = [] } = {}) {
   const targets = new Map();
   const alias = new Map(); // heard key (one word, or two words joined) -> text
   const mem = new Map(); // learned correction: heard key -> [{ prev, fix }]
@@ -139,6 +162,11 @@ export function buildVocab({ myWords = [], name = '', memory = [] } = {}) {
     .split(/\s+/)
     .filter(Boolean);
   nameTokens.forEach(n => add(n, 'name'));
+  String(city || '')
+    .split(/[\s,]+/)
+    .filter(w => w.length > 2)
+    .forEach(c => add(c, 'city'));
+  skills.forEach(sk => String(sk).split(/\s+/).forEach(w => !COMMON.has(norm(w)) && add(w, 'skill')));
   memory.forEach(m => {
     if (!m || !m.heard || !m.fix) return;
     const k = norm(m.heard);
@@ -152,7 +180,7 @@ export function buildVocab({ myWords = [], name = '', memory = [] } = {}) {
     t.codes.forEach(c => byCode.set(c, [...(byCode.get(c) || []), t]));
     byLen.set(t.len, [...(byLen.get(t.len) || []), t]);
   });
-  return { targets, keys: new Set(targets.keys()), byCode, byLen, alias, memory: mem, nameTokens };
+  return { targets, keys: new Set(targets.keys()), byCode, byLen, alias, memory: mem, nameTokens, city: String(city || '').trim(), skills };
 }
 
 /** Bucketed lookup: targets with the same sound code or a similar length. */
@@ -175,7 +203,9 @@ function match(key, vocab, cfg, slot) {
     const phon = s >= cfg.phoneticMinSim && t.codes.some(c => kc.includes(c));
     const close = s >= 1 - cfg.maxDistance;
     let ok;
-    if (!common || slot) ok = close || phon;
+    // Short words ("ads", "IaaS"): almost exact spelling, or a same-sounding name in a name slot.
+    if (key.length <= 4 || t.len <= 4) ok = s >= 0.75 || (slot && phon);
+    else if (!common || slot) ok = close || phon;
     else ok = phon && s >= cfg.commonStrongSim; // a real English word: only a strong sound-alike
     if (!ok) return;
     const score = s + (phon ? 0.05 : 0);
@@ -275,7 +305,7 @@ export function correctText(text, vocab, opts = {}) {
         }
       }
       // 5. One word.
-      if (!merged && k.length >= cfg.minLen && !isNumber(tok.core) && !PLACE_WORDS.has(k)) {
+      if (!merged && k.length >= cfg.minLen && !isNumber(tok.core) && !PLACE_WORDS.has(k) && !IV_WORDS.has(k)) {
         const slot = slots.has(wi);
         const b = match(k, vocab, cfg, slot);
         if (b) put(wi, b.t.text, `${b.phon ? 'sounds like' : 'spelled like'} ${b.t.source === 'name' ? 'profile name' : b.t.source === 'memory' ? 'a learned word' : 'My word'} (${b.s.toFixed(2)})${slot ? ', name slot' : ''}`);
@@ -326,22 +356,34 @@ export function snapToReference(text, reference, opts = {}) {
 }
 
 /**
- * Hints for the speech service (Android 13+): My words first, then the profile name, then the
- * short tech list, then `extra` (Practice: rare words of the answer being read). Single words or
- * short names only, never sentences.
+ * Hints for the speech service (Android 13+), most relevant first, at most 100 short strings:
+ *   1. My words, aliases, the profile name, city and skills (the user's own words)
+ *   2. `first` (Practice: the words of the answer being read, names first)
+ *   3. interview words and phrases that appear in `context` (the current question)
+ *   4. the rest of the interview vocabulary
  */
-export function hintWords(vocab, extra = [], cfg = VOCAB_CONFIG) {
+export function hintWords(vocab, { first = [], context = '' } = {}, cfg = VOCAB_CONFIG) {
   const out = [];
   const push = w => {
     const t = String(w || '').trim();
-    if (t && t.length <= 30 && out.length < cfg.maxHints && !out.some(x => x.toLowerCase() === t.toLowerCase())) out.push(t);
+    if (t && t.length <= cfg.maxHintLen && out.length < cfg.maxHints && !out.some(x => x.toLowerCase() === t.toLowerCase())) out.push(t);
   };
   vocab.targets.forEach(t => t.source === 'my' && push(t.text));
   vocab.alias.forEach(word => push(word));
   vocab.nameTokens.forEach(push);
-  TECH_HINTS.forEach(push);
-  extra.forEach(push);
+  if (vocab.city) push(vocab.city);
+  (vocab.skills || []).forEach(push);
+  first.forEach(push);
+  const ctx = ` ${String(context || '').toLowerCase().replace(/[^a-z0-9/.+#\s]/g, ' ').replace(/\s+/g, ' ')} `;
+  IV_LIST.filter(t => ctx.includes(` ${t.toLowerCase()} `)).forEach(push);
+  IV_LIST.forEach(push);
   return out;
+}
+
+/** Interview words (single words or phrases) found in a text: Mock keyword chips. */
+export function keywordsIn(text, max = 4) {
+  const ctx = ` ${String(text || '').toLowerCase().replace(/[^a-z0-9/.+#\s]/g, ' ').replace(/\s+/g, ' ')} `;
+  return IV_LIST.filter(t => t.length > 3 && !COMMON.has(t.toLowerCase()) && ctx.includes(` ${t.toLowerCase()} `)).slice(0, max);
 }
 
 /** Rare words of a text (not common, not places, 4+ letters): Practice hints. */

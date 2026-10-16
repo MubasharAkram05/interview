@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#4f46e5"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2a45b5"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-192.png"><link rel="manifest" href="/manifest.webmanifest"><meta name="apple-mobile-web-app-capable" content="yes">
 <title>Interview Simulator</title>
 <link rel="stylesheet" href="./src/style.css">
 </head>
@@ -12,6 +12,7 @@
 <header class="bar"><button class="ic hidden" id="x" data-i="left" onclick="back()" aria-label="Back" title="Back"></button><span class="logo" id="hLogo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg></span><h1 id="ttl">Interview Simulator</h1><button class="ic" id="hStreak" data-i="flame" onclick="streakToast()" aria-label="Streak" title="Streak"></button><button class="ic" id="hProf" data-i="user" onclick="showProfile()" aria-label="Profile" title="Profile"></button></header>
 <div id="adSlot" aria-hidden="true"></div>
 <div id="safeTopProbe" aria-hidden="true"></div>
+<div id="safeBotProbe" aria-hidden="true"></div>
 <div id="dlg" class="dlg hidden" role="dialog" aria-modal="true"><div class="dcard"><div class="dem" id="dEm"></div><h3 id="dT"></h3><p id="dM"></p><div class="drow"><button id="dNo" class="dno"></button><button id="dYes" class="dyes"></button></div></div></div>
 <div id="csheet" class="dlg hidden" role="dialog" aria-modal="true" onclick="if(event.target.id==='csheet')closeCS()"><div class="dcard"><div class="dem">🎯</div><h3 id="csT"></h3><p>What do you want to do?</p><div class="drow"><button class="dno" onclick="csGo(0)">Practice</button><button class="dyes" onclick="csGo(1)">Start interview</button></div></div></div>
 <div id="toast" class="hidden"></div>
@@ -20,38 +21,36 @@
 <section class="scr" id="home">
   <div class="hhero">
     <i class="hb hb1" aria-hidden="true"></i><i class="hb hb2" aria-hidden="true"></i>
-    <div class="hhtop">
-      <div class="hhtxt">
-        <div class="hwho"><span class="av" id="av"></span><span><span class="eye" id="gr">Welcome</span><b id="hi">Ready to practice?</b></span></div>
-        <h2 class="htitle">Interview<br><span>Simulator</span></h2>
+    <div class="htx">
+      <p class="hhi"><span id="gr">Welcome</span> <b id="hi">Welcome</b></p>
+      <h2 class="htitle">Interview<br><span>Simulator</span></h2>
+      <p class="htag">Practice. Improve. Succeed.</p>
+      <div class="hfeat">
+        <button class="hf" onclick="startPractice()"><span class="hfi hfp"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></span>Realistic<br>Questions</button>
+        <button class="hf" onclick="startMock()"><span class="hfi hfb"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg></span>Voice<br>Practice</button>
+        <button class="hf" onclick="showProfile()"><span class="hfi hfg"><svg viewBox="0 0 24 24"><path d="M6 20V14M12 20V8M18 20V4"/></svg></span>Instant<br>Feedback</button>
       </div>
-      <svg class="hart" viewBox="0 0 200 180" aria-hidden="true">
-        <defs>
-          <linearGradient id="hgB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset=".55" stop-color="#6366f1"/><stop offset="1" stop-color="#3b82f6"/></linearGradient>
-          <linearGradient id="hgC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#4f46e5"/></linearGradient>
-        </defs>
-        <path d="M100 14c38-6 82 18 88 60s-14 86-60 96-104-4-114-46S52 22 100 14z" fill="url(#hgB)" opacity=".9"/>
-        <g class="hmon"><rect x="46" y="44" width="116" height="84" rx="12" fill="#fff"/><rect x="54" y="52" width="100" height="68" rx="7" fill="#ede9fe"/>
-          <circle cx="104" cy="76" r="13" fill="#1e2a5a"/><path d="M78 120c2-17 12-25 26-25s24 8 26 25z" fill="#1e2a5a"/><path d="M98 96l6 7 6-7z" fill="#fff"/><path d="M102 101h4l1 12-3 4-3-4z" fill="#1e2a5a"/>
-          <rect x="96" y="128" width="16" height="12" fill="#fff"/><rect x="80" y="139" width="48" height="7" rx="3.5" fill="#fff"/></g>
-        <g class="hchat"><path d="M140 22h40a12 12 0 0 1 12 12v18a12 12 0 0 1-12 12h-22l-10 10v-10h-8a12 12 0 0 1-12-12V34a12 12 0 0 1 12-12z" fill="url(#hgC)"/><circle cx="148" cy="43" r="4" fill="#fff"/><circle cx="160" cy="43" r="4" fill="#fff"/><circle cx="172" cy="43" r="4" fill="#fff"/></g>
-        <g class="hlist" transform="rotate(-10 34 110)"><rect x="8" y="78" width="56" height="70" rx="9" fill="#fff"/>
-          <path d="M16 94l4 4 7-8M16 112l4 4 7-8M16 130l4 4 7-8" fill="none" stroke="#7c3aed" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M32 93h24M32 99h16M32 111h24M32 117h16M32 129h24M32 135h16" stroke="#c4b5fd" stroke-width="3" stroke-linecap="round"/></g>
-        <path d="M26 30l7 11M14 46l12 5M18 64l11-1" stroke="#7c3aed" stroke-width="4" stroke-linecap="round" opacity=".75"/>
-      </svg>
+      <button class="hcta" onclick="startMock()">Get Started <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     </div>
-    <p class="htag">Practice. Improve. Succeed.</p>
-    <div class="hfeat">
-      <button class="hf" onclick="startPractice()"><span class="hfi hfp"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></span>Realistic<br>Questions</button>
-      <button class="hf" onclick="startMock()"><span class="hfi hfb"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg></span>Voice<br>Practice</button>
-      <button class="hf" onclick="showProfile()"><span class="hfi hfg"><svg viewBox="0 0 24 24"><path d="M6 20V14M12 20V8M18 20V4"/></svg></span>Instant<br>Feedback</button>
-    </div>
-    <button class="hcta" onclick="startMock()">Get Started <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-    <div class="hfoot"><span id="dFull"></span></div>
+    <svg class="hart" viewBox="0 0 200 180" aria-hidden="true">
+      <defs>
+        <linearGradient id="hgB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9b7fd8"/><stop offset=".55" stop-color="#2d7dca"/><stop offset="1" stop-color="#2a45b5"/></linearGradient>
+        <linearGradient id="hgC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2d7dca"/><stop offset="1" stop-color="#2a45b5"/></linearGradient>
+      </defs>
+      <path d="M100 14c38-6 82 18 88 60s-14 86-60 96-104-4-114-46S52 22 100 14z" fill="url(#hgB)" opacity=".9"/>
+      <g class="hmon"><rect x="46" y="44" width="116" height="84" rx="12" fill="#fff"/><rect x="54" y="52" width="100" height="68" rx="7" fill="#e3edfa"/>
+        <circle cx="104" cy="76" r="13" fill="#1e2a5a"/><path d="M78 120c2-17 12-25 26-25s24 8 26 25z" fill="#1e2a5a"/><path d="M98 96l6 7 6-7z" fill="#fff"/><path d="M102 101h4l1 12-3 4-3-4z" fill="#1e2a5a"/>
+        <rect x="96" y="128" width="16" height="12" fill="#fff"/><rect x="80" y="139" width="48" height="7" rx="3.5" fill="#fff"/></g>
+      <g class="hchat"><path d="M140 22h40a12 12 0 0 1 12 12v18a12 12 0 0 1-12 12h-22l-10 10v-10h-8a12 12 0 0 1-12-12V34a12 12 0 0 1 12-12z" fill="url(#hgC)"/><circle cx="148" cy="43" r="4" fill="#fff"/><circle cx="160" cy="43" r="4" fill="#fff"/><circle cx="172" cy="43" r="4" fill="#fff"/></g>
+      <g class="hlist" transform="rotate(-10 34 110)"><rect x="8" y="78" width="56" height="70" rx="9" fill="#fff"/>
+        <path d="M16 94l4 4 7-8M16 112l4 4 7-8M16 130l4 4 7-8" fill="none" stroke="#2a45b5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M32 93h24M32 99h16M32 111h24M32 117h16M32 129h24M32 135h16" stroke="#b9cdee" stroke-width="3" stroke-linecap="round"/></g>
+      <path d="M26 30l7 11M14 46l12 5M18 64l11-1" stroke="#9b7fd8" stroke-width="4" stroke-linecap="round" opacity=".75"/>
+    </svg>
   </div>
-
-  <div id="hx"></div>
+  <div class="hcards" id="hCards" aria-label="Question of the day">
+    <div class="hcard skel"><i></i><i></i><i></i></div>
+  </div>
   <div class="pseg" id="hSeg" style="margin-top:14px"></div>
   <div id="hPath"></div>
   <div id="favList"></div>
@@ -64,18 +63,14 @@
     <div class="kv hidden" id="pKv"></div>
     <div class="stats"><div><b id="pN">0</b><span>Sessions</span></div><div><b id="pB">-</b><span>Best score</span></div><div><b id="pAvg">-</b><span>Average</span></div></div></div>
   </div>
-  <div class="sec hidden" id="pForm"><h4 id="formTitle">Your details</h4><div id="fields"></div>
-  <div class="row"><button data-i="x" onclick="cancelProfile()" aria-label="Cancel" title="Cancel"></button><button class="ok" onclick="saveProfile()">Save profile</button></div></div>
   <div class="sec" id="pHistBox"><div class="hh" style="align-items:center"><h4 style="margin:0">Interview history</h4><button class="pbtn" id="hEye" data-i="eye" onclick="toggleHist()" aria-label="Show history" title="Show history"></button></div><div id="hList" class="hidden"></div></div>
   <div class="sec" id="pProfBox"><h4>Switch profile</h4><select id="prof" onchange="setActive(this.value);showProfile()"></select>
   <div class="row"><button data-i="plus" onclick="newProfile()" aria-label="New profile" title="New profile"></button><button class="danger" data-i="trash" onclick="delProfile()" aria-label="Delete profile" title="Delete profile"></button></div></div>
   <div class="sec" id="pVoiceBox"><h4>Voice</h4>
   <label class="vlab" for="vAccent">Voice accent</label>
   <select id="vAccent" onchange="saveVoiceAccent(this.value)"></select>
-  <label class="opt"><input type="checkbox" id="vSmart" onchange="saveSmart(this.checked)"> Smart name matching</label>
-  <label class="vlab" for="vWords">My words <small>Add names and rare words here, one per line (for example Mubashar, Pakpattan, Kubernetes)</small></label>
-  <textarea id="vWords" class="vwords" spellcheck="false" maxlength="4000" placeholder="Add names and rare words here"></textarea>
-  <button class="full" onclick="saveMyWords()">Save my words</button>
+  <small class="vempty">English (India) works best for Pakistani English. Change it if words are often wrong.</small>
+  <button class="full" onclick="editProfile()">Edit my details</button>
   <div class="vmem"><b>Learned corrections</b><div id="vMem"></div></div>
   </div>
   <div class="sec" id="pPrefBox"><h4>Interview preferences</h4>
@@ -89,7 +84,38 @@
   </div>
 </section>
 
+<section class="scr hidden" id="setup" aria-labelledby="sStepT">
+  <div class="sprog" aria-hidden="true"><i id="sBar"></i></div>
+  <p class="sstep" id="sStepT">Step 1 of 2</p>
+  <p class="snote">Stored only on this phone. Used to personalise questions and voice matching.</p>
+  <form id="sForm" class="sec" novalidate onsubmit="return false">
+    <div class="sstp" data-step="0">
+      <label class="l" for="sName">Full name <span class="req">required</span></label>
+      <input type="text" id="sName" autocomplete="name" maxlength="40" aria-describedby="sNameErr" placeholder="e.g. Mubashar Akram">
+      <small class="err" id="sNameErr" aria-live="polite"></small>
+      <label class="l" for="sEdu">Education or current role</label>
+      <input type="text" id="sEdu" maxlength="60" placeholder="e.g. BS IT student">
+      <label class="l" for="sCity">City</label>
+      <input type="text" id="sCity" maxlength="40" autocomplete="address-level2" placeholder="e.g. Pakpattan">
+    </div>
+    <div class="sstp hidden" data-step="1">
+      <label class="l" for="sRole">Target role</label>
+      <select id="sRole"></select>
+      <input type="text" id="sRoleOther" class="hidden" maxlength="40" placeholder="Type your target role" aria-label="Your target role">
+      <span class="l" id="sExpL">Experience level</span>
+      <div class="pseg sexp" id="sExp" role="radiogroup" aria-labelledby="sExpL"></div>
+      <label class="l" for="sSkillIn">Key skills <span class="tcount"></span></label>
+      <div class="tags" id="sSkills"><input type="text" id="sSkillIn" placeholder="Type a skill, press Enter" autocomplete="off"></div>
+      <div class="sugg" id="sSugg" aria-label="Skill suggestions"></div>
+      <label class="l" for="sAccent">Voice accent</label>
+      <select id="sAccent"></select>
+    </div>
+  </form>
+  <div class="row srow"><button type="button" id="sBack" onclick="setupStep(-1)">Cancel</button><button type="button" class="ok" id="sNext" onclick="setupStep(1)">Next</button></div>
+</section>
+
 <section class="scr hidden" id="pcat">
+  <button class="linkb" onclick="editDetails()">Edit my details</button>
   <div class="pseg" id="pSeg"></div>
   <div id="pPath"></div>
 </section>
@@ -98,10 +124,12 @@
   <div class="ptop"><span class="cnt" id="pCount"></span></div>
   <div id="pCard">
     <div class="q" id="pQ"><span id="pQt" onclick="editA('pEditQ')"></span><i class="qsp"></i><button class="pbtn eb" id="pFav" data-i="star" onclick="toggleFav()" aria-label="Add to favorites" title="Add to favorites"></button><button class="pbtn eb" id="pEditBtn" data-i="edit" onclick="editA()" aria-label="Edit question and answer" title="Edit question and answer"></button></div>
-    <div class="acard" id="pWrap"><div class="atools"><span class="tag hidden" id="pTag">Edited by you</span></div><div id="pA" onclick="editA('pEdit')"></div></div>
+    <div class="acard" id="pWrap"><div class="atools"><span class="tag hidden" id="pTag">Edited by you</span><span class="tag best hidden" id="pBestTag"></span></div><div id="pA" onclick="editA('pEdit')"></div></div>
   </div>
   <div class="dots" id="pDots"></div>
   <div class="micwrap" id="pMicWrap"><button class="mic" id="pMic" data-i="mic" onclick="togglePMic()" aria-label="Read aloud with mic" title="Read aloud with mic"></button><button class="pbtn" id="pSpk" data-i="speaker" onclick="readA()" aria-label="Listen" title="Listen"></button></div><div class="note mst" id="pMicSt" aria-live="polite">Tap the mic and read the answer aloud</div>
+  <div class="vlive hidden" id="pLive" aria-live="polite"></div>
+  <div class="pres hidden" id="pRes" aria-live="polite"></div>
   <textarea id="pEditQ" class="ft hidden" placeholder="Question"></textarea>
   <textarea id="pEdit" class="hidden"></textarea>
   <div class="row hidden" id="pEditBtns"><button class="ok" data-i="check" onclick="saveA()" aria-label="Save" title="Save"></button><button data-i="x" onclick="cancelA()" aria-label="Cancel" title="Cancel"></button></div>
@@ -111,6 +139,7 @@
 </section>
 
 <section class="scr hidden" id="mock">
+  <button class="linkb" onclick="editDetails()">Edit my details</button>
   <div class="hidden"><select id="mcat" onchange="mSync()" aria-label="Interview type"></select><select id="mlvl" onchange="mSync()" aria-label="Experience level"></select></div>
   <div class="pseg mseg" id="mSeg" role="tablist" aria-label="Experience level"></div>
   <p class="mhint">Pick an interview type</p>
@@ -120,11 +149,13 @@
 </section>
 
 <section class="scr hidden" id="interview">
+  <div class="pmodes mmodes" id="mModes" role="group" aria-label="Answer mode"><button type="button" data-m="free" onclick="setMMode('free')" aria-pressed="true">Free answer</button><button type="button" data-m="memory" onclick="setMMode('memory')" aria-pressed="false">From memory</button><button type="button" class="hintb hidden" id="mHint" onclick="mHint()">Hint</button></div>
   <div class="qcard"><div class="qtop"><span class="cnt" id="qCount"></span></div><div class="bar"><i id="qBar"></i></div><div class="qbody"><button class="spk" data-i="speaker" onclick="reveal(cur[idx].q,true)" aria-label="Read question aloud" title="Read aloud"></button><div class="q" id="qText"></div></div></div>
   <div id="tWrap" class="hidden" style="margin-top:12px"><div class="bar"><i id="tBar" style="width:100%;transition:width 1s linear"></i></div><div class="cnt" id="tText"></div></div>
+  <div class="vlive mhintt hidden" id="mHintT" aria-live="polite"></div>
   <textarea id="ansBox" placeholder="Type or speak your answer..." spellcheck="true" style="margin-top:12px"></textarea>
   <div class="vlive hidden" id="micLive" aria-live="polite"></div>
-  <div class="vchips hidden" id="vChips" aria-label="My words"></div>
+  <div class="vchips hidden" id="vChips" aria-label="Your words"></div>
   <div class="dots" id="mDots"></div>
   <div class="micwrap"><button class="mic" id="mic" data-i="mic" onclick="toggleMic()" aria-label="Speak to type" title="Speak to type"></button><div class="note" id="micSt" aria-live="polite"></div></div>
   <div class="row"><button data-i="left" onclick="step(-1)" aria-label="Previous" title="Previous"></button><button class="ok" id="nBtn" data-i="right" onclick="step(1)" aria-label="Next" title="Next"></button></div>

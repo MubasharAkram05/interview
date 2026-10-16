@@ -125,13 +125,31 @@
 - [x] Recognizer: en-IN default (en-PK, en-US, en-GB in settings), prefer offline off, 5 guesses, partial results, silence 4000/3000 ms, minimum 15000 ms, language detection off, hints on Android 13+
 - [x] No restart loop: next session only after real speech; one empty session stops with "Tap the mic to continue"
 - [x] Partials only in the grey live bar; one final per session; noise gate (max RMS), confidence 0.4, 5 s dedupe with overlap trim
-- [x] N-best by My words / name overlap, else confidence; never merged
-- [x] Safe name matching: only My words, profile name, learned fixes; places never swapped; max 3 changes per sentence; phonetic buckets
+- [x] N-best by profile name overlap, else confidence; never merged
+- [x] Vocabulary system removed (My words, name matching, learned corrections, chips): the app writes exactly what the phone heard
 - [x] Demo profile name ("Alex Khan") no longer used for chips, hints or matching
-- [x] Text inserted at the cursor; correction memory with Undo; Open settings button when the mic is blocked
+- [x] Text inserted at the cursor; Open settings button when the mic is blocked
 - [x] Debug voice report per session (language, n-best + confidence, max RMS, drops, replacements, committed text)
 - [x] CI fails if the AAB is 40 MB or more
 - [ ] Voice fix tested on a real phone (GUIDE section 16 test script): **NOT CHECKED**
 - [ ] Recognizer honours the silence extras on the test phone: **NOT CHECKED** (session length in the voice report)
 - [ ] Noise gate level (5 dB) right for the test phone: **NOT CHECKED** (max RMS in the voice report)
+
+## Setup, Practice matching, Home, Mock banner, new logo
+
+- [x] Demo profile ("Alex Khan") removed from the code and deleted from phones at start-up (with its edits); chips only from the user's own data
+- [x] Setup screen before the first Mock or Practice session (3 steps): full name (inline check), target role, education, city, experience, skills (tags, suggestions), My words (prefilled), voice accent; "Edit my details" on Mock, Practice and Profile
+- [x] Practice: expected-text matching (word DP alignment, O(n x m)), saved words written, colours (said, corrected, extra, missed), score, best score per question, Read it / From memory with Hint, intro answer from a template
+- [x] Mock: free dictation with the user's vocabulary, chips (name, My words, question keywords), learned corrections with Undo, interview vocabulary hints
+- [x] Home: compact horizontal hero (<= 140 px), feature cards in a scroll-snap row with dots, skeletons, empty states
+- [x] Mock session page: banner at the bottom (BOTTOM_CENTER, measured), top banner on every other page
+- [x] New logo: `assets/logo/glyph.svg` (IoU 0.94 with the reference), brand gradient tokens, adaptive + monochrome + legacy launcher icons, splash, Play icon, favicon, manifest; CI checks the icon sizes
+- [x] From memory moved from Practice to Mock (Free answer / From memory, Hint, saved words written, score toast); Practice is Read it only
+- [x] Key skill suggestions follow the target role (`ROLE_SKILLS`)
+- [x] Categories first: the setup form opens after a category is picked; the role comes from it and that category opens after saving
+- [x] Setup is 2 steps; My words removed from the UI and made automatically (name, city, skills, role, education); Profile > Voice shows only the accent and learned corrections
+- [x] Home hero like the reference, horizontal (text, 3 features, Get Started left; picture right); only the Question of the day card below
+- [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
+- [ ] Bottom banner position on a real phone (gesture bar, 3-button bar): **NOT CHECKED**
+- [ ] Practice matching with real speech (voice report: expected, heard, alignment, score): **NOT CHECKED**
 

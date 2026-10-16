@@ -17,7 +17,6 @@ import {
   NOT_CAUGHT,
   TAP_TO_CONTINUE
 } from '../../src/services/voice.js';
-import { buildVocab, parseMyWords, correctText } from '../../src/services/vocab.js';
 import { pickCandidate } from '../../src/services/voice-filter.js';
 import { joinSpoken } from '../../src/services/readalong.js';
 
@@ -187,12 +186,11 @@ await openAppSettings();
 check('open settings calls the plugin', state.settingsOpened === 1);
 state.permission = undefined;
 
-// 11. N-best + safe name matching through choose()
-const vocab = buildVocab({ myWords: parseMyWords('Mubashar\nPakpattan'), name: 'Mubashar Akram' });
+// 11. N-best through choose(): the profile name decides, guesses are never changed or merged
+const keys = new Set(['mubashar', 'akram']);
 const choose = cands => {
-  const c = pickCandidate(cands, vocab.keys);
-  const r = correctText(c.text, vocab);
-  return { text: r.text, index: c.index, changes: r.changes, why: c.why };
+  const c = pickCandidate(cands, keys);
+  return { text: c.text, index: c.index, changes: [], why: c.why };
 };
 reset();
 b = box();

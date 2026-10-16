@@ -15,9 +15,12 @@ const html = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Privacy Policy - Interview Simulator</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#2a45b5">
 <meta name="description" content="Privacy Policy for the Interview Simulator Android app by Sussal Productions.">
 <style>
-:root{--bg:#f4f6fb;--card:#fff;--ink:#0f172a;--mute:#64748b;--line:#e2e8f0;--acc:#4f46e5}
+:root{--bg:#f4f6fb;--card:#fff;--ink:#0f172a;--mute:#64748b;--line:#e2e8f0;--acc:#2a45b5}
 @media (prefers-color-scheme:dark){:root{--bg:#0b1020;--card:#131a2e;--ink:#e6eaf5;--mute:#93a0ba;--line:#24304d;--acc:#8b8cff}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:16px}

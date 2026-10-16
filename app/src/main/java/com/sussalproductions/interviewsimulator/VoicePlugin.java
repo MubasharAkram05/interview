@@ -32,7 +32,7 @@ import java.util.ArrayList;
  *    Language detection is off, so the service never switches to Urdu or Hindi on its own.
  *  - Pauses: complete silence 4000 ms, possibly complete 3000 ms, minimum length 15000 ms.
  *    Many recognizers (Google's included) may ignore these; the session length is in the logs.
- *  - Hints: on Android 13+ My words, the profile name and a few tech words are passed with
+ *  - Hints: on Android 13+ the profile name and a few tech words are passed with
  *    EXTRA_BIASING_STRINGS.
  *  - Loudness: the highest onRmsChanged level of the session is reported in "end" (maxRms), so
  *    JavaScript can drop text the service invented from silence or noise.

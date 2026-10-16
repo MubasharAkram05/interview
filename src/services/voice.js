@@ -142,6 +142,10 @@ function record(r) {
   records.push(r);
   while (records.length > 12) records.shift();
 }
+/** Debug voice report: one Practice attempt (expected text, heard text, alignment, score). */
+export function notePractice(r) {
+  record({ kind: 'practice', at: new Date().toISOString().slice(11, 19), ...r });
+}
 /** Last recognizer sessions: language, n-best with confidence, max RMS, drops, changes, committed. */
 export function recentVoiceSessions() {
   return records.slice();

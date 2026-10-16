@@ -203,6 +203,35 @@ const last = () => logs.at(-1) || '';
   check('F4 debug state has only Google test IDs', !/ca-app-pub-(?!3940256099942544)/.test(json));
 }
 
+// ---- Scenario P: Mock session page puts the banner at the bottom, other pages at the top
+{
+  m.reset();
+  timers = [];
+  logs.length = 0;
+  const ads = await import(`../../src/services/admob.js?s=${++n}`);
+  await ads.initializeAdMob({ layout: () => ({ headerBottom: 98, safeTop: 24, viewportH: 800, safeBottom: 20 }), onSpace: () => {} });
+  await tick();
+  m.emit('bl');
+  await advance(400);
+  check('P1 banner starts at the top', m.calls.includes('pos:TOP_CENTER') && !m.calls.includes('pos:BOTTOM_CENTER'));
+  ads.setBannerPlacement('bottom');
+  await tick();
+  check('P2 Mock session: rebuilt at BOTTOM_CENTER', m.calls.includes('removeBanner') && m.calls.includes('pos:BOTTOM_CENTER'));
+  check('P3 debug state shows the placement', ads.getAdsDebugState().banner.placement === 'bottom');
+  // Phone where the plugin does not add the gesture-bar inset: banner bottom at 800, wanted 780.
+  m.state.adLayout = { found: true, visible: true, top: 750, height: 50, width: 320 };
+  m.emit('bl');
+  await advance(400);
+  check('P4 bottom banner over the gesture bar is lifted by 20px', m.calls.includes('showBanner:20'));
+  const before = m.calls.filter(c => c.startsWith('showBanner')).length;
+  ads.setBannerPlacement('bottom');
+  await tick();
+  check('P5 same placement again: no rebuild', m.calls.filter(c => c.startsWith('showBanner')).length === before);
+  ads.setBannerPlacement('top');
+  await tick();
+  check('P6 leaving the page restores the top banner', m.calls.filter(c => c === 'pos:TOP_CENTER').length >= 2);
+}
+
 check('Z1 no ad IDs in any log line', !logs.some(l => l.includes('ca-app-pub')));
 console.info(out.join('\n'));
 if (out.some(l => l.startsWith('FAIL'))) process.exit(1);

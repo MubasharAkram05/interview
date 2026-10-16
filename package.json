@@ -9,14 +9,15 @@
     "cap:sync": "npx cap sync android",
     "android:prep": "npm run build && npx cap sync android",
     "policy:page": "node scripts/build-policy-page.mjs",
-    "assets": "npx capacitor-assets generate --android",
     "store:assets": "node scripts/make-store-assets.mjs",
     "icon": "node scripts/make-icon.mjs",
+    "icon:check": "node scripts/check-icons.mjs",
     "policy:check": "node scripts/check-policy-sync.mjs",
     "test:ads": "node --import ./tests/ads/reg.mjs tests/ads/interstitial.test.mjs",
     "test:home": "node tests/home/qotd.test.mjs",
     "test:voice": "node tests/voice/readalong.test.mjs && node tests/voice/filter.test.mjs && node --import ./tests/voice/reg.mjs tests/voice/voice.test.mjs",
-    "test:vocab": "node tests/vocab/vocab.test.mjs && node tests/vocab/false-positives.test.mjs",
+    "test:vocab": "node tests/vocab/vocab.test.mjs && node tests/vocab/interview-vocab.test.mjs && node tests/vocab/false-positives.test.mjs",
+    "test:practice": "node tests/practice/expected.test.mjs && node tests/practice/setup.test.mjs",
     "build:debug": "vite build --mode debug"
   },
   "dependencies": {
@@ -38,8 +39,8 @@
     "marked": "^18.1.1"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.3",
+    "sharp": "^0.34.4",
     "vite": "^8.3.4",
     "wordlist-english": "^1.2.1"
   }

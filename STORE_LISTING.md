@@ -27,7 +27,6 @@ Pick an interview type and your experience level, read sample answers, and then 
 WHAT YOU CAN DO
 • Practice mode: go through common interview questions with sample answers you can edit and make your own
 • Mock interview: answer questions one by one by typing or by voice, then get a simple score and tips
-• Voice that learns your words: add your name, city and tools under My words so voice input spells them right
 • Six interview types: Software Developer / IT, Marketing / Sales, Customer Service, Teaching, Fresh Graduate / HR Round, and Cloud / DevOps / Security
 • Three levels: Fresher, Junior and Senior
 • Profiles: add your degree, skills and target role, and sample answers fill in your details
@@ -62,7 +61,7 @@ Please note: this app is a practice tool. It does not guarantee a job offer, and
 
 | Asset | Required size | File in this project | Status |
 |---|---|---|---|
-| App icon | 512 x 512, 32-bit PNG (with alpha), max 1 MB | `store-assets/icon-512.png` (512x512 RGBA, 22 KB) | Ready |
+| App icon | 512 x 512, 32-bit PNG (with alpha), max 1 MB | `assets/play/icon-512.png` (512x512 RGBA, 21 KB, full square, Play rounds the corners) | Ready |
 | Feature graphic | 1024 x 500, JPG or 24-bit PNG (no alpha), max 15 MB | `store-assets/feature-graphic.png` (1024x500 RGB, 44 KB) | Ready |
 | Phone screenshots | at least 2 (max 8), PNG or JPG, 16:9 or 9:16, each side 320 to 3840 px | `store-assets/screenshots/1-home.png` to `4-mock-interview.png` (1080x1920) | Drafts from the web build with the fictional profile "Alex Khan". Replace with real phone screenshots (the mic button only shows on a real phone) |
 
@@ -75,4 +74,4 @@ Please note: this app is a practice tool. It does not guarantee a job offer, and
 5. Results screen with score and tips
 6. Profile screen (keep the fictional "Alex Khan" profile, not your real personal data)
 
-To change the icon: edit `scripts/make-icon.mjs`, then run `npm run icon`, `npm run assets` and `npm run store:assets`.
+To change the icon: edit `assets/logo/glyph.svg` (or the gradient in `scripts/make-icon.mjs` and `--brand-1/2/3` in `src/style.css`), then run `npm run icon` (all icons, splash, Play and web icons, with a size check) and `npm run store:assets` (feature graphic).
