@@ -99,6 +99,45 @@ export function alignToExpected(heardText, expectedText, { partial = false, cfg 
   };
 }
 
+/**
+ * Colour of every expected word, like a language app (the whole saved answer is shown):
+ *  'ok'  = said (match or fix),
+ *  'bad' = said wrong: the user said other words in its place (an extra heard word in the same
+ *          gap between two said words; one extra marks one word, in order),
+ *  'dim' = not said (missed or not reached yet).
+ * Uses the ops of alignToExpected. Time O(n + m).
+ */
+export const wordStatus = r => wordDetail(r).st;
+
+/**
+ * wordStatus plus what was heard for each red word: { st, heard: { [j]: 'words said instead' } }.
+ * Extras are given to the red words in order; leftover extras go to the last red word of the gap.
+ */
+export function wordDetail(r) {
+  const st = new Array(r.total).fill('dim');
+  const heard = {};
+  let miss = [];
+  let extra = [];
+  const flush = () => {
+    const k = Math.min(miss.length, extra.length);
+    for (let t = 0; t < k; t++) {
+      st[miss[t]] = 'bad';
+      heard[miss[t]] = (t === k - 1 ? extra.slice(t) : [extra[t]]).join(' ');
+    }
+    miss = [];
+    extra = [];
+  };
+  r.ops.forEach(o => {
+    if (o.type === 'match' || o.type === 'fix') {
+      flush();
+      st[o.j] = 'ok';
+    } else if (o.type === 'extra') extra.push(o.heard);
+    else miss.push(o.j);
+  });
+  flush();
+  return { st, heard };
+}
+
 const list = a => (a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
 const article = w => (/^[aeiou]/i.test(w) ? 'an' : 'a');
 

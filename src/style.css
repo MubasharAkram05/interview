@@ -103,6 +103,11 @@ select{appearance:none;-webkit-appearance:none;padding-right:38px;background-ima
 .acard{display:flex;flex-direction:column;height:clamp(290px,46vh,440px)}
 #pA{flex:1;min-height:0;overflow-y:auto;position:relative;padding-right:4px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
 #qText{min-height:0;margin:0;font-size:22px;line-height:1.4}#interview .qcard{padding:0;background:none;border:0;box-shadow:none;border-radius:0}#interview .qcard .bar,#interview #tWrap .bar{display:none}#interview{margin-top:-10px}#interview .qtop{margin:0 0 2px;line-height:1}#interview .qbody .q{margin:0;flex:1;min-width:0}#interview #tWrap{display:none}#interview .qbody{display:flex;align-items:flex-start;height:150px;overflow-y:auto;-webkit-overflow-scrolling:touch}#interview .qbody .spk{flex:none;margin:0 10px 0 0;width:34px;height:34px;background:none;border:0;box-shadow:none;border-radius:0}#interview .qbody .spk svg{width:26px;height:26px}#interview #ansBox{min-height:clamp(260px,42vh,440px)}#interview .qtop{display:block}#interview #tWrap,#interview #ansBox{margin-top:8px!important}#interview .micwrap{margin:8px 0 4px}
+/* Mock: Previous | mic | Next in one row */
+.mctl{display:flex;align-items:center;justify-content:center;gap:clamp(18px,8vw,40px);margin:12px 0 0}
+.mnav{width:56px;height:56px;min-height:56px;padding:0;border-radius:50%;display:grid;place-items:center;flex:none}
+.mnav svg{width:24px;height:24px}
+.mnote{text-align:center;min-height:20px;margin:8px 0 4px}
 #pEdit{height:clamp(290px,46vh,440px);resize:none}
 
 /* ---- Practice categories (path UI) ---- */
@@ -321,6 +326,10 @@ header.bar{min-height:0;padding-top:calc(4px + max(env(safe-area-inset-top,0px),
 .hcard p{margin:0;font-size:14px;line-height:1.45;color:color-mix(in srgb,var(--ink) 85%,var(--mute))}
 .hcard .qotdq{font-weight:600;color:var(--ink);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .hcard .hce{color:var(--mute)}
+.qstreak{margin-left:auto;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700;background:color-mix(in srgb,#f97316 14%,transparent);color:#c2410c;white-space:nowrap}
+.qstreak.on{background:color-mix(in srgb,#f97316 24%,transparent)}
+[data-theme=dark] .qstreak{color:#fdba74}
+.hct h4{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
 .hcard.done{border-color:color-mix(in srgb,#10b981 45%,var(--line))}
 .hcard.done .qotdq{color:var(--mute)}
 .hcb .qdone{color:#059669;font-weight:700}
@@ -335,7 +344,31 @@ button.sm{min-height:44px;padding:0 16px;width:auto;border-radius:999px;font-siz
 @media(prefers-reduced-motion:reduce){.hhero,.hcard{animation:none}.hcard.skel i{animation:none}.hcta,.hcta svg{transition:none}}
 
 /* Profile hero: one fixed color (no moving gradient or floating blobs). */
-.hero.pcard{background:#4f46e5;background-size:auto;animation:none}
+.hero.pcard{background:var(--brand-2);background-size:auto;animation:none;box-shadow:0 14px 30px color-mix(in srgb,var(--brand-2) 30%,transparent)}
+/* Profile: settings list (icon, title and hint, control) */
+.plist{padding:6px 14px}
+.plist h4{margin:12px 0 2px}
+.prow{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;padding:9px 0;margin:0;background:none;border:0;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none;text-align:left;color:var(--ink);font:inherit;cursor:pointer}
+.plist>.prow:last-child,.plist>.prow:last-of-type{border-bottom:0}
+.prow.pstack{border-bottom:0;padding-bottom:4px;cursor:default}
+.plink:active{background:var(--fill)}
+@media(hover:hover){.plink:hover .chev{transform:translateX(3px)}}
+.plink:focus-visible,.sw:focus-within{outline:2px solid var(--brand-1);outline-offset:2px;border-radius:10px}
+.pic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--brand-1) 14%,transparent);color:var(--brand-2)}
+[data-theme=dark] .pic{color:#93c5fd}
+.pic svg,.chev svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ptx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ptx b{font-size:15px;font-weight:600;color:var(--ink)}
+.ptx small{font-size:12.5px;color:var(--mute);line-height:1.35}
+.ptx .vempty{margin:0}
+.chev{color:var(--mute);display:grid;place-items:center;transition:transform .2s}
+#pVoiceBox select{margin:6px 0 4px}
+.sw input{appearance:none;-webkit-appearance:none;width:48px;height:28px;margin:0;border:0;border-radius:999px;background:var(--line);position:relative;flex:none;cursor:pointer;transition:background .2s}
+.sw input::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.sw input:checked{background:var(--brand-grad)}
+.sw input:checked::after{transform:translateX(20px)}
+#form .sec:hover{transform:none;box-shadow:inherit}
+@media(prefers-reduced-motion:reduce){.sw input,.sw input::after,.chev{transition:none}}
 .hero.pcard::before,.hero.pcard::after{display:none}
 
 /* Read-along: said words green-accent, skipped words orange with a wavy underline. */
@@ -399,7 +432,10 @@ header.bar .logo svg{width:30px;height:30px;stroke:none}
 .ansbox .aph{color:var(--mute)}
 .ansbox.typing{outline:2px solid var(--acc);outline-offset:1px;background:var(--card)}
 .aw{display:inline;font:inherit;color:inherit}
-.aw.lv{color:var(--mute)}
+.aw.said{color:var(--ink)}
+.aw.wrongw{background:none;border:0;padding:0;margin:0;min-height:0;width:auto;font:inherit;box-shadow:none;cursor:pointer;color:#dc2626;font-weight:700;text-decoration:underline wavy color-mix(in srgb,#dc2626 60%,transparent);text-underline-offset:4px}
+[data-theme=dark] .aw.wrongw{color:#f87171}
+.aw.notsaid{color:color-mix(in srgb,var(--mute) 55%,transparent)}
 .mtools{display:flex;align-items:center;gap:8px;margin-top:8px}
 .mtools .mhintt{flex:1;margin:0;min-width:0}
 .mtools .hintb{margin:0;min-height:44px;padding:0 16px}

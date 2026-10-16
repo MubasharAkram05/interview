@@ -110,15 +110,16 @@ const hintT = (await p.textContent('#mHintT')).trim();
 check(`Mock: Hint shows the next 3 words of the saved answer ("${hintT}")`, (await p.isVisible('#mHintT')) && /^Next: \S+ \S+ \S+$/.test(hintT));
 const hintH = await p.$eval('#mHint', e => e.getBoundingClientRect().height);
 check(`Mock: Hint button >= 44px (${hintH}px)`, hintH >= 44);
-// What the phone heard (restored from storage): "Mubashir" is written as the saved "Mubashar",
-// "Python" is not in the answer and is not written at all.
+// What the phone heard (restored from storage), like a language app: the whole saved answer is
+// shown in order; said words dark, "Lahore" said in place of "Pakpattan" red, the rest dull.
+// "Python" is not in the answer and is never written.
 const q0 = await p.textContent('#qText');
 await p.evaluate(() => {
   const o = JSON.parse(localStorage.getItem('is_scr'));
   o.idx = 0;
   o.heard = o.cur.map(() => []);
-  o.heard[0] = 'my name is Mubashir Akram Python I am'.split(' ').map(w => ({ w }));
-  o.answers[0] = 'My name is Mubashar Akram. I am';
+  o.heard[0] = 'my name is Mubashir Akram Python I am a BS IT student from Lahore'.split(' ').map(w => ({ w }));
+  o.answers[0] = 'My name is Mubashar Akram. I am a BS IT student from';
   localStorage.setItem('is_scr', JSON.stringify(o));
 });
 // The app reads IndexedDB first; drop it so the edited localStorage copy is used.
@@ -127,14 +128,31 @@ await p.reload();
 await wait(1200);
 const shown = (await p.textContent('#ansBox')).replace(/\s+/g, ' ').trim();
 const intro = /introduce yourself|tell me about yourself/i.test(q0);
-check(`Mock: heard words written with the saved spelling ("${shown}")`, intro ? shown.startsWith('My name is Mubashar Akram') : shown.length > 0);
-check(`Mock: voice never writes free text ("Python" is not in the answer)`, !/Python/.test(shown) && (await p.locator('#ansBox .aw.bad, #wSug').count()) === 0);
+if (intro) {
+  const ref = await p.evaluate(() => document.querySelectorAll('#ansBox .aw').length);
+  check(`Mock: the whole saved answer is shown in order ("${shown.slice(0, 60)}...")`, shown.startsWith('My name is Mubashar Akram. I am a BS IT student from Pakpattan.') && ref > 15);
+  const ok = await p.$$eval('#ansBox .aw.said', x => x.map(e => e.textContent).join(' '));
+  check(`Mock: said words dark, saved spelling ("${ok}")`, ok === 'My name is Mubashar Akram. I am a BS IT student from');
+  check('Mock: the word said wrong is red', (await p.$$eval('#ansBox .aw.wrongw', x => x.map(e => e.textContent).join())) === 'Pakpattan.');
+  check('Mock: words not said are dull', (await p.locator('#ansBox .aw.notsaid').count()) > 5);
+  await p.click('#ansBox .aw.wrongw');
+  await wait(200);
+  check(`Mock: tap a red word shows what was said ("${await p.textContent('#toast')}")`, /You said "Lahore" instead of "Pakpattan\."/.test(await p.textContent('#toast')));
+  const row = await p.evaluate(() => ['.mctl .mnav', '#mic', '#nBtn'].map(q => document.querySelector(q).getBoundingClientRect()));
+  // In the test browser there is no speech service, so the mic is hidden; then only Prev | Next.
+  const micShown = row[1].width > 0;
+  check(`Mock: Previous and Next sit left and right of the mic (mic ${micShown ? 'shown' : 'hidden here'})`, micShown ? row[0].right <= row[1].left && row[1].right <= row[2].left : row[0].right <= row[2].left && Math.abs(row[0].top - row[2].top) < 4);
+  const dimC = await p.$eval('#ansBox .aw.notsaid', e => getComputedStyle(e).color);
+  const okC = await p.$eval('#ansBox .aw.said', e => getComputedStyle(e).color);
+  check(`Mock: dull and dark colours differ (${dimC} vs ${okC})`, dimC !== okC);
+}
+check('Mock: voice never writes free text ("Python")', !/Python|Lahore/.test(shown));
 await p.click('#mTypeB');
-await p.keyboard.type(' from Pakpatan');
+await p.keyboard.type(' Pakpatan');
 await p.click('#qText');
 await wait(200);
 const typed = await p.evaluate(() => JSON.parse(localStorage.getItem('is_scr')).answers[0]);
-check(`Mock: Type adds words, saved spelling when they match the answer ("${typed}")`, intro ? /I am from Pakpattan\.?$/.test(typed) : typed.length > 0);
+check(`Mock: typed words are checked like spoken ones ("${typed}")`, intro ? /student from Pakpattan\.$/.test(typed) : typed.length > 0);
 await p.evaluate(() => window.editDetails());
 await wait(400);
 await p.fill('#sName', 'Sara Ali');

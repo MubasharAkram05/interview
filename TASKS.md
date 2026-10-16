@@ -154,7 +154,10 @@
 - [x] Home hero smaller; Question of the day marked "Done today" after practice
 - [x] One profile at a time (Switch / New / Delete profile removed; older phones keep only the active profile)
 - [x] Mock: voice writes only words of the saved answer (no free text, no red words); tapping a type starts the interview (Start button removed); hero title on one row
-- [ ] Mock From memory with real speech on a phone (live words, only answer words written): **NOT CHECKED**
+- [x] Mock: whole saved answer shown in order, said = dark, said wrong = red, not said = dull (`wordStatus`)
+- [x] Mock: answer hidden while speaking (shown up to the word reached); mic stops by itself at the last word; tap a red word = what was said; Prev | mic | Next in one row; no pre-selected type; one mic permission dialog (Android's)
+- [x] Question of the day streak (days in a row, on the card); Profile page restyled as a settings list with switches
+- [ ] Mock From memory with real speech on a phone (colours while speaking): **NOT CHECKED**
 - [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
 - [ ] Bottom banner position on a real phone (gesture bar, 3-button bar): **NOT CHECKED**
 - [ ] Practice matching with real speech (voice report: expected, heard, alignment, score): **NOT CHECKED**
