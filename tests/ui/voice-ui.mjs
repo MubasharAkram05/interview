@@ -86,6 +86,9 @@ const a = (await p.textContent('#pA')).trim();
 check(`Practice "${q.slice(0, 30)}": generated answer from setup`, /introduce yourself|tell me about yourself/i.test(q) ? a.startsWith('My name is Mubashar Akram. I am a BS IT student from Pakpattan.') : true);
 check('Practice: no From memory / mode buttons, answer shown', (await p.locator('#pModes, #pHint').count()) === 0 && (await p.isVisible('#pA')));
 check('Practice: result panel hidden before speaking', !(await p.isVisible('#pRes')));
+await p.click('#pA');
+await wait(200);
+check('Practice: tapping the answer text does not open the editor', !(await p.isVisible('#pEdit')));
 
 // Mock: From memory only, no chips, bigger box; heard words aligned to the saved answer
 await p.evaluate(() => window.home());
@@ -137,7 +140,12 @@ if (intro) {
   check('Mock: words not said are dull', (await p.locator('#ansBox .aw.notsaid').count()) > 5);
   await p.click('#ansBox .aw.wrongw');
   await wait(200);
-  check(`Mock: tap a red word shows what was said ("${await p.textContent('#toast')}")`, /You said "Lahore" instead of "Pakpattan\."/.test(await p.textContent('#toast')));
+  const tip = await p.evaluate(() => {
+    const t = document.getElementById('wTip').getBoundingClientRect();
+    const w = document.querySelector('#ansBox .aw.wrongw').getBoundingClientRect();
+    return { text: document.getElementById('wTip').textContent, above: t.bottom <= w.top + 1 && t.bottom > w.top - 30, visible: t.height > 0 };
+  });
+  check(`Mock: tap a red word shows what was said just above it ("${tip.text}")`, tip.visible && tip.above && tip.text === 'You said "Lahore"');
   const row = await p.evaluate(() => ['.mctl .mnav', '#mic', '#nBtn'].map(q => document.querySelector(q).getBoundingClientRect()));
   // In the test browser there is no speech service, so the mic is hidden; then only Prev | Next.
   const micShown = row[1].width > 0;

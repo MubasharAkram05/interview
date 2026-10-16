@@ -265,6 +265,36 @@ stopListening();
 await wait(60);
 check('keepLive: untrusted live words are still never written', b.value === '', b.value);
 
+// Network error after speech: one retry, then the error is shown
+reset();
+if (isListening()) cancelListening();
+b = box();
+await startListening(b.opts());
+emit('ready');
+fin(['I am from Pakpattan']);
+end('error', 2);
+await wait(20);
+check('network error after speech: tries once more', isListening() && state.starts.length === 2, `starts ${state.starts.length}`);
+end('error', 2);
+await wait(20);
+check('second network error: stops with the message', !isListening() && b.ends.length === 1 && b.ends[0].reason === 'error');
+
+// silentRestarts option (Mock and Practice listen through longer pauses)
+reset();
+b = box();
+await startListening(b.opts({ silentRestarts: 5 }));
+fin(['I am from Pakpattan']);
+end('done');
+for (let k = 0; k < 5; k++) {
+  await wait(15);
+  end('nomatch', 7, 1);
+}
+await wait(15);
+check('silentRestarts 5: still listening after 5 silent sessions', isListening());
+end('nomatch', 7, 1);
+await wait(15);
+check('silentRestarts 5: stops after the 6th', !isListening());
+
 console.log(out.join('\n'));
 console.log(`${out.filter(l => l.startsWith('PASS')).length}/${out.length} passed`);
 if (out.some(l => l.startsWith('FAIL'))) process.exit(1);

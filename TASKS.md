@@ -158,6 +158,7 @@
 - [x] Mock: answer hidden while speaking (shown up to the word reached); mic stops by itself at the last word; tap a red word = what was said; Prev | mic | Next in one row; no pre-selected type; one mic permission dialog (Android's)
 - [x] Question of the day streak (days in a row, on the card); Profile page restyled as a settings list with switches
 - [x] Voice: a 2 s pause writes the sentence and the mic keeps listening (silence 2000/1500/min 2000 ms, up to 2 silent restarts); auto stop 2 s after the last answer word; Practice highlights words while speaking; Mock hint text removed
+- [x] Voice (from the Infinix report): empty first final entry ignored (native), 5 silent restarts while answering, one retry after network error 1/2, focused answer hints (max 60); red-word bubble above the word; Practice text not tappable (Edit button only)
 - [ ] Mock From memory with real speech on a phone (colours while speaking): **NOT CHECKED**
 - [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
 - [ ] Bottom banner position on a real phone (gesture bar, 3-button bar): **NOT CHECKED**

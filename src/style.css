@@ -479,3 +479,11 @@ header.bar .logo svg{width:30px;height:30px;stroke:none}
 .ad-bottom #adSlot{height:0}
 .ad-bottom #interview{padding-bottom:calc(var(--ad-h,0px) + 12px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
 #mock .mgrid{margin-top:16px}
+
+/* Bubble above a red word: what was said instead */
+.wtip{position:absolute;z-index:20;max-width:calc(100% - 16px);padding:7px 12px;border-radius:12px;background:#1f2937;color:#fff;font-size:14px;font-weight:600;line-height:1.3;box-shadow:0 8px 20px rgba(15,23,42,.25);pointer-events:none;animation:tipin .15s ease both}
+.wtip::after{content:"";position:absolute;top:100%;left:var(--ax,50%);transform:translateX(-50%);border:6px solid transparent;border-top-color:#1f2937}
+[data-theme=dark] .wtip{background:#f1f5f9;color:#0f172a}[data-theme=dark] .wtip::after{border-top-color:#f1f5f9}
+@keyframes tipin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.wtip{animation:none}}
+#pA{cursor:default}

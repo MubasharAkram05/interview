@@ -119,8 +119,8 @@
 <section class="scr hidden" id="practice">
   <div class="ptop"><span class="cnt" id="pCount"></span></div>
   <div id="pCard">
-    <div class="q" id="pQ"><span id="pQt" onclick="editA('pEditQ')"></span><i class="qsp"></i><button class="pbtn eb" id="pFav" data-i="star" onclick="toggleFav()" aria-label="Add to favorites" title="Add to favorites"></button><button class="pbtn eb" id="pEditBtn" data-i="edit" onclick="editA()" aria-label="Edit question and answer" title="Edit question and answer"></button></div>
-    <div class="acard" id="pWrap"><div class="atools"><span class="tag hidden" id="pTag">Edited by you</span><span class="tag best hidden" id="pBestTag"></span></div><div id="pA" onclick="editA('pEdit')"></div></div>
+    <div class="q" id="pQ"><span id="pQt"></span><i class="qsp"></i><button class="pbtn eb" id="pFav" data-i="star" onclick="toggleFav()" aria-label="Add to favorites" title="Add to favorites"></button><button class="pbtn eb" id="pEditBtn" data-i="edit" onclick="editA()" aria-label="Edit question and answer" title="Edit question and answer"></button></div>
+    <div class="acard" id="pWrap"><div class="atools"><span class="tag hidden" id="pTag">Edited by you</span><span class="tag best hidden" id="pBestTag"></span></div><div id="pA"></div></div>
   </div>
   <div class="dots" id="pDots"></div>
   <div class="micwrap" id="pMicWrap"><button class="mic" id="pMic" data-i="mic" onclick="togglePMic()" aria-label="Read aloud with mic" title="Read aloud with mic"></button><button class="pbtn" id="pSpk" data-i="speaker" onclick="readA()" aria-label="Listen" title="Listen"></button></div><div class="note mst" id="pMicSt" aria-live="polite">Tap the mic and read the answer aloud</div>
@@ -146,6 +146,7 @@
   <div class="qcard"><div class="qtop"><span class="cnt" id="qCount"></span></div><div class="bar"><i id="qBar"></i></div><div class="qbody"><button class="spk" data-i="speaker" onclick="reveal(cur[idx].q,true)" aria-label="Read question aloud" title="Read aloud"></button><div class="q" id="qText"></div></div></div>
   <div id="tWrap" class="hidden" style="margin-top:12px"><div class="bar"><i id="tBar" style="width:100%;transition:width 1s linear"></i></div><div class="cnt" id="tText"></div></div>
   <div class="ansbox" id="ansBox" role="textbox" aria-readonly="true" aria-label="Your answer" aria-live="polite"></div>
+  <div class="wtip hidden" id="wTip" role="status"></div>
   <div class="mtools"><div class="vlive mhintt hidden" id="mHintT" aria-live="polite"></div><button type="button" class="hintb" id="mHint" onclick="mHint()">Hint</button><button type="button" class="hintb" id="mTypeB" onclick="mType()">Type</button><button type="button" class="hintb" onclick="mClear()">Clear</button></div>
   <div class="dots" id="mDots"></div>
   <div class="mctl"><button class="mnav" data-i="left" onclick="step(-1)" aria-label="Previous question" title="Previous"></button><button class="mic" id="mic" data-i="mic" onclick="toggleMic()" aria-label="Speak to type" title="Speak to type"></button><button class="mnav ok" id="nBtn" data-i="right" onclick="step(1)" aria-label="Next question" title="Next"></button></div>

@@ -315,6 +315,13 @@ function onEnd(s, d) {
       return next(s, VOICE_TIMING.busyRetryMs);
     }
     if ((code === 6 || code === 7) && !(s.run && s.run.speech)) return silent(s);
+    // Network slow or dropped (1, 2) in the middle of an answer: the service often times out on
+    // long sessions. Try once more before giving up (what was said so far is already written).
+    if ((code === 1 || code === 2) && s.committed > 0 && !s.netRetried && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+      s.netRetried = true;
+      voiceLog('network error, trying again', code);
+      return next(s, VOICE_TIMING.busyRetryMs);
+    }
     return finish(s, 'error', code);
   }
   // done / nomatch: continue after real speech.
@@ -329,7 +336,8 @@ function onEnd(s, d) {
 // written, listen again a few times; then stop (never an endless loop on noise or silence).
 function silent(s) {
   s.silent = (s.silent || 0) + 1;
-  if (s.committed > 0 && s.silent <= VOICE_TIMING.silentRestarts) return next(s, VOICE_TIMING.nextSessionMs);
+  const max = s.o.silentRestarts ?? VOICE_TIMING.silentRestarts;
+  if (s.committed > 0 && s.silent <= max) return next(s, VOICE_TIMING.nextSessionMs);
   return finish(s, 'empty');
 }
 
@@ -344,6 +352,7 @@ function next(s, ms) {
  *  bias: hint strings (Android 13+). choose(cands) -> { text, index, changes, why }: picks and
  *  corrects one of the guesses ({ text, score, index }). onState(state), onPartial(text) (show
  *  only), onFinal(text, info) (write it), onLevel(db), onEnd({ reason, code, heard, message }).
+ *  silentRestarts: how many silent sessions in a row to listen through once something was written.
  *  keepLive(text) -> bool: live words the screen trusts (they match the saved answer); they are
  *  written even when no final comes or its confidence is low.
  *  filter: overrides for VOICE_FILTER (tests).

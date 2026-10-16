@@ -54,8 +54,8 @@ import {
   openAppSettings,
   notePractice
 } from './services/voice.js';
-import { voiceAccent, setAccentPref, corrections, removeCorrection, userVocab } from './services/voice-prefs.js';
-import { hintWords, rareWords, norm } from './services/vocab.js';
+import { voiceAccent, setAccentPref, corrections, removeCorrection } from './services/voice-prefs.js';
+import { rareWords, norm } from './services/vocab.js';
 import { alignToExpected, introTemplate, isIntroQuestion, wordStatus, wordDetail } from './services/expected.js';
 import { ROLES, EXPERIENCE, MAX_SKILLS, ROLE_SKILLS, nameError, cleanTags, buildProfile, setupDone, catToRole, autoWords, LEGACY_DEMO_NAMES } from './services/setup.js';
 import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
@@ -1367,10 +1367,17 @@ function pMicNote(m) {
   if (el) el.textContent = m || PMIC_IDLE;
 }
 
-// ---- Voice: shared helpers for Mock and Practice ----
-// The user's own words (setup details, My words, learned corrections) for hints and matching.
-function vocabFor() {
-  return userVocab(profiles[active] || {});
+// Hints for saying a saved answer: only the user's name and city, then the answer's own words
+// (rare ones first). A short, focused list biases the recognizer more than 100 general words.
+const SILENT_RESTARTS = 5; // keep listening through about 15 s of silence while answering
+function answerHints(ref) {
+  const p = profiles[active] || {};
+  const own = [p.name, ...String(p.name || '').split(/\s+/), p.city].filter(Boolean);
+  const words = String(ref || '')
+    .split(/\s+/)
+    .map(w => w.replace(/[^\w'+#./-]/g, '').replace(/[.]+$/, ''))
+    .filter(w => w.length > 1);
+  return [...new Set([...own, ...rareWords(ref, 40), ...words])].slice(0, 60);
 }
 
 // ---- Practice: expected-text matching ----
@@ -1451,7 +1458,6 @@ async function togglePMic() {
   const card = P.i;
   const it = P.list[P.i];
   const ref = ansText(it);
-  const vocab = vocabFor();
   let finished = false;
   let readyOnce = false;
   const here = () => cs === 'practice' && P.i === card;
@@ -1525,7 +1531,8 @@ async function togglePMic() {
 
   const started = await startListening({
     // Hints: the user's own words first, then the words of the saved answer (rare ones first).
-    bias: hintWords(vocab, { first: [...rareWords(ref, 100), ...ref.split(/\s+/).map(w => w.replace(/[^\w'+#./-]/g, ''))], context: it.q }),
+    bias: answerHints(ref),
+    silentRestarts: SILENT_RESTARTS,
     choose,
     // Live words that are mostly from the saved answer are kept even if the phone sends no final.
     keepLive: t => alignToExpected(t, ref, { partial: true }).matched >= Math.max(1, Math.ceil(t.split(/\s+/).filter(w => norm(w)).length / 2)),
@@ -1736,6 +1743,7 @@ function showQ() {
   $('qCount').textContent = `${idx + 1}/${cur.length}`;
   reveal(cur[idx].q, $('rd').checked);
   $('mHintT').classList.add('hidden');
+  $('wTip').classList.add('hidden');
   mRender(idx);
   $('qBar').style.width = ((idx + 1) / cur.length) * 100 + '%';
   $('nBtn').dataset.i = idx === cur.length - 1 ? 'check' : 'right';
@@ -1900,6 +1908,22 @@ function mRender(i, live = '') {
   if (x && x.offsetTop + x.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = x.offsetTop - box.clientHeight / 2;
 }
 
+// A small bubble just above the tapped word (what was said instead).
+function showWordTip(el, text) {
+  const tip = $('wTip');
+  const host = $('interview').getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  tip.textContent = text;
+  tip.classList.remove('hidden');
+  const w = tip.offsetWidth;
+  const left = Math.max(8, Math.min(r.left - host.left + r.width / 2 - w / 2, host.width - w - 8));
+  tip.style.left = `${left}px`;
+  tip.style.top = `${r.top - host.top - tip.offsetHeight - 8}px`;
+  tip.style.setProperty('--ax', `${r.left - host.left + r.width / 2 - left}px`);
+  clearTimeout(showWordTip.t);
+  showWordTip.t = setTimeout(() => tip.classList.add('hidden'), 3500);
+}
+
 // The last word of the saved answer has been said (right or wrong).
 function mDone(i, live = '') {
   const st = wordStatus(mAlign(i, live).r);
@@ -2010,7 +2034,8 @@ async function toggleMic() {
 
   const started = await startListening({
     // Hints: the user's own words, then the words of the saved answer (rare ones first).
-    bias: hintWords(vocabFor(), { first: [...rareWords(ref, 100), ...mWords(ref).map(w => w.replace(/[^\w'+#./-]/g, ''))], context: it.q }),
+    bias: answerHints(ref),
+    silentRestarts: SILENT_RESTARTS,
     // N-best: the guess that matches the most words of the saved answer wins.
     choose: cands => {
       let best = cands[0];
@@ -2361,7 +2386,10 @@ function initEventListeners() {
     const b = e.target.closest('.aw.wrongw');
     if (!b || $('ansBox').isContentEditable) return;
     playTapSound();
-    toast(b.dataset.heard ? `You said "${b.dataset.heard}" instead of "${b.textContent}"` : `"${b.textContent}" was not said right`);
+    showWordTip(b, b.dataset.heard ? `You said "${b.dataset.heard}"` : 'Not said right');
+  });
+  document.addEventListener('pointerdown', e => {
+    if (!e.target.closest('#wTip, .aw.wrongw')) $('wTip')?.classList.add('hidden');
   });
 
   // Feedback actions
