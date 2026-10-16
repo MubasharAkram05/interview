@@ -452,8 +452,39 @@ function stats() {
   const p = profiles[active];
   const g = new Date().getHours();
   const first = p && p.name ? p.name.split(' ')[0] : '';
-  $('gr').textContent = first ? (g < 12 ? 'Good morning,' : g < 18 ? 'Good afternoon,' : 'Good evening,') : '';
   $('hi').textContent = first || 'Welcome';
+  $('gr').textContent = first ? (g < 12 ? 'Good morning,' : g < 18 ? 'Good afternoon,' : 'Good evening,') : 'Hello,';
+  const h = getItem('is_hist', []) || [];
+  $('hsStreak').textContent = calculateStreak(h);
+  $('hsDone').textContent = h.length;
+  $('hsBest').textContent = h.length ? `${Math.max(...h.map(x => x.s))}/10` : '-';
+  const done = setupDone(p);
+  $('hSub').textContent = !done ? "Let's set up your details and start practising." : h.length ? 'Keep going. Practise a few answers today.' : 'Ready to practise your first answers?';
+  $('hGoT').textContent = done ? 'Start practice' : 'Get Started';
+}
+
+// Home hero main button: Practice when the details are saved, else the details form first.
+function heroGo() {
+  playTapSound();
+  if (setupDone(profiles[active])) return startPractice();
+  openSetup(() => startPractice(), { fresh: !profiles[active] });
+}
+
+// Welcome screen: covers the app while it loads; Get Started shows when everything is ready.
+// Get Started: the details form when it is not filled in yet, else the app (Home).
+function introReady() {
+  const el = $('intro');
+  if (!el) return;
+  if (window.__skipIntro) return el.remove(); // browser tests that check other screens
+  $('iLoad').classList.add('hidden');
+  const go = $('iGo');
+  go.classList.remove('hidden');
+  go.onclick = () => {
+    playTapSound();
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 400);
+    if (!setupDone(profiles[active])) openSetup(() => home(), { fresh: !profiles[active] });
+  };
 }
 
 // Home: one card under the hero, the Question of the day.
@@ -2685,6 +2716,7 @@ async function initApp() {
       }
     });
   }
+  introReady();
 }
 
 
@@ -2765,6 +2797,7 @@ Object.assign(window, {
   mHint,
   mClear,
   muteSpeech,
+  heroGo,
   mType,
   homeLevel,
   pcLevel,

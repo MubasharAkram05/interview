@@ -9,6 +9,7 @@ const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 375, height: 740 }, hasTouch: true });
 const errors = [];
 p.on('pageerror', e => errors.push(e.message));
+await p.addInitScript(() => { window.__skipIntro = true; });
 await p.goto('http://localhost:4173/');
 // An older version's demo profile ("Alex Khan") and its edit: both must be deleted at start-up.
 await p.evaluate(() => {

@@ -163,6 +163,9 @@
 - [x] Header mute button, shown only while reading aloud
 - [x] Mock matching like a language app: lenient (50% spelling), joined/split words, sticky right words (a red word said again turns right); mic pauses on 2-3 s silence, listens again, stops after ~6-7 s silence, or at the next pause once every word is right
 - [x] Answers in full professional words: degree short forms written out, "Marketing/Sales" -> "Marketing and Sales", no "at my university"; new intro template
+- [x] Welcome screen while the app loads (title, tagline, picture, 4 features); Get Started appears when ready: details form for a new user, else Home
+- [x] Home hero is a friendly progress card (greeting, day streak, interviews, best score, Start practice / Mock interview); Start practice opens the form first if details are missing
+- [x] versionCode = CI run number, so every build is a new version and the phone refreshes the cached app icon
 - [ ] Mock From memory with real speech on a phone (colours while speaking): **NOT CHECKED**
 - [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
 - [ ] Bottom banner position on a real phone (gesture bar, 3-button bar): **NOT CHECKED**

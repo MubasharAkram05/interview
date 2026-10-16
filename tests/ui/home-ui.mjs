@@ -17,7 +17,15 @@ await p.evaluate(() => {
   localStorage.setItem('is_active', JSON.stringify('Test User'));
 });
 await p.reload();
-await p.waitForTimeout(900);
+// Welcome screen while loading; Get Started appears when ready and opens the app.
+check('welcome screen shows at start', await p.isVisible('#intro'));
+await p.waitForSelector('#iGo:not(.hidden)', { timeout: 5000 });
+check('welcome: Get Started appears once loaded, loader hidden', (await p.isVisible('#iGo')) && !(await p.isVisible('#iLoad')));
+check('welcome: title, tagline and 4 features', /Interview\s*Simulator/.test(await p.textContent('.ititle')) && (await p.textContent('.itag')) === 'Practice. Improve. Get Hired.' && (await p.locator('.ifeat > div').count()) === 4);
+await p.click('#iGo');
+await p.waitForTimeout(600);
+check('welcome: Get Started with saved details goes to Home', !(await p.isVisible('#intro')) && (await p.isVisible('#home')) && !(await p.isVisible('#setup')));
+await p.addInitScript(() => { window.__skipIntro = true; });
 
 check('older phones with several profiles keep only the active one', await p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('is_profiles'))).join() === 'Test User'));
 const homeText = await p.textContent('#home');
@@ -26,13 +34,11 @@ check('header has no theme button', (await p.locator('header.bar [data-i="moon"]
 check('header shows logo on home', await p.isVisible('#hLogo'));
 const hero = await p.$eval('.hhero', e => {
   const r = e.getBoundingClientRect();
-  const tx = e.querySelector('.htx').getBoundingClientRect();
-  const art = e.querySelector('.hart').getBoundingClientRect();
   const btn = e.querySelector('.hcta').getBoundingClientRect();
-  return { h: r.height, row: art.left >= tx.right - 1 && art.top < tx.bottom && art.bottom > tx.top, inside: art.right <= r.right + 1, btnH: btn.height, feats: e.querySelectorAll('.hfeat .hf').length };
+  return { h: r.height, btnH: btn.height, stats: e.querySelectorAll('.hstats > div').length, poster: !!e.querySelector('.htitle, .hfeat') };
 });
-check(`home hero: text left, illustration right (one horizontal row, ${Math.round(hero.h)}px)`, hero.row && hero.inside && hero.h <= 320);
-check('home hero: greeting, title, tagline, 3 features, Get Started', (await p.textContent('#hi')) === 'Test' && /Interview\s*Simulator/.test(await p.textContent('.htitle')) && (await p.textContent('.htag')) === 'Practice. Improve. Succeed.' && hero.feats === 3 && (await p.textContent('.hcta')).includes('Get Started') && hero.btnH >= 44);
+check(`home hero: friendly card, greeting, 3 stats, two actions (${Math.round(hero.h)}px)`, !hero.poster && hero.h <= 330 && hero.stats === 3 && (await p.textContent('#hi')) === 'Test' && (await p.textContent('#hsDone')) === '1' && (await p.textContent('#hsBest')) === '7/10' && hero.btnH >= 44);
+check('home hero: main button says Start practice (details saved)', (await p.textContent('#hGo')).includes('Start practice') && (await p.textContent('.hcta2')).includes('Mock interview'));
 const cards = await p.$$eval('#hCards .hcard', cs => cs.map(c => c.querySelector('h4').textContent));
 check(`home: only one card under the hero, Question of the day (${cards.join(', ')})`, cards.join() === 'Question of the day' && (await p.locator('#hDots').count()) === 0);
 const heroGap = await p.evaluate(() => document.querySelector('.hhero').getBoundingClientRect().top - document.querySelector('header.bar').getBoundingClientRect().bottom);
@@ -40,7 +46,12 @@ check(`home: no empty gap above the hero (${Math.round(heroGap)}px)`, heroGap <=
 check('no Alex or Khan anywhere on Home', !/\bAlex\b|\bKhan\b/.test(await p.textContent('body')));
 await p.click('.hcta');
 await p.waitForTimeout(400);
-check('Get Started opens the Mock page', await p.isVisible('#mock'));
+check('hero main button opens Practice when details are saved', await p.isVisible('#pcat'));
+await p.evaluate(() => window.home());
+await p.waitForTimeout(300);
+await p.click('.hcta2');
+await p.waitForTimeout(400);
+check('hero Mock interview button opens the Mock page', await p.isVisible('#mock'));
 await p.evaluate(() => window.home());
 await p.waitForTimeout(400);
 
@@ -144,6 +155,16 @@ const pad = await p.evaluate(() => { document.documentElement.classList.add('wv-
 check(`header: no status bar padding when WebView starts below it (${pad})`, pad === '6px');
 check('no horizontal scroll', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 check('no page errors', errors.length === 0);
+// New user: Get Started on the welcome screen opens the details form
+const p2 = await b.newPage({ viewport: { width: 375, height: 740 } });
+await p2.goto('http://localhost:4173/');
+await p2.evaluate(() => localStorage.clear());
+await p2.evaluate(() => new Promise(r => { const q = indexedDB.deleteDatabase('InterviewSimulator'); q.onsuccess = q.onerror = q.onblocked = () => r(); }));
+await p2.reload();
+await p2.waitForSelector('#iGo:not(.hidden)', { timeout: 5000 });
+await p2.click('#iGo');
+await p2.waitForTimeout(600);
+check('welcome: Get Started for a new user opens the details form', await p2.isVisible('#setup'));
 await b.close();
 console.log(out.join('\n'));
 if (out.some(l => l.startsWith('FAIL'))) process.exit(1);

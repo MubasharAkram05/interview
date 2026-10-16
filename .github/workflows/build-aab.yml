@@ -27,6 +27,9 @@ jobs:
     timeout-minutes: 45
     env:
       BUILD_TOOLS: "36.0.0"
+      # A new versionCode for every build (Play Console needs it growing; the phone also refreshes
+      # the cached launcher icon only when the version changes): the workflow run number.
+      VERSION_CODE: ${{ github.run_number }}
 
     steps:
       - name: Check out code

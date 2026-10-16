@@ -8,6 +8,39 @@
 <link rel="stylesheet" href="./src/style.css">
 </head>
 <body>
+<div class="intro" id="intro" role="dialog" aria-label="Welcome to Interview Simulator">
+  <div class="itop">
+    <img class="ilogo" src="./assets/logo/glyph.svg" alt="" width="76" height="76">
+    <h1 class="ititle">Interview <span>Simulator</span></h1>
+    <p class="itag">Practice. Improve. Get Hired.</p>
+    <p class="isub">Simulate real interview scenarios, get instant feedback and build your confidence.</p>
+    <svg class="iwave" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30C80 0 160 60 240 34s120-30 160-8V60H0z"/></svg>
+  </div>
+  <svg class="iart" viewBox="0 0 200 180" aria-hidden="true">
+    <defs>
+      <linearGradient id="igB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9b7fd8"/><stop offset=".55" stop-color="#2d7dca"/><stop offset="1" stop-color="#2a45b5"/></linearGradient>
+      <linearGradient id="igC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2d7dca"/><stop offset="1" stop-color="#2a45b5"/></linearGradient>
+    </defs>
+    <path d="M100 14c38-6 82 18 88 60s-14 86-60 96-104-4-114-46S52 22 100 14z" fill="url(#igB)" opacity=".9"/>
+    <g class="hmon"><rect x="46" y="44" width="116" height="84" rx="12" fill="#fff"/><rect x="54" y="52" width="100" height="68" rx="7" fill="#e3edfa"/>
+      <circle cx="104" cy="76" r="13" fill="#1e2a5a"/><path d="M78 120c2-17 12-25 26-25s24 8 26 25z" fill="#1e2a5a"/><path d="M98 96l6 7 6-7z" fill="#fff"/><path d="M102 101h4l1 12-3 4-3-4z" fill="#1e2a5a"/>
+      <rect x="96" y="128" width="16" height="12" fill="#fff"/><rect x="80" y="139" width="48" height="7" rx="3.5" fill="#fff"/></g>
+    <g class="hchat"><path d="M140 22h40a12 12 0 0 1 12 12v18a12 12 0 0 1-12 12h-22l-10 10v-10h-8a12 12 0 0 1-12-12V34a12 12 0 0 1 12-12z" fill="url(#igC)"/><circle cx="148" cy="43" r="4" fill="#fff"/><circle cx="160" cy="43" r="4" fill="#fff"/><circle cx="172" cy="43" r="4" fill="#fff"/></g>
+    <g class="hlist" transform="rotate(-10 34 110)"><rect x="8" y="78" width="56" height="70" rx="9" fill="#fff"/>
+      <path d="M16 94l4 4 7-8M16 112l4 4 7-8M16 130l4 4 7-8" fill="none" stroke="#2a45b5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M32 93h24M32 99h16M32 111h24M32 117h16M32 129h24M32 135h16" stroke="#b9cdee" stroke-width="3" stroke-linecap="round"/></g>
+    <path d="M26 30l7 11M14 46l12 5M18 64l11-1" stroke="#9b7fd8" stroke-width="4" stroke-linecap="round" opacity=".75"/>
+  </svg>
+  <div class="ifeat">
+    <div><span class="ifi i1"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.2-4.4A8 8 0 1 1 21 12z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg></span>Realistic<br>Questions</div>
+    <div><span class="ifi i2"><svg viewBox="0 0 24 24"><path d="M6 20V14M12 20V8M18 20V4"/></svg></span>Instant<br>Feedback</div>
+    <div><span class="ifi i3"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg></span>Track Your<br>Progress</div>
+    <div><span class="ifi i4"><svg viewBox="0 0 24 24"><path d="M12 2l3 6.9 7.4.6-5.6 4.8 1.7 7.2L12 17.8 5.5 21.5l1.7-7.2L1.6 9.5 9 8.4z"/></svg></span>Build<br>Confidence</div>
+  </div>
+  <div class="iload" id="iLoad" aria-live="polite"><i class="ispin" aria-hidden="true"></i><span>Getting things ready...</span></div>
+  <button class="igo hidden" id="iGo" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg> Get Started</button>
+  <p class="ifoot">Your next opportunity is just a practice away.</p>
+</div>
 <div class="app">
 <header class="bar"><button class="ic hidden" id="x" data-i="left" onclick="back()" aria-label="Back" title="Back"></button><span class="logo" id="hLogo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg></span><h1 id="ttl">Interview Simulator</h1><button class="ic hidden" id="hMute" data-i="mute" onclick="muteSpeech()" aria-label="Stop reading aloud" title="Stop reading aloud"></button><button class="ic" id="hStreak" data-i="flame" onclick="streakToast()" aria-label="Streak" title="Streak"></button><button class="ic" id="hProf" data-i="user" onclick="showProfile()" aria-label="Profile" title="Profile"></button></header>
 <div id="adSlot" aria-hidden="true"></div>
@@ -21,18 +54,10 @@
 <section class="scr" id="home">
   <div class="hhero">
     <i class="hb hb1" aria-hidden="true"></i><i class="hb hb2" aria-hidden="true"></i>
-    <div class="hhead">
-      <p class="hhi"><span id="gr">Welcome</span> <b id="hi">Welcome</b></p>
-      <h2 class="htitle">Interview <span>Simulator</span></h2>
-    </div>
     <div class="htx">
-      <p class="htag">Practice. Improve. Succeed.</p>
-      <div class="hfeat">
-        <button class="hf" onclick="startPractice()"><span class="hfi hfp"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></span>Realistic<br>Questions</button>
-        <button class="hf" onclick="startMock()"><span class="hfi hfb"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg></span>Voice<br>Practice</button>
-        <button class="hf" onclick="showProfile()"><span class="hfi hfg"><svg viewBox="0 0 24 24"><path d="M6 20V14M12 20V8M18 20V4"/></svg></span>Instant<br>Feedback</button>
-      </div>
-      <button class="hcta" onclick="startMock()">Get Started <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <p class="hhi" id="gr">Welcome</p>
+      <h2 class="hname" id="hi">Welcome</h2>
+      <p class="hsub" id="hSub">Let's get you ready for your interview.</p>
     </div>
     <svg class="hart" viewBox="0 0 200 180" aria-hidden="true">
       <defs>
@@ -49,6 +74,15 @@
         <path d="M32 93h24M32 99h16M32 111h24M32 117h16M32 129h24M32 135h16" stroke="#b9cdee" stroke-width="3" stroke-linecap="round"/></g>
       <path d="M26 30l7 11M14 46l12 5M18 64l11-1" stroke="#9b7fd8" stroke-width="4" stroke-linecap="round" opacity=".75"/>
     </svg>
+    <div class="hstats" aria-label="Your progress">
+      <div><b id="hsStreak">0</b><span>Day streak</span></div>
+      <div><b id="hsDone">0</b><span>Interviews</span></div>
+      <div><b id="hsBest">-</b><span>Best score</span></div>
+    </div>
+    <div class="hbtns">
+      <button class="hcta" id="hGo" onclick="heroGo()"><span id="hGoT">Get Started</span> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <button class="hcta2" onclick="startMock()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg> Mock interview</button>
+    </div>
   </div>
   <div class="hcards" id="hCards" aria-label="Question of the day">
     <div class="hcard skel"><i></i><i></i><i></i></div>
