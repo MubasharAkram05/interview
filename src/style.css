@@ -456,7 +456,7 @@ header.bar .logo svg{width:30px;height:30px;stroke:none}
 .aw.said{color:var(--ink)}
 .aw.wrongw{background:none;border:0;padding:0;margin:0;min-height:0;width:auto;font:inherit;box-shadow:none;cursor:pointer;color:#dc2626;font-weight:700;text-decoration:underline wavy color-mix(in srgb,#dc2626 60%,transparent);text-underline-offset:4px}
 [data-theme=dark] .aw.wrongw{color:#f87171}
-.aw.notsaid{color:color-mix(in srgb,var(--mute) 55%,transparent)}
+.aw.notsaid{color:color-mix(in srgb,var(--mute) 78%,var(--bg))}
 .mtools{display:flex;align-items:center;gap:8px;margin-top:8px}
 .mtools .mhintt{flex:1;margin:0;min-width:0}
 .mtools .hintb{margin:0;min-height:44px;padding:0 16px}
@@ -498,7 +498,7 @@ header.bar .logo svg{width:30px;height:30px;stroke:none}
 /* ---- Banner at the bottom on the Mock interview session page ---- */
 #safeBotProbe{position:fixed;bottom:0;left:0;width:0;visibility:hidden;pointer-events:none;height:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px))}
 .ad-bottom #adSlot{height:0}
-.ad-bottom #interview{padding-bottom:calc(var(--ad-h,0px) + 12px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
+.ad-bottom #interview{padding-bottom:calc(var(--ad-h,0px) + 22px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
 #mock .mgrid{margin-top:16px}
 
 /* Bubble above a red word: what was said instead */
@@ -521,3 +521,6 @@ header.bar #hMute{color:#fff;background:var(--brand-grad);box-shadow:0 4px 12px 
 #interview #ansBox{flex:1 1 0;min-height:150px;max-height:none}
 #interview .qbody{height:auto;max-height:150px}
 html{background:var(--bg)}
+
+/* Toasts (e.g. 'Press back again to exit') show above the welcome screen */
+#toast{z-index:1100}

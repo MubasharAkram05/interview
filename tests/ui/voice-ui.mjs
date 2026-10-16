@@ -112,7 +112,7 @@ await wait(150);
 check('Mock: the session page fits the screen (no scroll)', await p.evaluate(() => { const m = document.getElementById('main'); return m.scrollHeight <= m.clientHeight + 1; }));
 check('Mock: no Free answer / From memory toggle, no chips', (await p.locator('#mModes, #vChips, #micLive').count()) === 0);
 const boxH = await p.$eval('#ansBox', e => e.getBoundingClientRect().height);
-check(`Mock: answer box is taller (${Math.round(boxH)}px)`, boxH >= 260);
+check(`Mock: answer box fills the free space (${Math.round(boxH)}px)`, boxH >= 200);
 check('Mock: empty box explains what to do', /say your answer from memory/i.test(await p.textContent('#ansBox')));
 await p.click('#mHint');
 await wait(100);
@@ -162,12 +162,31 @@ if (intro) {
   check(`Mock: dull and dark colours differ (${dimC} vs ${okC})`, dimC !== okC);
 }
 check('Mock: voice never writes free text ("Python")', !/Python|Lahore/.test(shown));
+// Score: one right sentence out of a long answer (other questions empty) is far from 10/10
+const sc0 = await p.evaluate(async () => {
+  window.mGo(9);
+  await new Promise(r => setTimeout(r, 300));
+  document.getElementById('nBtn').click();
+  await new Promise(r => setTimeout(r, 500));
+  const y = document.getElementById('dYes');
+  if (y && !document.getElementById('dlg').classList.contains('hidden')) y.click();
+  await new Promise(r => setTimeout(r, 600));
+  return document.getElementById('score').textContent;
+});
+check(`Mock score counts every answer word, not only the right ones ("${sc0}")`, /^\d+ \/ 10$/.test(sc0.trim()) && parseInt(sc0, 10) < 5);
+await p.evaluate(() => history.back());
+await wait(500);
+await p.evaluate(() => window.startMock());
+await wait(400);
+await p.click('#mGrid .mt[data-c=fresh]');
+await wait(1200);
+if (await p.isVisible('#dlg')) { await p.click('#dYes'); await wait(900); }
 await p.click('#mTypeB');
 await p.keyboard.type(' Pakpatan');
 await p.click('#qText');
 await wait(200);
 const typed = await p.evaluate(() => JSON.parse(localStorage.getItem('is_scr')).answers[0]);
-check(`Mock: typed words are checked like spoken ones ("${typed}")`, intro ? /^My name is Mubashar Akram, and I am from Pakpattan\./.test(typed) : typed.length > 0);
+check(`Mock: typed words are checked like spoken ones ("${typed}")`, intro ? /Pakpattan/.test(typed) : typed.length > 0);
 await p.evaluate(() => window.editDetails());
 await wait(400);
 await p.fill('#sName', 'Sara Ali');

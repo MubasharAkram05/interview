@@ -17,12 +17,12 @@ Interview Simulator ("the app") is a free Android app made by Sussal Productions
 
 The app saves the following only in the app's private storage on your phone:
 
-- The details you enter before your first session (full name, target role, education or current role, city, experience level, key skills, My words and voice accent) and any other profile details you type
+- The details you enter before your first session (full name, target role, education or current role, city, experience level, key skills and voice accent; the app also makes a short word list from these details to recognise your name and city) and any other profile details you type
 - Questions and answers you add or edit
 - Mock interview answers you type or speak, and your scores and history
 - Favorites, Practice scores and settings (theme, shuffle, read aloud, voice accent), and the voice corrections the app learns from your edits
 
-These details are stored only on your device. They are used on your phone to personalise questions and answers and to match voice input to your words. This data is not sent to us or to anyone else by the app. You can delete it at any time: delete a profile or clear history inside the app, or use Android Settings > Apps > Interview Simulator > Storage > Clear data. Uninstalling the app also deletes it.
+These details are stored only on your device. They are used on your phone to personalise questions and answers and to match voice input to your words. This data is not sent to us or to anyone else by the app. You can change or remove it at any time: edit your details or clear history inside the app, or use Android Settings > Apps > Interview Simulator > Storage > Clear data. Uninstalling the app also deletes it.
 
 If Android backup is turned on for your Google account, Android may include this app data in your own device backup. This backup is controlled by Android and your Google account, not by us.
 
