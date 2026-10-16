@@ -1,5 +1,5 @@
 // Practice expected-text matching (src/services/expected.js). Run: node tests/practice/expected.test.mjs
-import { alignToExpected, introTemplate, isIntroQuestion, wordStatus, wordDetail } from '../../src/services/expected.js';
+import { alignToExpected, introTemplate, isIntroQuestion, wordStatus, wordDetail, expandDegree, roleText, phraseHits, memoryStatus } from '../../src/services/expected.js';
 
 const out = [];
 const check = (name, ok, extra = '') => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : '   ' + extra}`);
@@ -39,10 +39,28 @@ check(`score = matched / expected words (${r.score}%)`, r.score === Math.round((
 const t = introTemplate({ name: 'Mubashar Akram', edu: 'BS IT student', city: 'Pakpattan', skills: ['AWS', 'DevOps', 'Linux'], role: 'Cloud Engineer' });
 check(
   'template answer from setup details',
-  t === 'My name is Mubashar Akram. I am a BS IT student from Pakpattan. My skills include AWS, DevOps and Linux. I am looking for a Cloud Engineer position.',
+  t === 'My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing a BS in Information Technology. My key skills include AWS, DevOps and Linux. I am now looking for a Cloud Engineer role where I can use these skills, grow and add value to the team.',
   t
 );
-check('template leaves out missing details', introTemplate({ name: 'Sara', role: 'IT Support' }) === 'My name is Sara. I am looking for an IT Support position.', introTemplate({ name: 'Sara', role: 'IT Support' }));
+check('template leaves out missing details', introTemplate({ name: 'Sara', role: 'IT Support' }) === 'My name is Sara. I am now looking for an IT Support role where I can learn, grow and add value to the team.', introTemplate({ name: 'Sara', role: 'IT Support' }));
+check('degree short forms written out, no shortcuts', expandDegree('BS IT').degree === 'BS in Information Technology' && expandDegree('bscs student').studying && expandDegree('BBA').degree.startsWith('Bachelor of Business') && expandDegree('FSc').degree === 'FSc');
+check('role with a slash reads as words', roleText('Marketing/Sales') === 'Marketing and Sales' && introTemplate({ role: 'Marketing/Sales' }).includes('a Marketing and Sales role'));
+check('a degree already done: "I hold"', introTemplate({ edu: 'MBA' }) === 'I hold a Master of Business Administration (MBA).', introTemplate({ edu: 'MBA' }));
+
+// Mock (language-app style): lenient matching and sticky hits
+const REF = 'My name is Mubashar Akram. I am a BS IT from Pakpattan. My skills include SEO.';
+const RW = REF.split(/\s+/);
+const hits = h => [...phraseHits(h, REF)].sort((a, b) => a - b).map(j => RW[j]).join(' ');
+check(`phraseHits: joined word "bsit" = "BS IT" (${hits('I am bsit from')})`, /BS IT/.test(hits('I am bsit from')));
+check(`phraseHits: split word "pak pattan" = "Pakpattan" (${hits('from pak pattan')})`, hits('from pak pattan').includes('Pakpattan.'));
+check(`phraseHits: a word half right counts ("Mubashir", "skill") (${hits('my name is Mubashir my skill include')})`, /Mubashar/.test(hits('my name is Mubashir my skill include')) && /skills/.test(hits('my name is Mubashir my skill include')));
+check('phraseHits: one city word never turns a neighbour green', hits('Pakpattan') === 'Pakpattan.', hits('Pakpattan'));
+const m1 = memoryStatus('my name is Mubashir Akram I am from Lahore', REF);
+const pj = RW.indexOf('Pakpattan.');
+check('memoryStatus: wrong city is red', m1.st[pj] === 'bad' && m1.heard[pj] === 'Lahore', JSON.stringify(m1));
+const m2 = memoryStatus('my name is Mubashir Akram I am from Lahore Pakpattan', REF, [...phraseHits('Pakpattan', REF)]);
+check('memoryStatus: said again later, the red word turns right (sticky)', m2.st[pj] === 'ok', m2.st.join(' '));
+
 check('intro questions detected', isIntroQuestion('Introduce yourself in 2 minutes.') && isIntroQuestion('Tell me about yourself') && !isIntroQuestion('Why this job?'));
 
 // Speed: a 120-word answer against a 150-word attempt.

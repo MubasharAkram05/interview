@@ -9,7 +9,7 @@
 </head>
 <body>
 <div class="app">
-<header class="bar"><button class="ic hidden" id="x" data-i="left" onclick="back()" aria-label="Back" title="Back"></button><span class="logo" id="hLogo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg></span><h1 id="ttl">Interview Simulator</h1><button class="ic" id="hStreak" data-i="flame" onclick="streakToast()" aria-label="Streak" title="Streak"></button><button class="ic" id="hProf" data-i="user" onclick="showProfile()" aria-label="Profile" title="Profile"></button></header>
+<header class="bar"><button class="ic hidden" id="x" data-i="left" onclick="back()" aria-label="Back" title="Back"></button><span class="logo" id="hLogo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg></span><h1 id="ttl">Interview Simulator</h1><button class="ic hidden" id="hMute" data-i="mute" onclick="muteSpeech()" aria-label="Stop reading aloud" title="Stop reading aloud"></button><button class="ic" id="hStreak" data-i="flame" onclick="streakToast()" aria-label="Streak" title="Streak"></button><button class="ic" id="hProf" data-i="user" onclick="showProfile()" aria-label="Profile" title="Profile"></button></header>
 <div id="adSlot" aria-hidden="true"></div>
 <div id="safeTopProbe" aria-hidden="true"></div>
 <div id="safeBotProbe" aria-hidden="true"></div>
@@ -123,6 +123,7 @@
     <div class="acard" id="pWrap"><div class="atools"><span class="tag hidden" id="pTag">Edited by you</span><span class="tag best hidden" id="pBestTag"></span></div><div id="pA"></div></div>
   </div>
   <div class="dots" id="pDots"></div>
+  <!-- Practice mic: hidden by PRACTICE_MIC = false in src/main.js (set it to true to bring it back). -->
   <div class="micwrap" id="pMicWrap"><button class="mic" id="pMic" data-i="mic" onclick="togglePMic()" aria-label="Read aloud with mic" title="Read aloud with mic"></button><button class="pbtn" id="pSpk" data-i="speaker" onclick="readA()" aria-label="Listen" title="Listen"></button></div><div class="note mst" id="pMicSt" aria-live="polite">Tap the mic and read the answer aloud</div>
   <div class="vlive hidden" id="pLive" aria-live="polite"></div>
   <div class="pres hidden" id="pRes" aria-live="polite"></div>

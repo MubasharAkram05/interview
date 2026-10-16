@@ -487,3 +487,8 @@ header.bar .logo svg{width:30px;height:30px;stroke:none}
 @keyframes tipin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.wtip{animation:none}}
 #pA{cursor:default}
+#pMic.hidden+#pSpk{position:static;transform:none;width:56px;height:56px}
+/* Header mute button: only while reading aloud */
+header.bar #hMute{color:#fff;background:var(--brand-grad);box-shadow:0 4px 12px color-mix(in srgb,var(--brand-2) 35%,transparent);animation:mutep 1.4s ease-in-out infinite}
+@keyframes mutep{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+@media(prefers-reduced-motion:reduce){header.bar #hMute{animation:none}}

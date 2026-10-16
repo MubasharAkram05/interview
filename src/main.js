@@ -56,11 +56,11 @@ import {
 } from './services/voice.js';
 import { voiceAccent, setAccentPref, corrections, removeCorrection } from './services/voice-prefs.js';
 import { rareWords, norm } from './services/vocab.js';
-import { alignToExpected, introTemplate, isIntroQuestion, wordStatus, wordDetail } from './services/expected.js';
+import { alignToExpected, introTemplate, isIntroQuestion, memoryStatus, phraseHits, expandDegree, roleText } from './services/expected.js';
 import { ROLES, EXPERIENCE, MAX_SKILLS, ROLE_SKILLS, nameError, cleanTags, buildProfile, setupDone, catToRole, autoWords, LEGACY_DEMO_NAMES } from './services/setup.js';
 import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
 
-import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
+import { speak, stopSpeaking, isSpeaking, onSpeakingChange, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
 import { questionOfDay, bumpStreak, streakNow } from './services/qotd.js';
 import { nativeAdLayout } from './services/native-info.js';
@@ -94,6 +94,7 @@ const IC = {
   download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
   trash: 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',
   plus: 'M12 5v14M5 12h14',
+  mute: 'M11 5L6 9H2v6h4l5 4zM22 9l-6 6M16 9l6 6',
   chart: 'M6 20V14M12 20V8M18 20V4',
   globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20',
   shuffle: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
@@ -186,7 +187,15 @@ const bank = (c, level = 'fresher') => {
     });
 };
 
-const fill = (t, p) => t.replace(/\{(\w+)\}/g, (_, k) => (p && p[k] ? clean(p[k]) : DEF[k] || `[${k}]`));
+// Fill a sample answer from the profile, in full professional words: degree short forms written
+// out ("BS IT" -> "BS in Information Technology"), "Marketing/Sales" -> "Marketing and Sales", and
+// no "at my university" when the university is not known.
+const fill = (t, p) => {
+  const q = p ? { ...p, degree: expandDegree(p.degree || p.edu).degree, role: roleText(p.role) } : p;
+  let s = String(t);
+  if (!(q && q.uni)) s = s.replace(/,?\s+(at|from) \{uni\}/g, '').replace(/\bAt \{uni\}/g, 'At university');
+  return s.replace(/\{(\w+)\}/g, (_, k) => (q && q[k] ? clean(q[k]) : DEF[k] || `[${k}]`));
+};
 const ekey = it => `${active}|${CK(P.cat, P.lv)}|${it.i}`;
 const rp = p => p && { ...p, role: ROLE[P.cat] || p.role };
 // Saved answer, or the sample answer filled from the profile. "Introduce yourself" questions use
@@ -341,7 +350,7 @@ function saveScr() {
   const id = cs;
   let o = { s: id };
   if (id === 'practice') o = { s: id, cat: P.cat, lv: P.lv, i: P.i, one: P.one };
-  else if (id === 'interview') o = { s: id, cat, lv, idx, cur, answers, heard: mHeard };
+  else if (id === 'interview') o = { s: id, cat, lv, idx, cur, answers, heard: mHeard, ok: mOk };
   setItem('is_scr', o);
 }
 
@@ -1206,6 +1215,29 @@ function pr() {
   cancelA();
   renderIcons();
   updFav();
+  pAutoRead(it);
+}
+
+// Practice: read the question, then the answer, aloud when a new question opens (Read aloud on).
+let pAutoKey = '';
+function pAutoRead(it) {
+  const k = `${P.cat}|${P.lv}|${it.i}`;
+  if (k === pAutoKey || !$('rd').checked) return;
+  pAutoKey = k;
+  const card = P.i;
+  speak(it.q).then(r => {
+    if (r.ok && cs === 'practice' && P.i === card && !isSpeaking()) readA(true);
+  });
+}
+
+// Header mute button (shown only while reading aloud): stop reading.
+function muteSpeech() {
+  playTapSound();
+  stopSpeaking();
+  clearInterval(rv);
+  clearTimeout(rv);
+  if (cs === 'practice') hlTo(0);
+  document.querySelectorAll('#qText .w').forEach(x => x.classList.add('in'));
 }
 
 function dots() {
@@ -1291,7 +1323,7 @@ function cancelA() {
   const last = P.i === P.list.length - 1;
   $('pCard').classList.toggle('hidden', !has);
   ['pMicWrap', 'pEditBtn'].forEach(i => $(i).classList.toggle('hidden', !has));
-  $('pMicSt').classList.toggle('hidden', !has || !voiceOK);
+  $('pMicSt').classList.toggle('hidden', !has || !voiceOK || !PRACTICE_MIC);
   $('pDots').classList.toggle('hidden', !has || P.one != null);
   $('pDone').classList.toggle('hidden', !has || !last);
   ['pEditQ', 'pEdit', 'pEditBtns', 'pEditMore'].forEach(i => $(i).classList.add('hidden'));
@@ -1333,10 +1365,13 @@ async function micBlocked() {
   return false;
 }
 
+// Practice mic is switched off for now (the code stays). To bring it back, set this to true.
+const PRACTICE_MIC = false;
+
 // Hide mic buttons when the phone has no speech recognition service.
 function updateMicButtons() {
-  $('pMic').classList.toggle('hidden', !voiceOK);
-  $('pMicSt').classList.toggle('hidden', !voiceOK);
+  $('pMic').classList.toggle('hidden', !voiceOK || !PRACTICE_MIC);
+  $('pMicSt').classList.toggle('hidden', !voiceOK || !PRACTICE_MIC);
   $('mic').classList.toggle('hidden', !voiceOK);
   if (!voiceOK) $('micSt').textContent = 'Voice input is not available on this phone. Type your answer.';
 }
@@ -1369,7 +1404,8 @@ function pMicNote(m) {
 
 // Hints for saying a saved answer: only the user's name and city, then the answer's own words
 // (rare ones first). A short, focused list biases the recognizer more than 100 general words.
-const SILENT_RESTARTS = 5; // keep listening through about 15 s of silence while answering
+const SILENT_RESTARTS = 5; // Practice: keep listening through about 15 s of silence
+const MOCK_SILENT_RESTARTS = 2; // Mock: stop after about 6 to 7 s of silence
 function answerHints(ref) {
   const p = profiles[active] || {};
   const own = [p.name, ...String(p.name || '').split(/\s+/), p.city].filter(Boolean);
@@ -1584,8 +1620,8 @@ async function togglePMic() {
 }
 
 // Practice: listen to the answer with the phone's text-to-speech voice.
-async function readA() {
-  playTapSound();
+async function readA(auto = false) {
+  if (!auto) playTapSound();
   if (isSpeaking()) {
     stopSpeaking();
     clearInterval(rv);
@@ -1731,6 +1767,7 @@ function startInterview() {
   idx = 0;
   answers = new Array(cur.length).fill('');
   mHeard = cur.map(() => []);
+  mOk = cur.map(() => []);
   show('interview');
   showQ();
 }
@@ -1869,11 +1906,15 @@ function mockNote(m) {
 // that are not in the answer are never written.
 // mHeard[i]: heard (or typed) words of question i ({ w }), the source of the box and of answers[i].
 let mHeard = [];
+let mOk = []; // mOk[i]: answer word indices said right at least once (sticky)
 const mWords = t => String(t || '').split(/\s+/).filter(w => norm(w));
 
-function mAlign(i, live = '') {
+// Status of every answer word of question i (with the live words while speaking).
+function mStatus(i, live = '') {
   const H = mHeard[i] || [];
-  return { H, r: alignToExpected([...H.map(x => x.w), ...mWords(live)].join(' '), refText(cur[i]), { partial: true }) };
+  const ref = refText(cur[i]);
+  const sticky = [...(mOk[i] || []), ...(live ? phraseHits(live, ref) : [])];
+  return memoryStatus([...H.map(x => x.w), ...mWords(live)].join(' '), ref, sticky);
 }
 
 function mRender(i, live = '') {
@@ -1889,8 +1930,7 @@ function mRender(i, live = '') {
     box.textContent = [...H.map(x => x.w), ...mWords(live)].join(' ');
     return;
   }
-  const { r } = mAlign(i, live);
-  const { st, heard } = wordDetail(r);
+  const { st, heard } = mStatus(i, live);
   // While the mic is on, only the part already reached is shown (the rest stays hidden, so it is
   // still from memory); when it stops, the words not said show dull.
   const reach = mMicOn ? st.reduce((n, s, j) => (s !== 'dim' ? j : n), -1) : st.length - 1;
@@ -1926,20 +1966,27 @@ function showWordTip(el, text) {
 
 // The last word of the saved answer has been said (right or wrong).
 function mDone(i, live = '') {
-  const st = wordStatus(mAlign(i, live).r);
+  const { st } = mStatus(i, live);
   return st.length > 0 && st[st.length - 1] !== 'dim';
+}
+
+// Every word of the saved answer said right.
+function mAllOk(i) {
+  const { st } = mStatus(i);
+  return st.length > 0 && st.every(s => s === 'ok');
 }
 
 // answers[i] (used for feedback): the saved-answer words the user said, in order.
 function mCommit(i) {
   const H = mHeard[i] || [];
   const ref = refText(cur[i]);
-  answers[i] = !ref
-    ? H.map(x => x.w).join(' ')
-    : alignToExpected(H.map(x => x.w).join(' '), ref)
-        .ops.filter(o => o.type === 'match' || o.type === 'fix')
-        .map(o => o.expected)
-        .join(' ');
+  if (!ref) answers[i] = H.map(x => x.w).join(' ');
+  else {
+    const { st } = mStatus(i);
+    answers[i] = mWords(ref)
+      .filter((w, j) => st[j] === 'ok')
+      .join(' ');
+  }
   saveScr();
   mRender(i);
 }
@@ -1949,9 +1996,9 @@ function mHint() {
   const it = cur[idx];
   const ref = it ? mWords(refText(it)) : [];
   if (!ref.length) return toast('No saved answer for this question yet.');
-  const { r } = mAlign(idx);
-  const last = Math.max(-1, ...r.ops.filter(o => o.type === 'match' || o.type === 'fix').map(o => o.j));
-  const next = ref.slice(last + 1, last + 4).join(' ');
+  const { st } = mStatus(idx);
+  const from = st.findIndex(s => s !== 'ok'); // first word not said right yet
+  const next = from < 0 ? '' : ref.slice(from, from + 3).join(' ');
   const el = $('mHintT');
   el.textContent = next ? `Next: ${next}` : 'You said it all.';
   el.classList.remove('hidden');
@@ -1978,6 +2025,7 @@ function mType() {
     box.contentEditable = 'false';
     box.classList.remove('typing');
     mHeard[i] = mWords(box.innerText).map(w => ({ w })); // typed words are checked like spoken ones
+    mOk[i] = refText(cur[i]) ? [...phraseHits(box.innerText, refText(cur[i]))] : [];
     mCommit(i);
   };
 }
@@ -1987,6 +2035,7 @@ async function mClear() {
   if (!(mHeard[idx] || []).length && !answers[idx]) return;
   if (!(await ask('Clear answer?', 'Clear this answer and start again?', 'Clear', 'Cancel', '🧹', true))) return;
   mHeard[idx] = [];
+  mOk[idx] = [];
   answers[idx] = '';
   saveScr();
   mRender(idx);
@@ -2016,18 +2065,6 @@ async function toggleMic() {
   const before = H.length;
   const here = () => idx === myIdx && cs === 'interview';
   let readyOnce = false;
-  let doneT = null;
-  // The whole answer is said: wait 2 s (the user may still be finishing), then stop the mic.
-  const stopSoon = () => {
-    if (doneT) return;
-    doneT = setTimeout(() => {
-      if (!mMicOn || !here()) return;
-      mMicOn = false;
-      $('mic').classList.remove('on');
-      mockNote('Finishing...');
-      stopListening(); // the last phrase still arrives and is added
-    }, DONE_WAIT_MS);
-  };
   mMicOn = true;
   $('mic').classList.add('on');
   mockNote('Getting the mic ready...');
@@ -2035,13 +2072,16 @@ async function toggleMic() {
   const started = await startListening({
     // Hints: the user's own words, then the words of the saved answer (rare ones first).
     bias: answerHints(ref),
-    silentRestarts: SILENT_RESTARTS,
+    // A 2 to 3 s pause writes the sentence and the mic listens again. It stops after about 6 to 7 s
+    // of silence, or right at the next pause once every word of the answer is right (keep talking
+    // to improve it: the mic stays on while you speak).
+    silentRestarts: () => (ref && mAllOk(myIdx) ? 0 : MOCK_SILENT_RESTARTS),
     // N-best: the guess that matches the most words of the saved answer wins.
     choose: cands => {
       let best = cands[0];
       let bestN = -1;
       cands.forEach(c => {
-        const n = ref ? alignToExpected([...H.map(x => x.w), c.text].join(' '), ref, { partial: true }).matched : 0;
+        const n = ref ? phraseHits(c.text, ref).size : 0;
         if (n > bestN) {
           best = c;
           bestN = n;
@@ -2050,21 +2090,19 @@ async function toggleMic() {
       return { text: best.text, index: best.index, changes: [], why: `best fit to your answer (${bestN} words)` };
     },
     // Live words that are mostly from the saved answer are kept even if the phone sends no final.
-    keepLive: t => !!ref && alignToExpected(t, ref, { partial: true }).matched >= Math.max(1, Math.ceil(mWords(t).length / 2)),
+    keepLive: t => !!ref && phraseHits(t, ref).size >= Math.max(1, Math.ceil(mWords(t).length / 2)),
     onState: st => {
       if (!here()) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
       mockNote(st === 'ready' || st === 'listening' ? 'Speak now. Say your answer from memory.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : st === 'stopping' ? 'Finishing...' : '');
     },
     onLevel: db => micLevel($('mic'), db),
-    onPartial: text => {
-      mRender(myIdx, text); // shown in the box at once, saved when final
-      if (ref && mDone(myIdx, text)) stopSoon(); // last word reached
-    },
+    onPartial: text => mRender(myIdx, text), // shown in the box at once, saved when final
     onFinal: text => {
       H.push(...mWords(text).map(w => ({ w })));
+      // Answer words in this phrase stay right for good (a red word said again turns right).
+      if (ref) mOk[myIdx] = [...new Set([...(mOk[myIdx] || []), ...phraseHits(text, ref)])];
       mCommit(myIdx);
-      if (ref && mDone(myIdx)) stopSoon();
     },
     onEnd: ({ reason, message }) => {
       $('mic').style.removeProperty('--lvl');
@@ -2073,9 +2111,11 @@ async function toggleMic() {
       mRender(myIdx);
       if (!here()) return;
       if (H.length > before && ref) {
-        const r = alignToExpected(H.map(x => x.w).join(' '), ref, { partial: true });
+        const { st } = mStatus(myIdx);
+        const ok = st.filter(s => s === 'ok').length;
+        const score = Math.round((ok / st.length) * 100);
         mockNote('');
-        return toast(r.matched ? `${r.score}% of your answer said. Red = said wrong, grey = missed.` : 'No words of your saved answer were heard. Try again.');
+        return toast(ok ? (score === 100 ? 'Perfect! You said the whole answer 🎉' : `${score}% of your answer said. Red = said wrong, grey = missed.`) : 'No words of your saved answer were heard. Try again.');
       }
       mockNote(reason === 'cancelled' ? '' : message);
     }
@@ -2470,6 +2510,7 @@ async function initApp() {
   await initStorage();
   setVoiceAccent(voiceAccent());
   initSetup();
+  onSpeakingChange(on => $('hMute').classList.toggle('hidden', !on));
   $('hLogo').innerHTML = logoSvg();
 
   const savedTheme = getItem('is_theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
@@ -2544,6 +2585,7 @@ async function initApp() {
         cur = o.cur;
         answers = o.answers;
         mHeard = Array.isArray(o.heard) ? o.heard : cur.map(() => []);
+        mOk = Array.isArray(o.ok) ? o.ok : cur.map(() => []);
         idx = Math.min(o.idx, cur.length - 1);
         show('interview');
         showQ();
@@ -2722,6 +2764,7 @@ Object.assign(window, {
   openHistory,
   mHint,
   mClear,
+  muteSpeech,
   mType,
   homeLevel,
   pcLevel,
