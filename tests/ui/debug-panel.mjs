@@ -11,6 +11,7 @@ const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 375, height: 740 }, hasTouch: true });
 const errors = [];
 p.on('pageerror', e => errors.push(e.message));
+await p.addInitScript(() => { window.__skipIntro = true; });
 await p.goto('http://localhost:4173/');
 await p.waitForTimeout(800);
 

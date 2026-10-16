@@ -31,8 +31,9 @@ android {
         applicationId "com.sussalproductions.interviewsimulator"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // Increase versionCode by 1 for every upload to Play Console.
-        versionCode 1
+        // versionCode must grow with every build: CI sets VERSION_CODE to the run number (local
+        // builds use 1). A new number also makes the phone refresh the app icon after an update.
+        versionCode Integer.parseInt(System.getenv("VERSION_CODE") ?: "1")
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
