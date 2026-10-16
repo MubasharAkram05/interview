@@ -22,9 +22,8 @@ const config: CapacitorConfig = {
       initialViewportFitValueHint: 'cover'
     },
     SplashScreen: {
-      // Android's splash goes as soon as the app draws; the window background then shows the logo
-      // until the page paints (index.html also hides the splash early). Keeping the splash longer
-      // only showed a plain blue screen when the app was opened from the installer.
+      // Keep launchShowDuration at 0: MainActivity installs Android's splash itself and keeps it
+      // until the web page has painted. A non-zero value would make this plugin install it again.
       launchShowDuration: 0,
       launchAutoHide: true,
       launchFadeOutDuration: 200,
