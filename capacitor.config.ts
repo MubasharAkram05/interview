@@ -19,8 +19,12 @@ const config: CapacitorConfig = {
       initialViewportFitValueHint: 'cover'
     },
     SplashScreen: {
+      // Kept until the page has painted (index.html hides it as soon as the welcome screen is
+      // there). On the first start after install the WebView needs longer than a fixed time, and
+      // an auto-hide showed a plain blue window in between.
       launchShowDuration: 1800,
-      launchAutoHide: true,
+      launchAutoHide: false,
+      launchFadeOutDuration: 200,
       backgroundColor: '#2a45b5',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',

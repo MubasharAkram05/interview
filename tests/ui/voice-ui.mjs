@@ -30,6 +30,7 @@ check('Practice first tap: categories shown, no form yet', (await p.isVisible('#
 await p.evaluate(() => window.pcGo('cloud', 0, 'fresher'));
 await wait(500);
 check('category tap: setup form appears', await p.isVisible('#setup'));
+check('setup form: no banner space (no-ad)', await p.evaluate(() => document.documentElement.classList.contains('no-ad') && getComputedStyle(document.getElementById('adSlot')).height === '0px'));
 check('setup: 2 steps', (await p.textContent('#sStepT')).startsWith('Step 1 of 2'));
 check('setup: no Alex or Khan anywhere', !/\bAlex\b|\bKhan\b/.test(await p.textContent('body')));
 await p.click('#sNext');
@@ -106,6 +107,9 @@ if (await p.isVisible('#dlg')) {
   await p.click('#dYes');
   await wait(900);
 }
+await p.evaluate(() => document.documentElement.style.setProperty('--ad-h', '50px')); // bottom banner space
+await wait(150);
+check('Mock: the session page fits the screen (no scroll)', await p.evaluate(() => { const m = document.getElementById('main'); return m.scrollHeight <= m.clientHeight + 1; }));
 check('Mock: no Free answer / From memory toggle, no chips', (await p.locator('#mModes, #vChips, #micLive').count()) === 0);
 const boxH = await p.$eval('#ansBox', e => e.getBoundingClientRect().height);
 check(`Mock: answer box is taller (${Math.round(boxH)}px)`, boxH >= 260);

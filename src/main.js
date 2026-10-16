@@ -379,6 +379,10 @@ function render(id) {
   const adBottom = id === 'interview';
   document.documentElement.classList.toggle('ad-bottom', adBottom);
   setBannerPlacement(adBottom ? 'bottom' : 'top');
+  // Forms (details, new question): no banner and no reserved space.
+  const noAd = id === 'setup' || id === 'addq';
+  document.documentElement.classList.toggle('no-ad', noAd);
+  setBannerSuppressed('form', noAd);
   requestBannerRelayout(); // every screen: check the banner is still just under the header
 
   $('x').classList.toggle('hidden', id === 'home');
@@ -2544,6 +2548,8 @@ function loadPreferences() {
 
 // App Bootstrap
 async function initApp() {
+  // The welcome screen is on the page: the native splash can go (index.html also does this early).
+  if (Capacitor.isNativePlatform()) SplashScreen.hide().catch(() => {});
   await initStorage();
   setVoiceAccent(voiceAccent());
   initSetup();

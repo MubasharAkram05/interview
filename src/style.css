@@ -513,3 +513,10 @@ header.bar .logo svg{width:30px;height:30px;stroke:none}
 header.bar #hMute{color:#fff;background:var(--brand-grad);box-shadow:0 4px 12px color-mix(in srgb,var(--brand-2) 35%,transparent);animation:mutep 1.4s ease-in-out infinite}
 @keyframes mutep{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
 @media(prefers-reduced-motion:reduce){header.bar #hMute{animation:none}}
+
+/* Forms: no banner, no reserved slot */
+.no-ad #adSlot{height:0}
+/* Mock session: the page fits the screen; the answer box takes the space that is left */
+#interview:not(.hidden){display:flex;flex-direction:column;min-height:100%}
+#interview #ansBox{flex:1 1 0;min-height:150px;max-height:none}
+#interview .qbody{height:auto;max-height:150px}
