@@ -27,6 +27,7 @@ Pick an interview type and your experience level, read sample answers, and then 
 WHAT YOU CAN DO
 • Practice mode: go through common interview questions with sample answers you can edit and make your own
 • Mock interview: answer questions one by one by typing or by voice, then get a simple score and tips
+• Voice that learns your words: add your name, city and tools under My words so voice input spells them right
 • Six interview types: Software Developer / IT, Marketing / Sales, Customer Service, Teaching, Fresh Graduate / HR Round, and Cloud / DevOps / Security
 • Three levels: Fresher, Junior and Senior
 • Profiles: add your degree, skills and target role, and sample answers fill in your details

@@ -17,10 +17,10 @@ Interview Simulator ("the app") is a free Android app made by Sussal Productions
 
 The app saves the following only in the app's private storage on your phone:
 
-- Profile details you type (for example name, degree, university, target role, certifications and skills)
+- Profile details you type (for example name, hometown, degree, university, target role, certifications and skills)
 - Questions and answers you add or edit
 - Mock interview answers you type or speak, and your scores and history
-- Favorites and settings (theme, shuffle, read aloud)
+- Favorites and settings (theme, shuffle, read aloud, voice accent, My words and learned voice corrections)
 
 This data is not sent to us or to anyone else by the app. You can delete it at any time: delete a profile or clear history inside the app, or use Android Settings > Apps > Interview Simulator > Storage > Clear data. Uninstalling the app also deletes it.
 
@@ -32,7 +32,7 @@ If Android backup is turned on for your Google account, Android may include this
 - When you use voice input, the app uses the speech recognition service that is installed on your phone. On most phones this is provided by Google.
 - Your voice is processed by that service to turn it into text. The service may send your voice to Google's servers to do this. Google's handling of this data is covered by the Google Privacy Policy: https://policies.google.com/privacy
 - The app itself does not record, save or upload audio files. Only the recognized text comes back to the app and is shown in your answer box on your phone.
-- To hear you more accurately, the app also gives the speech service a short list of words you are likely to say: the words of the answer you are reading in Practice, and in a mock interview the question, the app's sample answer for it, common technical terms and the role, skills, certifications and project you entered in your profile. Your name, university and degree are not included.
+- To hear you more accurately, the app gives the speech service a short list of single words you are likely to say (at most 100, never full sentences): words you saved under My words, the name and hometown in your profile, rare words from your saved Practice answers and from the current question, and common technical terms. These words, your voice settings and the corrections the app learns from your edits are saved only on your phone. Turning off Smart name matching in Profile > Voice stops this word list from being sent.
 - Listening stops when you tap the mic again, leave the screen, or put the app in the background.
 
 ## Read aloud

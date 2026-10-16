@@ -44,3 +44,33 @@ export function adsLog(...parts) {
 export function recentAdsLog(n = 20) {
   return recent.slice(-n);
 }
+
+// ---- Voice diagnostics: "VOICE:" lines (debug builds only; nothing is kept in release builds) ----
+const voiceRecent = [];
+const voiceEarly = []; // lines from before we know the build type
+
+/** voiceLog('start', {...}) -> "VOICE: start {...}". Text heard is logged only in debug builds. */
+export function voiceLog(...parts) {
+  const t = new Date();
+  const stamp = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}.${String(t.getMilliseconds()).padStart(3, '0')}`;
+  const line = `${stamp} VOICE: ${parts.map(p => (typeof p === 'string' ? p : JSON.stringify(p))).join(' ')}`;
+  if (!known) {
+    if (voiceEarly.length < 50) voiceEarly.push(line);
+    return;
+  }
+  if (!enabled) return;
+  if (voiceEarly.length) voiceRecent.push(...voiceEarly.splice(0));
+  voiceRecent.push(line);
+  while (voiceRecent.length > 50) voiceRecent.shift();
+  console.log(line);
+}
+
+export function recentVoiceLog(n = 50) {
+  return voiceRecent.slice(-n);
+}
+
+/** For tests: turn voice logging on without a native debug flag. */
+export function _enableVoiceLogForTests() {
+  enabled = true;
+  known = true;
+}

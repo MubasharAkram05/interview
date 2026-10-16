@@ -1,6 +1,7 @@
 import { Network } from '@capacitor/network';
 import { getAdsDebugState, forceInterstitialTest, setBannerSuppressed } from '../services/admob.js';
-import { debugReady, recentAdsLog } from '../services/debug.js';
+import { debugReady, recentAdsLog, recentVoiceLog } from '../services/debug.js';
+import { voiceInfo, voiceState } from '../services/voice.js';
 import { nativeAppInfo, nativeAdLayout } from '../services/native-info.js';
 
 /**
@@ -110,9 +111,35 @@ async function report() {
     `  banner=${s.config.bannerAdId} interstitial=${s.config.interstitialAdId}`,
     '',
     '-- last 20 ADS: lines --',
-    ...recentAdsLog(20)
+    ...recentAdsLog(20),
+    '',
+    ...(await voiceSection(10))
   ];
   return lines.join('\n');
+}
+
+// Voice section: recognizer facts and the last VOICE: lines (heard text is kept only in debug builds).
+async function voiceSection(n) {
+  const v = await voiceInfo();
+  const fmt = x => (x === null || x === undefined || x === '' ? '-' : x);
+  let smart = '-';
+  try {
+    smart = localStorage.getItem('is_voice_smart') === 'false' ? 'off' : 'on';
+  } catch {
+    // ignore
+  }
+  return [
+    '== Voice ==',
+    `Android SDK ${fmt(v.sdk)} | recognizer available=${fmt(v.available)} | segmented rejected=${fmt(v.segmentedBroken)} | biasing hints ${v.sdk >= 33 ? 'supported' : 'not supported (needs Android 13+)'}`,
+    `Accent ${fmt(v.accent)} | locale now ${fmt(v.locale)} | smart name matching ${smart} | state ${voiceState()}`,
+    `-- last ${n} VOICE: lines --`,
+    ...recentVoiceLog(n)
+  ];
+}
+
+async function voiceReport() {
+  const a = appInfo || {};
+  return ['== Interview Simulator voice report ==', `Build: git ${__GIT_SHA__} | built ${__BUILD_TIME__} | ${a.device || 'browser'}`, '', ...(await voiceSection(50))].join('\n');
 }
 
 function round(v) {
@@ -138,11 +165,13 @@ function openPanel() {
         <button id="dbgCopy">Copy report</button>
         <button id="dbgForce">Force interstitial test</button>
       </div>
+      <div class="dbg-row"><button id="dbgVoice">Copy voice report</button></div>
       <div id="dbgMsg" class="dbg-msg" role="status" aria-live="polite"></div>
     </div>`;
   document.body.appendChild(panel);
   $('dbgClose').onclick = closePanel;
-  $('dbgCopy').onclick = copyReport;
+  $('dbgCopy').onclick = () => copyReport(report);
+  $('dbgVoice').onclick = () => copyReport(voiceReport);
   $('dbgForce').onclick = async () => {
     msg('Trying to show an interstitial…');
     const r = await forceInterstitialTest();
@@ -165,8 +194,8 @@ function msg(t) {
   if (m) m.textContent = t;
 }
 
-async function copyReport() {
-  const text = await report();
+async function copyReport(make) {
+  const text = await make();
   try {
     await navigator.clipboard.writeText(text);
     msg('Copied. Paste it into your message to the developer.');

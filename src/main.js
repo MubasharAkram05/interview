@@ -31,7 +31,7 @@ import { Share } from '@capacitor/share';
 import { AppLauncher } from '@capacitor/app-launcher';
 import { marked } from 'marked';
 import policyMarkdown from '../PRIVACY_POLICY.md?raw';
-import { PRIVACY_POLICY_URL } from './config/app.js';
+import { PRIVACY_POLICY_URL, VOICE_ACCENTS } from './config/app.js';
 import {
   initializeAdMob,
   showInterstitialAtBreak,
@@ -51,12 +51,28 @@ import {
   stopListening,
   cancelListening,
   isListening,
-  voiceErrorText
+  setVoiceAccent
 } from './services/voice.js';
+import {
+  userVocab,
+  smartMatching,
+  setSmartMatching,
+  corrections,
+  addCorrection,
+  removeCorrection,
+  myWordsText,
+  setMyWordsText,
+  voiceAccent,
+  setAccentPref,
+  chipWords
+} from './services/voice-prefs.js';
+import { pickBest, correctText, snapToReference, hintWords, learnFromEdit } from './services/vocab.js';
+import { voiceLog } from './services/debug.js';
+
 import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
 import { questionOfDay } from './services/qotd.js';
-import { tokens, bestAlignment, readingScore, pickAlternative, vocabulary, joinSpoken } from './services/readalong.js';
+import { tokens, bestAlignment, readingScore, joinSpoken } from './services/readalong.js';
 import { nativeAdLayout } from './services/native-info.js';
 import { formatFullCurrentDate, formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
 import { playTapSound, playSuccessChime, playErrorBeep } from './services/sound.js';
@@ -610,6 +626,7 @@ function setActive(n) {
 // Profile Section
 const ABOUT = [
   ['Education', ['degree', 'uni']],
+  ['Hometown', ['city']],
   ['Certifications', ['certs']],
   ['Skills', ['skills']]
 ];
@@ -618,14 +635,14 @@ function openForm(p, title) {
   $('formTitle').textContent = title;
   $('fields').innerHTML = FF.map(([k, l]) =>
     `<label class="l" for="f_${k}">${l}</label>` +
-    (k === 'name'
+    (k === 'name' || k === 'city'
       ? `<input type="text" id="f_${k}" value="${esc(p ? p[k] || '' : '')}">`
       : `<textarea class="ft" id="f_${k}">${esc(p ? p[k] || '' : '')}</textarea>`)
   ).join('');
 
   $('pForm').classList.remove('hidden');
   $('pSumBox').classList.add('hidden');
-  ['pHistBox', 'pProfBox', 'pPrefBox'].forEach(i => $(i).classList.add('hidden'));
+  ['pHistBox', 'pProfBox', 'pVoiceBox', 'pPrefBox'].forEach(i => $(i).classList.add('hidden'));
   show('form');
 }
 
@@ -678,6 +695,7 @@ function showProfile() {
   }).join('');
 
   renderHist();
+  renderVoiceSettings();
   syncThemeSwitch();
   setAbout(false);
   $('hList').classList.add('hidden');
@@ -685,7 +703,7 @@ function showProfile() {
 
   $('pSumBox').classList.remove('hidden');
   $('pForm').classList.add('hidden');
-  ['pHistBox', 'pProfBox', 'pPrefBox'].forEach(i => $(i).classList.remove('hidden'));
+  ['pHistBox', 'pProfBox', 'pVoiceBox', 'pPrefBox'].forEach(i => $(i).classList.remove('hidden'));
   show('form');
 }
 
@@ -1138,18 +1156,6 @@ function pPaint(state, pos) {
 
 const pTarget = () => PW.map(x => tokens(x.textContent)[0] || '');
 
-// Words to help the speech service (Android 13+): every word of the answer plus short phrases.
-function biasFor(text) {
-  const words = String(text || '').match(/[A-Za-z][A-Za-z.+#'-]*/g) || [];
-  const out = new Set(words.filter(w => w.length > 2).map(w => w.replace(/[.'-]+$/, '')));
-  String(text || '')
-    .split(/[.!?;:\n]+/)
-    .map(x => x.trim().split(/\s+/).slice(0, 8).join(' '))
-    .filter(x => x.split(' ').length > 2)
-    .forEach(x => out.add(x));
-  return [...out].slice(0, 200);
-}
-
 // Mic button grows a little with your voice, so you can see it is hearing you.
 function micLevel(el, db) {
   const v = Math.max(0, Math.min(1, (db + 2) / 12));
@@ -1170,19 +1176,41 @@ function pSummary(state) {
   return { pct, missed };
 }
 
+// ---- Voice: shared helpers for Mock and Practice ----
+// All saved Practice answers (edited and added ones): the user's own words for the vocabulary.
+function savedAnswers() {
+  const custom = Object.values(C || {}).flat().map(x => x && x.a).filter(Boolean);
+  return [...Object.values(E || {}), ...custom].filter(x => typeof x === 'string');
+}
+
+function vocabFor(question) {
+  return userVocab({ profile: profiles[active] || {}, answers: savedAnswers(), question });
+}
+
+// Corrects and picks the best alternative. With Smart name matching off, only My-words aliases
+// and learned corrections are applied, and the first alternative is used.
+function chooser(vocab, extra) {
+  const smart = smartMatching();
+  const memory = corrections();
+  return alts => {
+    const r = smart ? pickBest(alts, vocab, { memory }) : { ...correctText(alts[0], vocab, { smart: false, memory }), index: 0 };
+    return extra ? extra(r, alts) : r;
+  };
+}
+
 // Practice: read the answer aloud. Like Duolingo, words light up as you say them, small
 // recognition mistakes are accepted, skipped words turn orange instead of blocking you, and
-// the mic keeps listening through pauses until you finish or tap it again.
+// the mic listens again after each phrase until you finish or tap it again.
 async function togglePMic() {
   playTapSound();
   if (pMicOn || isListening()) {
     pMicOn = false;
     $('pMic').classList.remove('on');
-    pMicNote('');
+    pMicNote('Finishing...');
     stopListening(); // the last phrase still arrives, then onEnd shows the result
     return;
   }
-  stopSpeaking();
+  stopSpeaking(); // the speaker must not be talking into the mic
   clearInterval(rv);
   if (!(await prepareVoice(toast))) return;
   if (cs !== 'practice') return;
@@ -1193,11 +1221,12 @@ async function togglePMic() {
   pMicOn = true;
   const card = P.i;
   const target = pTarget();
-  const text = ansText(P.list[P.i]);
+  const ref = ansText(P.list[P.i]);
+  const vocab = vocabFor(`${P.list[P.i].q} ${ref}`);
   let finished = false;
   const here = () => cs === 'practice' && P.i === card;
   $('pMic').classList.add('on');
-  pMicNote('Listening... read at your own pace. Pauses are fine.');
+  pMicNote('Getting the mic ready...');
 
   const show = (alts = []) => {
     const r = bestAlignment(target, pSpoken, alts);
@@ -1215,29 +1244,39 @@ async function togglePMic() {
     if (sm.pct >= 80) {
       fireConfetti();
       // Sound is muted while the mic is on (no beeps); play the chime once it is back.
-      setTimeout(playSuccessChime, 800);
+      setTimeout(playSuccessChime, 900);
     }
     toast(sm.missed ? `Finished! ${sm.pct}% correct. ${sm.missed} word${sm.missed === 1 ? '' : 's'} missed (orange).` : 'Perfect! You read it all 🎉');
   };
+  // Each alternative is corrected, then snapped to the saved answer in order; the one that gets
+  // furthest through the answer wins. Words are never added.
+  const choose = chooser(vocab, (r, alts) => {
+    const snapped = alts.map(a => snapToReference(correctText(a, vocab, { smart: smartMatching(), memory: corrections() }).text, ref).text);
+    const best = bestAlignment(target, pSpoken, snapped);
+    const i = Math.max(0, snapped.indexOf(best.text));
+    return { text: snapped[i], index: i, changes: r.changes };
+  });
 
   const started = await startListening({
-    bias: biasFor(text),
+    bias: smartMatching() ? hintWords(vocab) : [],
     silenceMs: 3500,
-    maxEmpty: 4, // about 20 s of silence before it gives up; it stops by itself at the last word
+    maxSilentMs: 25000, // stops by itself at the last word, or after 25 s without speech
+    choose,
+    onState: st => here() && !finished && pMicNote(st === 'ready' || st === 'listening' ? 'Speak now. Read at your own pace.' : st === 'restarting' ? 'Listening...' : st === 'starting' ? 'Getting the mic ready...' : ''),
     onLevel: db => micLevel($('pMic'), db),
-    onPartial: alts => {
+    onPartial: text => {
       if (!here() || finished) return;
-      if (show(alts).pos >= target.length) {
-        pSpoken.push(bestAlignment(target, pSpoken, alts).text);
+      if (show([text]).pos >= target.length) {
+        pSpoken.push(text);
         complete();
       }
     },
-    onSegment: alts => {
+    onFinal: text => {
       if (!here() || finished) return;
-      pSpoken.push(bestAlignment(target, pSpoken, alts).text);
+      pSpoken.push(text);
       if (show().pos >= target.length) complete();
     },
-    onEnd: ({ reason, code, heard }) => {
+    onEnd: ({ reason, message }) => {
       $('pMic').style.removeProperty('--lvl');
       if (finished || !here()) {
         pMicOn = false;
@@ -1246,13 +1285,12 @@ async function togglePMic() {
       pMicOn = false;
       $('pMic').classList.remove('on');
       pMicNote('');
-      if (reason === 'error') return toast(voiceErrorText(code));
-      if (!heard && !pSpoken.length) return toast("Didn't catch that. Tap the mic and try again.");
+      if (reason === 'error' || (!pSpoken.length && message)) return toast(message);
       const sm = pSummary(show().state);
       if (sm) toast(sm.missed ? `${sm.pct}% read. ${sm.missed} word${sm.missed === 1 ? '' : 's'} missed (orange). Tap the mic to try again.` : `${sm.pct}% read. Keep going!`);
     }
   });
-  if (!started) {
+  if (!started && pMicOn) {
     pMicOn = false;
     $('pMic').classList.remove('on');
     pMicNote('');
@@ -1418,6 +1456,8 @@ function showQ() {
   $('qCount').textContent = `${idx + 1}/${cur.length}`;
   reveal(cur[idx].q, $('rd').checked);
   $('ansBox').value = answers[idx] || '';
+  mockLive('');
+  renderChips();
   $('qBar').style.width = ((idx + 1) / cur.length) * 100 + '%';
   $('nBtn').dataset.i = idx === cur.length - 1 ? 'check' : 'right';
   mDots();
@@ -1563,91 +1603,153 @@ function fixTerms(t) {
 // Mock interview: speak your answer and it is typed into the answer box.
 let mMicOn = false; // mock interview: keep listening through pauses until the user taps stop
 
-// Mock interview: the app's own model answer for this question (with the user's profile filled
-// in). The spoken answer is usually close to it, so it is the best hint for the speech service.
-function mockModel(it) {
-  if (!it) return '';
-  const k = `${active}|${CK(cat, lv)}|${it.i}`;
-  const p = profiles[active];
-  return k in E ? E[k] : fill(it.a || '', p && { ...p, role: ROLE[cat] || p.role });
+function mockNote(m) {
+  $('micSt').textContent = m || '';
 }
 
-// Word hints for the mock answer: model answer first, then the question, the user's skills and
-// work topics, then common tech terms. No name, university or other personal details.
-function mockBias(it) {
-  const p = profiles[active] || {};
-  const own = ['role', 'skills', 'certs', 'project'].map(k => p[k] || '').join(' ');
-  // Take personal details out of the model answer before it is used as a hint.
-  let model = mockModel(it);
-  ['name', 'uni', 'degree'].forEach(k => {
-    String(p[k] || '')
-      .split(/[\s,]+/)
-      .filter(w => w.length > 1)
-      .forEach(w => (model = model.replace(new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), ' ')));
+// Live words while speaking: shown under the box, never written into it until they are final.
+function mockLive(t) {
+  const el = $('micLive');
+  el.textContent = t || '';
+  el.classList.toggle('hidden', !t);
+}
+
+// Toast with an Undo button (learned corrections).
+function toastUndo(m, onUndo) {
+  const t = $('toast');
+  t.innerHTML = `<span>${esc(m)}</span> <button class="tundo" type="button">Undo</button>`;
+  t.classList.remove('hidden');
+  t.querySelector('.tundo').onclick = () => {
+    onUndo();
+    t.classList.add('hidden');
+  };
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.add('hidden'), 5000);
+}
+
+// Add a final phrase to the answer of question `i`. Text the user typed is never replaced.
+function addSpoken(i, text, info) {
+  const keepCase = Object.values(FIX);
+  const before = idx === i && cs === 'interview' ? $('ansBox').value : answers[i] || '';
+  const v = joinSpoken(before, fixTerms(text), keepCase);
+  answers[i] = v.trim();
+  if (idx === i && cs === 'interview') $('ansBox').value = v;
+  saveScr();
+  const mem = (info && info.changes || []).filter(c => c.rule === 'memory');
+  if (mem.length) {
+    const c = mem[0];
+    toastUndo(`Changed "${c.from}" to "${c.to}"`, () => {
+      const box = idx === i ? $('ansBox') : null;
+      const cur2 = box ? box.value : answers[i] || '';
+      const k = cur2.lastIndexOf(c.to);
+      if (k < 0) return;
+      const nv = cur2.slice(0, k) + c.from + cur2.slice(k + c.to.length);
+      answers[i] = nv.trim();
+      if (box) box.value = nv;
+      saveScr();
+    });
+  }
+}
+
+// My words chips under the answer box: tap to insert at the cursor.
+function renderChips() {
+  const el = $('vChips');
+  const words = chipWords(profiles[active] || {});
+  el.innerHTML = words.map(w => `<button type="button" class="vchip" data-w="${esc(w)}">${esc(w)}</button>`).join('');
+  el.classList.toggle('hidden', !words.length);
+  el.querySelectorAll('.vchip').forEach(b => {
+    // Keep the text box focused and its cursor where it is.
+    b.addEventListener('pointerdown', e => e.preventDefault());
+    b.addEventListener('click', () => insertAtCursor($('ansBox'), b.dataset.w));
   });
-  return [...biasFor(model), ...biasFor(it && it.q), ...biasFor(own), ...Object.values(FIX)].slice(0, 200);
+}
+
+function insertAtCursor(box, word) {
+  playTapSound();
+  const v = box.value;
+  const s0 = box.selectionStart ?? v.length;
+  const e0 = box.selectionEnd ?? v.length;
+  const pre = v.slice(0, s0);
+  const post = v.slice(e0);
+  const a = pre && !/\s$/.test(pre) ? ' ' : '';
+  const z = post && !/^[\s.,!?]/.test(post) ? ' ' : '';
+  box.value = pre + a + word + z + post;
+  const pos = (pre + a + word + z).length;
+  box.setSelectionRange(pos, pos);
+  answers[idx] = box.value.trim();
+  saveScr();
+}
+
+// Learn from the user's own fixes: when one word in the box is changed by hand, remember it.
+let editSnap = '';
+function watchAnswerEdits() {
+  const box = $('ansBox');
+  box.addEventListener('focus', () => (editSnap = box.value));
+  box.addEventListener('change', () => {
+    if (!smartMatching()) return;
+    const pair = learnFromEdit(editSnap, box.value);
+    editSnap = box.value;
+    if (!pair) return;
+    addCorrection(pair);
+    voiceLog('learned', pair);
+    toastUndo(`Learned: "${pair.heard}" means "${pair.fix}"`, () => {
+      const list = corrections();
+      const k = list.findIndex(m => m.prev === pair.prev && m.heard === pair.heard);
+      if (k >= 0) removeCorrection(k);
+    });
+  });
 }
 
 async function toggleMic() {
   playTapSound();
-  const note = m => {
-    $('micSt').textContent = m;
-  };
   if (mMicOn || isListening()) {
     mMicOn = false;
     $('mic').classList.remove('on');
-    note('');
+    mockNote('Finishing...');
     stopListening(); // the last phrase still arrives and is added to the answer
     return;
   }
-  stopSpeaking();
+  stopSpeaking(); // the question must not be read into the mic
   clearInterval(rv);
   clearTimeout(rv);
   document.querySelectorAll('#qText .w').forEach(x => x.classList.add('in'));
-  if (!(await prepareVoice(note))) return;
+  if (!(await prepareVoice(mockNote))) return;
   if (cs !== 'interview') return;
 
   const myIdx = idx;
-  // Text that is final; live words are shown after it.
-  let kept = $('ansBox').value;
-  const keepCase = Object.values(FIX);
-  const join = (a, b) => joinSpoken(a, b, keepCase);
-  const write = v => {
-    answers[myIdx] = v.trim(); // kept even if the user moves on mid-sentence
-    if (idx === myIdx && cs === 'interview') $('ansBox').value = v;
-    saveScr();
-  };
   const it = cur[myIdx];
-  const vocab = vocabulary(mockModel(it), it && it.q, (profiles[active] || {}).skills, Object.values(FIX).join(' '));
-  const best = alts => fixTerms(pickAlternative(alts, vocab));
+  const vocab = vocabFor(it && it.q);
+  const here = () => idx === myIdx && cs === 'interview';
   mMicOn = true;
   $('mic').classList.add('on');
-  note('Listening... speak now. Pauses are fine. Tap the mic when you finish.');
+  mockNote('Getting the mic ready...');
 
   const started = await startListening({
-    bias: mockBias(it),
+    bias: smartMatching() ? hintWords(vocab) : [],
     silenceMs: 4000,
-    maxEmpty: 6, // about 30 s of thinking time; tap the mic when the answer is done
+    maxSilentMs: 45000, // thinking time; tap the mic when the answer is done
+    choose: chooser(vocab),
+    getTail: () => answers[myIdx] || '',
+    onState: st => here() && mockNote(st === 'ready' || st === 'listening' ? 'Speak now. Tap the mic when you finish.' : st === 'restarting' ? 'Listening...' : st === 'starting' ? 'Getting the mic ready...' : st === 'stopping' ? 'Finishing...' : ''),
     onLevel: db => micLevel($('mic'), db),
-    onPartial: alts => write(join(kept, best(alts))),
-    onSegment: alts => {
-      kept = join(kept, best(alts));
-      write(kept);
+    onPartial: text => here() && mockLive(fixTerms(text)),
+    onFinal: (text, info) => {
+      addSpoken(myIdx, text, info);
+      if (here()) mockLive('');
     },
-    onEnd: ({ reason, code, heard }) => {
+    onEnd: ({ reason, message }) => {
       $('mic').style.removeProperty('--lvl');
-      write(kept);
       mMicOn = false;
       $('mic').classList.remove('on');
-      if (idx !== myIdx || cs !== 'interview') return;
-      if (reason === 'error') note(voiceErrorText(code));
-      else note(heard || reason === 'stopped' ? '' : "Didn't catch that. Tap the mic and try again, or type your answer.");
+      mockLive('');
+      if (!here()) return;
+      mockNote(reason === 'cancelled' ? '' : message);
     }
   });
-  if (!started) {
+  if (!started && mMicOn) {
     mMicOn = false;
     $('mic').classList.remove('on');
-    note('Could not start voice input. Please try again or type your answer.');
+    mockNote('Could not start voice input. Please try again or type your answer.');
   }
 }
 
@@ -2029,6 +2131,8 @@ function loadPreferences() {
 // App Bootstrap
 async function initApp() {
   await initStorage();
+  setVoiceAccent(voiceAccent());
+  watchAnswerEdits();
 
   const savedTheme = getItem('is_theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = savedTheme;
@@ -2189,6 +2293,52 @@ async function initApp() {
 }
 
 
+// Profile > Voice: accent, Smart name matching, My words and learned corrections.
+function renderVoiceSettings() {
+  const sel = $('vAccent');
+  const a = voiceAccent();
+  sel.innerHTML = Object.entries(VOICE_ACCENTS)
+    .map(([k, v]) => `<option value="${k}"${k === a ? ' selected' : ''}>${esc(v.label)}</option>`)
+    .join('');
+  $('vSmart').checked = smartMatching();
+  $('vWords').value = myWordsText();
+  renderVoiceMemory();
+}
+
+function renderVoiceMemory() {
+  const list = corrections();
+  $('vMem').innerHTML = list.length
+    ? list
+        .map(
+          (m, i) =>
+            `<div class="vmrow"><span>"${esc(m.heard)}" becomes "${esc(m.fix)}"</span><button class="pbtn danger" data-i="trash" onclick="delVoiceMemory(${i})" aria-label="Delete correction" title="Delete"></button></div>`
+        )
+        .join('')
+    : '<small class="vempty">Nothing learned yet. When you fix a word the mic got wrong, the app remembers it here.</small>';
+  renderIcons();
+}
+
+function saveVoiceAccent(a) {
+  setAccentPref(a);
+  setVoiceAccent(voiceAccent());
+  toast(`Voice accent: ${VOICE_ACCENTS[voiceAccent()].label}`);
+}
+
+function saveSmart(on) {
+  setSmartMatching(on);
+  toast(on ? 'Smart name matching is on' : 'Smart name matching is off');
+}
+
+function saveMyWords() {
+  setMyWordsText($('vWords').value);
+  toast('My words saved');
+}
+
+function delVoiceMemory(i) {
+  removeCorrection(i);
+  renderVoiceMemory();
+}
+
 // Bind all action methods to window for full inline HTML onclick compatibility
 Object.assign(window, {
   back,
@@ -2228,6 +2378,10 @@ Object.assign(window, {
   delQ,
   togglePMic,
   readA,
+  saveVoiceAccent,
+  saveSmart,
+  saveMyWords,
+  delVoiceMemory,
   homeLevel,
   pcLevel,
   pcGo,

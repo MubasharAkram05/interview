@@ -1,10 +1,10 @@
 // Mocks for @capacitor/core (registerPlugin('Voice') = VoicePlugin.java) and the community
-// speech plugin (availability and permission only).
-export const state = { starts: [], stops: 0, cancels: 0, listeners: {}, failLang: null };
+// speech plugin (availability and permission only). One start() = one recognition run.
+export const state = { starts: [], stops: 0, cancels: 0, listeners: {}, failStart: 0, startResult: { sdk: 34, segmented: true, biasing: true, hints: 0 } };
 export function reset() {
-  Object.assign(state, { starts: [], stops: 0, cancels: 0, listeners: {}, failLang: null });
+  Object.assign(state, { starts: [], stops: 0, cancels: 0, listeners: {}, failStart: 0, startResult: { sdk: 34, segmented: true, biasing: true, hints: 0 } });
 }
-export const emit = (e, d) => (state.listeners[e] || []).forEach(f => f(d));
+export const emit = (e, d = {}) => (state.listeners[e] || []).slice().forEach(f => f(d));
 export const Capacitor = { isNativePlatform: () => true };
 const Voice = {
   addListener: (e, f) => {
@@ -17,16 +17,19 @@ const Voice = {
   },
   start: async opts => {
     state.starts.push(opts);
-    // Android rejects an unsupported language with error 12 right after start.
-    if (opts.language === state.failLang) setTimeout(() => emit('end', { reason: 'error', code: 12 }), 20);
-    return { segmented: true };
+    if (state.failStart > 0) {
+      state.failStart--;
+      throw new Error('start failed');
+    }
+    return { ...state.startResult, language: opts.language, hints: (opts.bias || []).length };
   },
   stop: async () => {
     state.stops++;
   },
   cancel: async () => {
     state.cancels++;
-  }
+  },
+  info: async () => ({ sdk: 34, available: true })
 };
 export const registerPlugin = name => (name === 'Voice' ? Voice : {});
 export const SpeechRecognition = {

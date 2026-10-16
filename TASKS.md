@@ -59,6 +59,21 @@
 - [x] Play Store icon 512x512 (32-bit PNG) and feature graphic 1024x500 (24-bit PNG, no alpha) regenerated in `store-assets/`
 - [ ] Voice and read-aloud tested on a real phone (online, offline, permission denied): **NOT CHECKED**
 
+## Voice accuracy
+
+- [x] One shared voice session manager (idle, starting, ready, listening, restarting, stopping, error); "Speak now" only after the recognizer is ready
+- [x] Live words shown under the answer box; only final phrases are added; typed text is never replaced
+- [x] Duplicate phrases dropped; restart after silence with backoff; stops with a message after 3 failed restarts; error 8 waits and retries
+- [x] Silence only: "I did not catch that. Try again or type." and the box stays empty
+- [x] Voice accent setting (Pakistan default, India, US, UK) with a locale fallback chain
+- [x] Personal vocabulary (`vocab.js`): My words, profile name and hometown, saved answers, tech terms; Smart name matching switch; learned corrections with Undo; chips under the answer box
+- [x] Hint words sent to the speech service are single words only (max 100), never sample-answer sentences
+- [x] Debug panel: Voice section and **Copy voice report**
+- [x] Tests: vocab 59 cases, false-positive sweep (654 texts, 0 changes), voice manager 29 cases incl. replay of the reported phone session
+- [ ] Voice accuracy on a real phone (GUIDE section 16 test script): **NOT CHECKED**
+- [ ] Whether `EXTRA_BIASING_STRINGS` improves names on Android 13+: **NOT CHECKED** (needs the voice report from a phone)
+- [ ] Whether en-PK is accepted by the phone's speech service: **NOT CHECKED** (voice report shows the locale used)
+
 ## Checking ads on the phone
 
 - [x] Debug APK has a hidden **Ads status** panel (hold the app title 1 s): build/commit, consent, banner wanted vs real position, interstitial state, last 20 `ADS:` lines, **Copy report**, **Force interstitial test** (GUIDE section 15)
