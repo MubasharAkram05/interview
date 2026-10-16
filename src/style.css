@@ -520,3 +520,4 @@ header.bar #hMute{color:#fff;background:var(--brand-grad);box-shadow:0 4px 12px 
 #interview:not(.hidden){display:flex;flex-direction:column;min-height:100%}
 #interview #ansBox{flex:1 1 0;min-height:150px;max-height:none}
 #interview .qbody{height:auto;max-height:150px}
+html{background:var(--bg)}

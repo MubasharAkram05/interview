@@ -10,6 +10,8 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Logo on the brand gradient until the web page paints (no blank screen at first start). -->
+        <item name="android:windowBackground">@drawable/launch_screen</item>
         <item name="android:statusBarColor">@color/colorPrimary</item>
     </style>
 
