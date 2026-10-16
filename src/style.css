@@ -316,3 +316,7 @@ header.bar{min-height:0;padding-top:calc(4px + max(env(safe-area-inset-top,0px),
 /* Profile hero: one fixed color (no moving gradient or floating blobs). */
 .hero.pcard{background:#4f46e5;background-size:auto;animation:none}
 .hero.pcard::before,.hero.pcard::after{display:none}
+
+/* Read-along: said words green-accent, skipped words orange with a wavy underline. */
+.pw.miss{color:#ea580c;text-decoration:underline wavy rgba(234,88,12,.55);text-underline-offset:4px}
+[data-theme=dark] .pw.miss{color:#fb923c}

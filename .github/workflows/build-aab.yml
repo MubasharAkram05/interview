@@ -65,6 +65,9 @@ jobs:
       - name: Test question of the day
         run: npm run test:home
 
+      - name: Test voice (read-along matching, language fallback)
+        run: npm run test:voice
+
       - name: Build web app (release, no debug tools)
         run: npm run build
 
