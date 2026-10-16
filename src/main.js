@@ -51,7 +51,8 @@ import {
   stopListening,
   cancelListening,
   isListening,
-  setVoiceAccent
+  setVoiceAccent,
+  openAppSettings
 } from './services/voice.js';
 import {
   userVocab,
@@ -66,7 +67,8 @@ import {
   setAccentPref,
   chipWords
 } from './services/voice-prefs.js';
-import { pickBest, correctText, snapToReference, hintWords, learnFromEdit } from './services/vocab.js';
+import { correctText, snapToReference, hintWords, rareWords, learnFromEdit } from './services/vocab.js';
+import { pickCandidate } from './services/voice-filter.js';
 import { voiceLog } from './services/debug.js';
 
 import { speak, stopSpeaking, isSpeaking, TTS_MESSAGES } from './services/tts.js';
@@ -1105,16 +1107,7 @@ async function prepareVoice(notify) {
 
   let st = await micPermission();
   if (st === 'granted') return true;
-  if (st === 'denied') {
-    await ask(
-      'Microphone is blocked',
-      'To use voice input, open Android Settings > Apps > Interview Simulator > Permissions > Microphone and choose Allow. You can still type your answer.',
-      'OK',
-      '',
-      '🎙️'
-    );
-    return false;
-  }
+  if (st === 'denied') return micBlocked();
   const go = await ask(
     'Allow microphone?',
     'The mic is used only while you tap record, to turn your speech into text. The app does not save your audio.',
@@ -1125,11 +1118,21 @@ async function prepareVoice(notify) {
   if (!go) return false;
   st = await requestMicPermission();
   if (st === 'granted') return true;
-  notify(
-    st === 'denied'
-      ? 'Microphone is blocked. Allow it in Android Settings > Apps > Interview Simulator > Permissions.'
-      : 'Microphone permission was not given. You can type your answer instead.'
+  if (st === 'denied') return micBlocked();
+  notify('Microphone permission was not given. You can type your answer instead.');
+  return false;
+}
+
+// Android will not ask again: explain and offer a button to this app's page in Settings.
+async function micBlocked() {
+  const open = await ask(
+    'Microphone is blocked',
+    'Voice input needs the microphone. Tap Open settings, then Permissions > Microphone > Allow. You can still type your answer.',
+    'Open settings',
+    'Not now',
+    '🎙️'
   );
+  if (open && !(await openAppSettings())) toast('Open Android Settings > Apps > Interview Simulator > Permissions > Microphone.');
   return false;
 }
 
@@ -1177,24 +1180,19 @@ function pSummary(state) {
 }
 
 // ---- Voice: shared helpers for Mock and Practice ----
-// All saved Practice answers (edited and added ones): the user's own words for the vocabulary.
-function savedAnswers() {
-  const custom = Object.values(C || {}).flat().map(x => x && x.a).filter(Boolean);
-  return [...Object.values(E || {}), ...custom].filter(x => typeof x === 'string');
+// Voice candidates: My words, the real profile name (not the demo profile) and learned corrections.
+function vocabFor() {
+  return userVocab(profiles[active] || {});
 }
 
-function vocabFor(question) {
-  return userVocab({ profile: profiles[active] || {}, answers: savedAnswers(), question });
-}
-
-// Corrects and picks the best alternative. With Smart name matching off, only My-words aliases
-// and learned corrections are applied, and the first alternative is used.
-function chooser(vocab, extra) {
+// N-best: the guess with the most My words / name words wins, else the most confident one; then
+// safe name matching on that one guess. Guesses are never merged.
+function chooser(vocab) {
   const smart = smartMatching();
-  const memory = corrections();
-  return alts => {
-    const r = smart ? pickBest(alts, vocab, { memory }) : { ...correctText(alts[0], vocab, { smart: false, memory }), index: 0 };
-    return extra ? extra(r, alts) : r;
+  return cands => {
+    const c = pickCandidate(cands, vocab.keys) || cands[0];
+    const r = correctText(c.text, vocab, { smart });
+    return { text: r.text, index: c.index, changes: r.changes, why: c.why };
   };
 }
 
@@ -1222,7 +1220,7 @@ async function togglePMic() {
   const card = P.i;
   const target = pTarget();
   const ref = ansText(P.list[P.i]);
-  const vocab = vocabFor(`${P.list[P.i].q} ${ref}`);
+  const vocab = vocabFor();
   let finished = false;
   const here = () => cs === 'practice' && P.i === card;
   $('pMic').classList.add('on');
@@ -1248,21 +1246,25 @@ async function togglePMic() {
     }
     toast(sm.missed ? `Finished! ${sm.pct}% correct. ${sm.missed} word${sm.missed === 1 ? '' : 's'} missed (orange).` : 'Perfect! You read it all 🎉');
   };
-  // Each alternative is corrected, then snapped to the saved answer in order; the one that gets
+  // Each guess is corrected, then snapped to the saved answer in order; the one that gets
   // furthest through the answer wins. Words are never added.
-  const choose = chooser(vocab, (r, alts) => {
-    const snapped = alts.map(a => snapToReference(correctText(a, vocab, { smart: smartMatching(), memory: corrections() }).text, ref).text);
+  const smart = smartMatching();
+  const choose = cands => {
+    const snapped = cands.map(c => snapToReference(correctText(c.text, vocab, { smart }).text, ref).text);
     const best = bestAlignment(target, pSpoken, snapped);
     const i = Math.max(0, snapped.indexOf(best.text));
-    return { text: snapped[i], index: i, changes: r.changes };
-  });
+    return { text: snapped[i], index: cands[i].index, changes: [], why: 'best fit to the answer' };
+  };
+  let readyOnce = false;
 
   const started = await startListening({
-    bias: smartMatching() ? hintWords(vocab) : [],
-    silenceMs: 3500,
-    maxSilentMs: 25000, // stops by itself at the last word, or after 25 s without speech
+    bias: smart ? hintWords(vocab, rareWords(ref)) : [],
     choose,
-    onState: st => here() && !finished && pMicNote(st === 'ready' || st === 'listening' ? 'Speak now. Read at your own pace.' : st === 'restarting' ? 'Listening...' : st === 'starting' ? 'Getting the mic ready...' : ''),
+    onState: st => {
+      if (!here() || finished) return;
+      if (st === 'ready' || st === 'listening') readyOnce = true;
+      pMicNote(st === 'ready' || st === 'listening' ? 'Speak now. Read at your own pace.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : '');
+    },
     onLevel: db => micLevel($('pMic'), db),
     onPartial: text => {
       if (!here() || finished) return;
@@ -1285,7 +1287,7 @@ async function togglePMic() {
       pMicOn = false;
       $('pMic').classList.remove('on');
       pMicNote('');
-      if (reason === 'error' || (!pSpoken.length && message)) return toast(message);
+      if (reason === 'error' || !pSpoken.length) return message && toast(message);
       const sm = pSummary(show().state);
       if (sm) toast(sm.missed ? `${sm.pct}% read. ${sm.missed} word${sm.missed === 1 ? '' : 's'} missed (orange). Tap the mic to try again.` : `${sm.pct}% read. Keep going!`);
     }
@@ -1456,6 +1458,7 @@ function showQ() {
   $('qCount').textContent = `${idx + 1}/${cur.length}`;
   reveal(cur[idx].q, $('rd').checked);
   $('ansBox').value = answers[idx] || '';
+  ansCursor = null; // new question: spoken text goes to the end until the user moves the cursor
   mockLive('');
   renderChips();
   $('qBar').style.width = ((idx + 1) / cur.length) * 100 + '%';
@@ -1627,25 +1630,40 @@ function toastUndo(m, onUndo) {
   toastT = setTimeout(() => t.classList.add('hidden'), 5000);
 }
 
-// Add a final phrase to the answer of question `i`. Text the user typed is never replaced.
-function addSpoken(i, text, info) {
-  const keepCase = Object.values(FIX);
-  const before = idx === i && cs === 'interview' ? $('ansBox').value : answers[i] || '';
-  const v = joinSpoken(before, fixTerms(text), keepCase);
-  answers[i] = v.trim();
-  if (idx === i && cs === 'interview') $('ansBox').value = v;
+// Where spoken text goes in the answer box: the cursor (tracked while the box is used), else the end.
+let ansCursor = null;
+let lastDictation = { at: 0, i: -1 };
+
+// Insert a final phrase into the answer of question `i` at the cursor, with correct spaces and
+// capitals. The rest of the box is never replaced.
+function addSpoken(i, text, info, keepCase) {
+  const box = idx === i && cs === 'interview' ? $('ansBox') : null;
+  const v = box ? box.value : answers[i] || '';
+  const pos = box && ansCursor !== null ? Math.min(ansCursor, v.length) : v.length;
+  const pre = v.slice(0, pos);
+  const post = v.slice(pos);
+  const joined = joinSpoken(pre, fixTerms(text), keepCase);
+  const sep = post && !/^[\s.,!?;:]/.test(post) ? ' ' : '';
+  const nv = joined + sep + post;
+  answers[i] = nv.trim();
+  if (box) {
+    box.value = nv;
+    ansCursor = joined.length;
+    editSnap = nv; // edits after this are compared with the dictated text (correction memory)
+  }
+  lastDictation = { at: Date.now(), i };
   saveScr();
-  const mem = (info && info.changes || []).filter(c => c.rule === 'memory');
+  const mem = ((info && info.changes) || []).filter(c => c.why === 'learned from your edit');
   if (mem.length) {
     const c = mem[0];
     toastUndo(`Changed "${c.from}" to "${c.to}"`, () => {
-      const box = idx === i ? $('ansBox') : null;
-      const cur2 = box ? box.value : answers[i] || '';
+      const b2 = idx === i ? $('ansBox') : null;
+      const cur2 = b2 ? b2.value : answers[i] || '';
       const k = cur2.lastIndexOf(c.to);
       if (k < 0) return;
-      const nv = cur2.slice(0, k) + c.from + cur2.slice(k + c.to.length);
-      answers[i] = nv.trim();
-      if (box) box.value = nv;
+      const nv2 = cur2.slice(0, k) + c.from + cur2.slice(k + c.to.length);
+      answers[i] = nv2.trim();
+      if (b2) b2.value = nv2;
       saveScr();
     });
   }
@@ -1680,13 +1698,22 @@ function insertAtCursor(box, word) {
   saveScr();
 }
 
-// Learn from the user's own fixes: when one word in the box is changed by hand, remember it.
+// Learn from the user's own fixes: when one word of dictated text is changed by hand right after
+// dictation (within 2 minutes), remember "wrong -> right" and use it next time.
 let editSnap = '';
+const LEARN_WINDOW_MS = 120000;
 function watchAnswerEdits() {
   const box = $('ansBox');
-  box.addEventListener('focus', () => (editSnap = box.value));
+  const track = () => (ansCursor = box.selectionEnd ?? null);
+  ['click', 'keyup', 'select', 'input'].forEach(e => box.addEventListener(e, track));
+  box.addEventListener('focus', () => {
+    if (Date.now() - lastDictation.at > LEARN_WINDOW_MS) editSnap = box.value;
+  });
   box.addEventListener('change', () => {
-    if (!smartMatching()) return;
+    if (!smartMatching() || lastDictation.i !== idx || Date.now() - lastDictation.at > LEARN_WINDOW_MS) {
+      editSnap = box.value;
+      return;
+    }
     const pair = learnFromEdit(editSnap, box.value);
     editSnap = box.value;
     if (!pair) return;
@@ -1706,7 +1733,7 @@ async function toggleMic() {
     mMicOn = false;
     $('mic').classList.remove('on');
     mockNote('Finishing...');
-    stopListening(); // the last phrase still arrives and is added to the answer
+    stopListening(); // stops now; the last final still arrives and is added
     return;
   }
   stopSpeaking(); // the question must not be read into the mic
@@ -1717,24 +1744,26 @@ async function toggleMic() {
   if (cs !== 'interview') return;
 
   const myIdx = idx;
-  const it = cur[myIdx];
-  const vocab = vocabFor(it && it.q);
+  const vocab = vocabFor();
+  const keepCase = [...Object.values(FIX), ...[...vocab.targets.values()].map(t => t.text)];
   const here = () => idx === myIdx && cs === 'interview';
+  let readyOnce = false;
   mMicOn = true;
   $('mic').classList.add('on');
   mockNote('Getting the mic ready...');
 
   const started = await startListening({
     bias: smartMatching() ? hintWords(vocab) : [],
-    silenceMs: 4000,
-    maxSilentMs: 45000, // thinking time; tap the mic when the answer is done
     choose: chooser(vocab),
-    getTail: () => answers[myIdx] || '',
-    onState: st => here() && mockNote(st === 'ready' || st === 'listening' ? 'Speak now. Tap the mic when you finish.' : st === 'restarting' ? 'Listening...' : st === 'starting' ? 'Getting the mic ready...' : st === 'stopping' ? 'Finishing...' : ''),
+    onState: st => {
+      if (!here()) return;
+      if (st === 'ready' || st === 'listening') readyOnce = true;
+      mockNote(st === 'ready' || st === 'listening' ? 'Speak now. Tap the mic when you finish.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : st === 'stopping' ? 'Finishing...' : '');
+    },
     onLevel: db => micLevel($('mic'), db),
-    onPartial: text => here() && mockLive(fixTerms(text)),
+    onPartial: text => here() && mockLive(text), // grey live bar only
     onFinal: (text, info) => {
-      addSpoken(myIdx, text, info);
+      addSpoken(myIdx, text, info, keepCase);
       if (here()) mockLive('');
     },
     onEnd: ({ reason, message }) => {

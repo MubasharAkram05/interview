@@ -23,8 +23,9 @@ await p.evaluate(() => window.showProfile());
 await p.waitForTimeout(400);
 check('Profile has a Voice section', await p.isVisible('#pVoiceBox'));
 const accents = await p.$$eval('#vAccent option', o => o.map(x => x.textContent));
-check(`accent list: ${accents.join(', ')}`, accents.join() === 'Pakistan,India,US,UK');
-check('default accent is Pakistan', (await p.inputValue('#vAccent')) === 'pk');
+check(`accent list: ${accents.join(', ')}`, accents.length === 4 && /India/.test(accents[0]) && accents.every(a => a.startsWith('English')));
+check('default accent is en-IN', (await p.inputValue('#vAccent')) === 'in');
+check('My words hint text', (await p.textContent('label[for=vWords]')).includes('Add names and rare words here'));
 check('Smart name matching is on by default', await p.isChecked('#vSmart'));
 check('My words loaded', (await p.inputValue('#vWords')).includes('Kubernetes'));
 await p.selectOption('#vAccent', 'uk');
@@ -57,19 +58,40 @@ await p.tap('#vChips .vchip:nth-child(3)');
 check(`chip inserts at cursor: "${await p.inputValue('#ansBox')}"`, (await p.inputValue('#ansBox')) === `I am from ${chips[2]}`);
 check('live preview hidden when not listening', !(await p.isVisible('#micLive')));
 
-// Learn from an edit, then Undo
+// Typing alone is not learned (only an edit right after dictation is; dictation needs a phone).
 await p.fill('#ansBox', 'I am from Pakistan');
 await p.evaluate(() => document.getElementById('ansBox').dispatchEvent(new Event('focus')));
 await p.fill('#ansBox', 'I am from Testcity');
 await p.evaluate(() => document.getElementById('ansBox').dispatchEvent(new Event('change')));
 await p.waitForTimeout(200);
-const tt = await p.textContent('#toast');
-check(`edit learned with Undo toast: "${tt.trim()}"`, /Learned/.test(tt) && (await p.isVisible('#toast .tundo')));
-check('correction saved', (await p.evaluate(() => JSON.parse(localStorage.getItem('is_voice_mem') || '[]').length)) === 1);
-await p.click('#toast .tundo');
-check('Undo removes the learned correction', (await p.evaluate(() => JSON.parse(localStorage.getItem('is_voice_mem') || '[]').length)) === 0);
+check('typed edit without dictation is not learned', (await p.evaluate(() => JSON.parse(localStorage.getItem('is_voice_mem') || '[]').length)) === 0);
+// Learned corrections list: shows and deletes.
+await p.evaluate(() => localStorage.setItem('is_voice_mem', JSON.stringify([{ prev: 'am', heard: 'officer', fix: 'Test', at: 1 }])));
+await p.reload();
+await p.waitForTimeout(900);
+await p.evaluate(() => window.showProfile());
+await p.waitForTimeout(300);
+check('learned correction listed in Profile > Voice', (await p.textContent('#vMem')).includes('"officer" becomes "Test"'));
+await p.click('#vMem .vmrow button');
+check('learned correction deleted', (await p.evaluate(() => JSON.parse(localStorage.getItem('is_voice_mem') || '[]').length)) === 0 && (await p.textContent('#vMem')).includes('Nothing learned yet'));
 check('no "Pauses are fine" text anywhere', !(await p.evaluate(() => document.body.innerText.includes('Pauses are fine'))));
 check('no horizontal scroll', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+// Demo profile: its name ("Alex Khan") is sample data and must not become chips.
+await p.evaluate(() => {
+  localStorage.removeItem('is_profiles');
+  localStorage.removeItem('is_active');
+  localStorage.removeItem('is_voice_words');
+  indexedDB.deleteDatabase('InterviewSimulator');
+});
+await p.reload();
+await p.waitForTimeout(900);
+await p.evaluate(() => window.startMock());
+await p.waitForTimeout(400);
+await p.click('#mStart');
+await p.waitForTimeout(900);
+const demoChips = await p.$$eval('#vChips .vchip', c => c.map(x => x.textContent));
+check(`demo profile: no Alex/Khan chips (${demoChips.join(', ') || 'none'})`, !demoChips.includes('Alex') && !demoChips.includes('Khan'));
+check('no chips -> row hidden', demoChips.length > 0 || !(await p.isVisible('#vChips')));
 check('no page errors', errors.length === 0);
 await b.close();
 console.log(out.join('\n'));

@@ -15,13 +15,12 @@
     "policy:check": "node scripts/check-policy-sync.mjs",
     "test:ads": "node --import ./tests/ads/reg.mjs tests/ads/interstitial.test.mjs",
     "test:home": "node tests/home/qotd.test.mjs",
-    "test:voice": "node tests/voice/readalong.test.mjs && node --import ./tests/voice/reg.mjs tests/voice/voice.test.mjs",
+    "test:voice": "node tests/voice/readalong.test.mjs && node tests/voice/filter.test.mjs && node --import ./tests/voice/reg.mjs tests/voice/voice.test.mjs",
     "test:vocab": "node tests/vocab/vocab.test.mjs && node tests/vocab/false-positives.test.mjs",
     "build:debug": "vite build --mode debug"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.2.1",
-    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor-community/text-to-speech": "^8.0.2",
     "@capacitor/android": "^8.5.3",
     "@capacitor/app": "^8.1.2",

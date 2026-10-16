@@ -1,7 +1,7 @@
 import { Network } from '@capacitor/network';
 import { getAdsDebugState, forceInterstitialTest, setBannerSuppressed } from '../services/admob.js';
 import { debugReady, recentAdsLog, recentVoiceLog } from '../services/debug.js';
-import { voiceInfo, voiceState } from '../services/voice.js';
+import { voiceInfo, voiceState, recentVoiceSessions } from '../services/voice.js';
 import { nativeAppInfo, nativeAdLayout } from '../services/native-info.js';
 
 /**
@@ -130,11 +130,30 @@ async function voiceSection(n) {
   }
   return [
     '== Voice ==',
-    `Android SDK ${fmt(v.sdk)} | recognizer available=${fmt(v.available)} | segmented rejected=${fmt(v.segmentedBroken)} | biasing hints ${v.sdk >= 33 ? 'supported' : 'not supported (needs Android 13+)'}`,
+    `Android SDK ${fmt(v.sdk)} | recognizer available=${fmt(v.available)} | biasing hints ${v.sdk >= 33 ? 'supported' : 'not supported (needs Android 13+)'}`,
     `Accent ${fmt(v.accent)} | locale now ${fmt(v.locale)} | smart name matching ${smart} | state ${voiceState()}`,
+    ...sessionLines(),
     `-- last ${n} VOICE: lines --`,
     ...recentVoiceLog(n)
   ];
+}
+
+// One block per recognizer session: language, raw guesses with confidence, max RMS, what was
+// dropped and why, what was replaced and why, and the text written into the box.
+function sessionLines() {
+  const list = recentVoiceSessions();
+  if (!list.length) return ['-- sessions: none yet (tap the mic first) --'];
+  const out = [`-- last ${list.length} sessions --`];
+  list.forEach(r => {
+    out.push(`[${r.n}] ${r.at} lang ${r.language} | hints sent ${r.hints} | max RMS ${r.maxRms === null ? '-' : Number(r.maxRms).toFixed(1)} | end ${r.end || '-'}`);
+    if (!r.nbest.length) out.push('   n-best: (no final result)');
+    r.nbest.forEach((c, i) => out.push(`   n-best ${i + 1}: "${c.text}" conf ${c.score === null ? '-' : c.score}`));
+    if (r.picked) out.push(`   picked: ${r.picked}`);
+    r.dropped.forEach(d => out.push(`   dropped: "${d.text}" - ${d.why}`));
+    r.changes.forEach(c => out.push(`   replaced: "${c.from}" -> "${c.to}" - ${c.why}`));
+    out.push(`   committed: ${r.committed ? `"${r.committed}"` : '(nothing)'}`);
+  });
+  return out;
 }
 
 async function voiceReport() {

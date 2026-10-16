@@ -1,22 +1,26 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 import { VOICE_ACCENTS, DEFAULT_VOICE_ACCENT } from '../config/app.js';
-import { voiceLog } from './debug.js';
-import { isDuplicatePhrase } from './vocab.js';
+import { voiceLog, isDebugBuild } from './debug.js';
+import { VOICE_FILTER, noiseGate, confidenceFilter, dedupeFinal } from './voice-filter.js';
 
 /**
- * Speech to text using the phone's own speech recognition service
- * (on most phones this is Google's service, which needs internet).
+ * Speech to text using the phone's own speech recognition service (VoicePlugin.java; on most
+ * phones Google's service, which needs internet). The app never records or saves audio itself.
  *
- * The app never records or saves audio itself. The microphone audio is handled by the
- * Android speech service and only the recognized text comes back to the app.
+ * How one mic tap works (see GUIDE.md "How voice recognition works"):
+ *  - One recognizer session runs. Live words (partial results) are only shown, never written.
+ *  - When the session ends with a final result, the result passes the noise gate, the confidence
+ *    filter and the duplicate check, and only then is handed to the screen, once.
+ *  - The next session starts only if this one had real speech. A session with no real speech
+ *    stops the mic with "Tap the mic to continue". No blind restart loop.
+ *  - Tap the mic again: stop now; the last final still arrives and is used.
  */
 
 let session = null;
 let accent = DEFAULT_VOICE_ACCENT;
 let localeIdx = 0; // index into the accent's locale list; moves on if the phone rejects a locale
 
-/** Voice accent from Profile > Voice: 'pk' | 'in' | 'us' | 'uk'. */
+/** Voice accent from Profile > Voice: 'in' | 'pk' | 'us' | 'uk'. */
 export function setVoiceAccent(key) {
   const k = VOICE_ACCENTS[key] ? key : DEFAULT_VOICE_ACCENT;
   if (k !== accent) localeIdx = 0;
@@ -32,11 +36,14 @@ export function isNativeVoice() {
   return Capacitor.isNativePlatform();
 }
 
+// The app's own native plugin (VoicePlugin.java).
+const Voice = registerPlugin('Voice');
+
 /** true when the phone has a speech recognition service. */
 export async function isVoiceAvailable() {
   if (!isNativeVoice()) return false;
   try {
-    const r = await SpeechRecognition.available();
+    const r = await Voice.info();
     return !!r.available;
   } catch {
     return false;
@@ -45,12 +52,12 @@ export async function isVoiceAvailable() {
 
 /**
  * Mic permission state: 'granted' | 'prompt' | 'prompt-with-rationale' | 'denied'.
- * 'denied' means the user picked "Don't allow" more than once (Android will not show the dialog again).
+ * 'denied' means Android will not show the dialog again (Settings is the only way).
  */
 export async function micPermission() {
   try {
-    const s = await SpeechRecognition.checkPermissions();
-    return s.speechRecognition;
+    const s = await Voice.checkPermissions();
+    return s.microphone;
   } catch {
     return 'denied';
   }
@@ -58,44 +65,55 @@ export async function micPermission() {
 
 export async function requestMicPermission() {
   try {
-    const s = await SpeechRecognition.requestPermissions();
-    return s.speechRecognition;
+    const s = await Voice.requestPermissions({ permissions: ['microphone'] });
+    return s.microphone;
   } catch {
     return 'denied';
   }
 }
 
-// The app's own native plugin (VoicePlugin.java): one recognition run per start().
-const Voice = registerPlugin('Voice');
+/** Opens this app's page in Android Settings. Resolves false if that failed. */
+export async function openAppSettings() {
+  try {
+    await Voice.openSettings();
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-// Timings and limits of the session manager (see GUIDE.md "How voice recognition works").
+// Session control and recognizer timing.
 export const VOICE_TIMING = {
-  restartMs: 300, // pause before listening again after silence or a timeout
-  busyMs: 600, // error 8 (recognizer busy): wait this long (x tries) before retrying
-  maxFailures: 3, // stop after this many failed restarts in a row
-  stopWaitMs: 2500, // after "stop", wait this long for the last phrase
-  maxSessionMs: 300000 // never listen longer than 5 minutes
+  nextSessionMs: 250, // pause before the next session after a session with real speech
+  busyRetryMs: 600, // error 8 (recognizer busy): retry once after this
+  stopWaitMs: 2000, // after "stop", wait this long for the last final
+  maxSessionMs: 300000, // never listen longer than 5 minutes per tap
+  completeMs: 4000, // EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS
+  possiblyMs: 3000, // EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS
+  minimumMs: 15000 // EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS
 };
 
 const ERROR_TEXT = {
-  1: 'Network is slow. Check your internet and try again.',
+  1: 'Network is slow. Check your internet and tap the mic to try again.',
   2: 'You are offline. Voice input needs internet. You can type your answer instead.',
   3: 'The microphone is busy or not working. Close other apps using it and try again.',
-  4: 'The speech service had a problem. Please try again.',
-  9: 'Microphone permission is missing.',
+  4: 'The speech service had a problem. Tap the mic to try again.',
+  8: 'The speech service is busy. Tap the mic to try again.',
+  9: 'Microphone permission is missing. Allow it in Android Settings > Apps > Interview Simulator > Permissions.',
   10: 'Too many voice requests. Wait a moment and try again.',
-  11: 'The speech service disconnected. Please try again.',
+  11: 'The speech service disconnected. Tap the mic to try again.',
   12: 'This voice accent is not available on your phone. Pick another one in Profile > Voice.',
   13: 'This voice accent is not available on your phone. Pick another one in Profile > Voice.'
 };
-export const NOT_CAUGHT = 'I did not catch that. Try again or type.';
+export const NOT_CAUGHT = 'I did not catch that. Tap the mic to continue.';
+export const TAP_TO_CONTINUE = 'Tap the mic to continue.';
 
 /** Short message for a native error code, or '' for none. */
 export function voiceErrorText(code) {
-  return ERROR_TEXT[code] || (code ? 'Voice input stopped. Please try again.' : '');
+  return ERROR_TEXT[code] || (code ? 'Voice input stopped. Tap the mic to try again.' : '');
 }
 
-/** States: idle, starting, ready, listening, restarting, stopping, error. */
+/** States: idle, starting, ready, listening, stopping, error. */
 export function voiceState() {
   return session ? session.state : 'idle';
 }
@@ -113,7 +131,21 @@ export async function voiceInfo() {
   }
 }
 
-const TRANSIENT = new Set([1, 3, 4, 5, 8, 10, 11]);
+// Per-session records for the debug voice report (debug builds only; never in release).
+const records = [];
+let recordForTests = false;
+export function _recordVoiceForTests() {
+  recordForTests = true;
+}
+function record(r) {
+  if (!recordForTests && !isDebugBuild()) return;
+  records.push(r);
+  while (records.length > 12) records.shift();
+}
+/** Last recognizer sessions: language, n-best with confidence, max RMS, drops, changes, committed. */
+export function recentVoiceSessions() {
+  return records.slice();
+}
 
 function setState(s, st) {
   if (s.state === st) return;
@@ -133,130 +165,152 @@ function finish(s, reason, code = 0, message = '') {
   clearTimeout(s.stopTimer);
   clearTimeout(s.safety);
   s.handles.forEach(h => Promise.resolve(h).then(x => x && x.remove()).catch(() => {}));
-  const msg = message || (reason === 'error' ? voiceErrorText(code) : !s.heard && reason !== 'cancelled' ? NOT_CAUGHT : '');
-  voiceLog('end', { reason, code, heard: s.heard, finals: s.finals, runs: s.runs, msg });
+  let msg = message;
+  if (!msg && reason === 'error') msg = voiceErrorText(code);
+  if (!msg && reason === 'empty') msg = s.committed ? TAP_TO_CONTINUE : NOT_CAUGHT;
+  if (!msg && reason === 'stopped' && !s.committed) msg = NOT_CAUGHT;
+  voiceLog('end', { reason, code, committed: s.committed, sessions: s.runs, msg });
   s.state = reason === 'error' ? 'error' : 'idle';
   try {
     s.o.onState && s.o.onState(s.state);
-    s.o.onEnd && s.o.onEnd({ reason, code, heard: s.heard, message: msg });
+    s.o.onEnd && s.o.onEnd({ reason, code, heard: s.committed > 0, message: msg });
   } catch {
     // UI callback errors must not break voice cleanup
   }
 }
 
-// A phrase is final: drop it if it repeats what is already there, else hand it to the screen.
-function deliver(s, text, info) {
-  const tail = s.o.getTail ? s.o.getTail() : '';
-  if (isDuplicatePhrase(text, s.lastFinal, tail)) {
-    voiceLog('duplicate dropped', JSON.stringify(text));
-    return false;
-  }
-  s.lastFinal = text;
-  s.heard = true;
-  s.finals++;
-  s.o.onFinal && s.o.onFinal(text, info);
-  return true;
-}
-
-// The run ended without a final for the last live text: keep what the user saw.
-function commitPending(s) {
-  if (!s.pending) return;
-  const p = s.pending;
-  s.pending = null;
-  voiceLog('commit partial', JSON.stringify(p.text));
-  deliver(s, p.text, { ...p, fromPartial: true });
-}
-
-function choose(s, alts) {
+function choose(s, cands) {
   try {
-    return s.o.choose ? s.o.choose(alts) : { text: alts[0], index: 0, changes: [] };
+    if (s.o.choose) return s.o.choose(cands);
   } catch {
-    return { text: alts[0], index: 0, changes: [] };
+    // fall through to the first guess
   }
+  return { text: cands[0].text, index: cands[0].index, changes: [], why: 'first guess' };
 }
 
 async function begin(s) {
+  s.timer = null;
   if (session !== s || s.stopping) return;
   s.runs++;
+  s.run = { n: s.runs, at: new Date().toISOString().slice(11, 19), language: voiceLanguage(), hints: 0, nbest: [], maxRms: null, dropped: [], changes: [], picked: '', committed: '', end: '' };
+  record(s.run);
   setState(s, 'starting');
-  const opts = { language: voiceLanguage(), maxResults: 5, partialResults: true, silenceMs: s.o.silenceMs, segmented: true, bias: s.o.bias };
+  const opts = {
+    language: voiceLanguage(),
+    maxResults: 5,
+    completeMs: VOICE_TIMING.completeMs,
+    possiblyMs: VOICE_TIMING.possiblyMs,
+    minimumMs: VOICE_TIMING.minimumMs,
+    bias: s.o.bias
+  };
   try {
     const r = await Voice.start(opts);
-    voiceLog('start', { run: s.runs, locale: opts.language, sdk: r && r.sdk, segmented: r && r.segmented, biasing: r && r.biasing, hints: r && r.hints, silenceMs: opts.silenceMs });
+    s.run.hints = (r && r.hints) || 0;
+    voiceLog('start', { session: s.runs, locale: opts.language, sdk: r && r.sdk, biasing: r && r.biasing, hints: r && r.hints });
   } catch (e) {
     voiceLog('start failed', String((e && e.message) || e));
-    onError(s, -1);
+    s.run.end = 'start failed';
+    finish(s, 'error', 4);
   }
 }
 
-function restart(s, ms, why) {
-  if (session !== s || s.stopping) return;
-  setState(s, 'restarting');
-  voiceLog('restart', { in: ms, why, failures: s.failures });
-  clearTimeout(s.timer);
-  s.timer = setTimeout(() => begin(s), ms);
-}
-
-function onError(s, code) {
-  // Locale not supported (12, 13): next locale of the accent, does not count as a failure.
-  const list = VOICE_ACCENTS[accent].locales;
-  if ((code === 12 || code === 13) && localeIdx < list.length - 1) {
-    localeIdx++;
-    voiceLog('locale rejected, next', voiceLanguage());
-    return restart(s, 0, 'locale');
+// One final result: gates, then hand it to the screen once.
+function onFinal(s, d) {
+  const run = s.run;
+  if (!run || run.final) return; // a session commits at most one final
+  run.final = true;
+  const matches = (d.matches || []).filter(Boolean);
+  run.maxRms = typeof d.maxRms === 'number' ? d.maxRms : s.levelMax;
+  run.nbest = matches.map((t, i) => ({ text: t, score: d.scores && typeof d.scores[i] === 'number' ? Math.round(d.scores[i] * 100) / 100 : null }));
+  const noise = noiseGate(run.maxRms, s.o.filter);
+  if (noise) {
+    run.dropped.push({ text: matches[0], why: noise });
+    voiceLog('dropped', noise, JSON.stringify(matches[0]));
+    return;
   }
-  if (code === 2 || code === 9 || code === 12 || code === 13) return finish(s, 'error', code);
-  s.failures++;
-  if (s.failures > VOICE_TIMING.maxFailures) {
-    return finish(s, 'error', code, 'Voice input stopped after 3 tries. Please try again or type your answer.');
+  run.speech = true;
+  const { cands, dropped } = confidenceFilter(matches, d.scores, s.o.filter);
+  run.dropped.push(...dropped);
+  if (!cands.length) {
+    voiceLog('dropped: low confidence', JSON.stringify(matches[0]));
+    return;
   }
-  const ms = code === 8 ? VOICE_TIMING.busyMs * s.failures : VOICE_TIMING.restartMs * 2 ** (s.failures - 1);
-  restart(s, ms, `error ${code}`);
+  const c = choose(s, cands);
+  run.picked = `#${c.index + 1} (${c.why || ''})`;
+  run.changes = c.changes || [];
+  const dd = dedupeFinal(c.text, s.recent, Date.now(), s.o.filter);
+  if (!dd.text) {
+    run.dropped.push({ text: c.text, why: dd.why });
+    voiceLog('dropped', dd.why, JSON.stringify(c.text));
+    return;
+  }
+  if (dd.why) run.dropped.push({ text: c.text, why: dd.why });
+  s.recent.push({ text: c.text, at: Date.now() });
+  s.committed++;
+  run.committed = dd.text;
+  voiceLog('final', { nbest: run.nbest, maxRms: run.maxRms, picked: run.picked, changes: run.changes.map(x => `${x.from}>${x.to} (${x.why})`), committed: dd.text });
+  try {
+    s.o.onFinal && s.o.onFinal(dd.text, { index: c.index, changes: c.changes || [], raw: matches[c.index] });
+  } catch {
+    // UI errors must not break the session
+  }
 }
 
 function onEnd(s, d) {
   const reason = (d && d.reason) || 'done';
   const code = (d && d.code) || 0;
-  voiceLog('run end', { reason, code, ms: d && d.ms });
-  if (s.stopping || reason === 'stopped') {
-    commitPending(s);
-    return finish(s, 'stopped');
+  if (s.run) {
+    s.run.end = `${reason}${code ? ' ' + code : ''} after ${d && d.ms} ms`;
+    if (s.run.maxRms === null && typeof d.maxRms === 'number') s.run.maxRms = d.maxRms;
   }
+  voiceLog('session end', { reason, code, ms: d && d.ms, maxRms: d && d.maxRms });
+  if (s.stopping || reason === 'stopped') return finish(s, 'stopped');
   if (reason === 'error') {
-    commitPending(s);
-    if (TRANSIENT.has(code) || code === 12 || code === 13 || code === 2 || code === 9) return onError(s, code);
+    const list = VOICE_ACCENTS[accent].locales;
+    if ((code === 12 || code === 13) && localeIdx < list.length - 1) {
+      // Locale not supported: next locale of the accent.
+      localeIdx++;
+      voiceLog('locale rejected, next', voiceLanguage());
+      return next(s, 0);
+    }
+    if (code === 8 && !s.busyRetried) {
+      s.busyRetried = true;
+      return next(s, VOICE_TIMING.busyRetryMs);
+    }
+    if ((code === 6 || code === 7) && !(s.run && s.run.speech)) return finish(s, 'empty');
     return finish(s, 'error', code);
   }
-  // done (results) or nomatch (6/7: silence or nothing understood): listen again.
-  commitPending(s);
-  if (reason === 'done') s.failures = 0;
-  if (Date.now() - s.lastSpeechAt > s.o.maxSilentMs) return finish(s, 'silence');
-  restart(s, VOICE_TIMING.restartMs, reason === 'nomatch' ? `silence ${code}` : 'phrase done');
+  // done / nomatch: continue only after real speech.
+  if (s.run && s.run.speech) return next(s, VOICE_TIMING.nextSessionMs);
+  return finish(s, 'empty');
+}
+
+function next(s, ms) {
+  if (session !== s || s.stopping) return;
+  clearTimeout(s.timer);
+  s.timer = setTimeout(() => begin(s), ms);
 }
 
 /**
- * Start a voice session (Mock and Practice share it).
- *  bias: hint words (Android 13+), choose(alts) -> { text, index, changes }: picks and corrects
- *  the best alternative, getTail(): end of the text box (duplicate check),
- *  onState(state), onPartial(text, info), onFinal(text, info), onLevel(db),
- *  onEnd({ reason: stopped | silence | error | cancelled, code, heard, message }).
- *  maxSilentMs: stop after this long without speech. silenceMs: hint for the recognizer.
- * Resolves true when the first run started.
+ * Start listening for one mic tap (Mock and Practice share it).
+ *  bias: hint strings (Android 13+). choose(cands) -> { text, index, changes, why }: picks and
+ *  corrects one of the guesses ({ text, score, index }). onState(state), onPartial(text) (show
+ *  only), onFinal(text, info) (write it), onLevel(db), onEnd({ reason, code, heard, message }).
+ *  filter: overrides for VOICE_FILTER (tests).
+ * Resolves true when the first session started.
  */
 export async function startListening(o = {}) {
   if (session) cancelListening();
   const s = {
-    o: { silenceMs: 3000, maxSilentMs: 30000, bias: [], ...o },
+    o: { bias: [], filter: VOICE_FILTER, ...o },
     state: 'idle',
     runs: 0,
-    finals: 0,
-    failures: 0,
-    heard: false,
-    lastFinal: '',
-    lastAlts: [],
-    pending: null,
+    run: null,
+    committed: 0,
+    recent: [],
+    levelMax: null,
+    busyRetried: false,
     stopping: false,
-    lastSpeechAt: Date.now(),
     handles: [],
     timer: null,
     stopTimer: null,
@@ -265,73 +319,48 @@ export async function startListening(o = {}) {
   s.o.bias = [...new Set(s.o.bias || [])].slice(0, 100);
   session = s;
   const mine = fn => d => session === s && fn(d || {});
-  voiceLog('session', { accent, locale: voiceLanguage(), hints: s.o.bias.length, silenceMs: s.o.silenceMs, maxSilentMs: s.o.maxSilentMs });
+  voiceLog('mic on', { accent, locale: voiceLanguage(), hints: s.o.bias.length });
 
   s.handles.push(
     Voice.addListener('ready', mine(() => setState(s, 'ready'))),
-    Voice.addListener('speech', mine(() => {
-      s.lastSpeechAt = Date.now();
-      setState(s, 'listening');
-    })),
+    Voice.addListener('speech', mine(() => setState(s, 'listening'))),
     Voice.addListener('speechEnd', mine(d => voiceLog('speech end', { ms: d.ms }))),
-    Voice.addListener('note', mine(d => voiceLog('note', d.msg))),
-    Voice.addListener('level', mine(d => s.o.onLevel && s.o.onLevel(d.db))),
+    Voice.addListener('level', mine(d => {
+      if (typeof d.db === 'number' && (s.levelMax === null || d.db > s.levelMax)) s.levelMax = d.db;
+      s.o.onLevel && s.o.onLevel(d.db);
+    })),
     Voice.addListener('partial', mine(d => {
-      const alts = (d.matches || []).filter(Boolean);
-      if (!alts.length) return;
-      s.lastSpeechAt = Date.now();
+      const t = (d.matches || []).filter(Boolean)[0];
+      if (!t) return;
       if (s.state !== 'listening' && s.state !== 'stopping') setState(s, 'listening');
-      const c = choose(s, alts);
-      s.pending = { text: c.text, raw: alts[c.index] || alts[0], index: c.index, changes: c.changes || [] };
-      if (Date.now() - (s.lastPartialLog || 0) > 1000) {
-        s.lastPartialLog = Date.now();
-        voiceLog('partial', { raw: alts[0], text: c.text });
-      }
-      s.o.onPartial && s.o.onPartial(c.text, s.pending);
+      s.o.onPartial && s.o.onPartial(t); // live bar only, never the answer box
     })),
-    Voice.addListener('final', mine(d => {
-      const alts = (d.matches || []).filter(Boolean);
-      if (!alts.length) return;
-      s.lastSpeechAt = Date.now();
-      s.failures = 0;
-      // The same utterance delivered twice (segment result + the run's final result) can come with a
-      // different best alternative; compare the raw alternatives too.
-      if (s.lastAlts.some(a => alts.some(x => isDuplicatePhrase(x, a)))) {
-        voiceLog('duplicate dropped (same utterance)', JSON.stringify(alts[0]));
-        s.pending = null;
-        return;
-      }
-      s.lastAlts = alts;
-      const c = choose(s, alts);
-      s.pending = null;
-      voiceLog('final', { alts, scores: d.scores, used: c.index, text: c.text, changes: (c.changes || []).map(x => `${x.from}>${x.to} (${x.rule})`), segment: !!d.segment });
-      deliver(s, c.text, { raw: alts[c.index] || alts[0], index: c.index, changes: c.changes || [], scores: d.scores });
-    })),
-    Voice.addListener('end', mine(d => onEnd(s, d)))
+    Voice.addListener('final', mine(d => onFinal(s, d))),
+    Voice.addListener('end', mine(d => {
+      s.levelMax = null;
+      onEnd(s, d);
+    }))
   );
   s.safety = setTimeout(() => session === s && stopListening(), VOICE_TIMING.maxSessionMs);
   await begin(s);
   return session === s;
 }
 
-/** Stop listening and keep the last phrase (onEnd follows when it has arrived). */
+/** Tap to stop: stop now; the last final still arrives and is used, then onEnd. */
 export function stopListening() {
   const s = session;
   if (!s || s.stopping) return;
   s.stopping = true;
   voiceLog('stop pressed', { state: s.state });
-  if (s.state === 'restarting') {
-    // Between runs: nothing is listening, finish now.
+  if (s.timer) {
+    // Between sessions: nothing is listening, finish now.
     clearTimeout(s.timer);
-    commitPending(s);
+    s.timer = null;
     return finish(s, 'stopped');
   }
   setState(s, 'stopping');
   Voice.stop().catch(() => {});
-  s.stopTimer = setTimeout(() => {
-    commitPending(s);
-    finish(s, 'stopped');
-  }, VOICE_TIMING.stopWaitMs);
+  s.stopTimer = setTimeout(() => finish(s, 'stopped'), VOICE_TIMING.stopWaitMs);
 }
 
 /** Stop now and drop anything not yet heard (screen change, app in background). */
