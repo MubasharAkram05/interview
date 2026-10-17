@@ -478,12 +478,11 @@ function stats() {
 // Home hero main button: Practice when the details are saved, else the details form first.
 function heroGo() {
   playTapSound();
-  if (setupDone(profiles[active])) return startPractice();
-  openSetup(() => startPractice(), { fresh: !profiles[active] });
+  startPractice(); // straight to Practice; the details form comes only when a type is picked
 }
 
 // Welcome screen: covers the app while it loads; Get Started shows when everything is ready.
-// Get Started: the details form when it is not filled in yet, else the app (Home).
+// Get Started: always the app (Home); the details form comes when a Practice or Mock type is picked.
 function introReady() {
   const el = $('intro');
   if (!el) return;
@@ -503,8 +502,7 @@ function introReady() {
       if (cs === 'practice' && P.list[P.i]) pAutoRead(P.list[P.i]);
       if (cs === 'interview' && cur[idx] && $('rd').checked) reveal(cur[idx].q, true);
     }, 450);
-    // Open the form first (it hides the banner), then let the banner show with the app.
-    if (!setupDone(profiles[active])) openSetup(() => home(), { fresh: !profiles[active] });
+    // Always the app (Home, or the screen restored from last time); never the details form here.
     setBannerSuppressed('intro', false); // the banner appears with the app, never on this screen
   };
 }
