@@ -16,23 +16,8 @@ export const ROLES = [
 ];
 export const EXPERIENCE = { fresher: 'Fresher', mid: '1 to 2 years', senior: '3 plus years' };
 export const MAX_SKILLS = 10;
-export const MAX_WORDS = 20;
+const MAX_WORDS = 20; // automatic profile words (autoWords)
 
-// Default interview type and level for each target role / experience (Mock and Practice pickers).
-const ROLE_CAT = {
-  'Software Engineer': 'software',
-  'Web Developer': 'software',
-  'Cloud/DevOps': 'cloud',
-  'IT Support': 'software',
-  'Data/AI': 'software',
-  'Marketing/Sales': 'marketing',
-  'Customer Service': 'customer',
-  Teaching: 'teaching',
-  'Fresher/General': 'fresh',
-  Other: 'fresh'
-};
-const EXP_LEVEL = { fresher: 'fresher', mid: 'junior', senior: 'senior' };
-export const roleToCat = role => ROLE_CAT[role] || 'fresh';
 // The interview type the user picked first fills in the target role.
 const CAT_ROLE = {
   software: 'Software Engineer',
@@ -172,7 +157,6 @@ export function autoWords(p = {}) {
     MAX_WORDS
   );
 }
-export const expToLevel = exp => EXP_LEVEL[exp] || 'fresher';
 
 /** Full name: 2 to 40 characters, letters and spaces only. Returns '' when valid, else the message. */
 export function nameError(name) {
@@ -196,27 +180,6 @@ export function cleanTags(list, max) {
     if (v && !out.some(x => x.toLowerCase() === v.toLowerCase()) && out.length < max) out.push(v);
   });
   return out;
-}
-
-/** My words to start with: name parts and city (the user can remove or add words). */
-export function defaultWords(name, city, words = []) {
-  return cleanTags(
-    [
-      ...String(name || '').split(/\s+/),
-      ...String(city || '')
-        .split(/[,\s]+/)
-        .filter(w => w.length > 2),
-      ...words
-    ],
-    MAX_WORDS
-  );
-}
-
-/** When the name or city changes, swap the old name/city words in My words for the new ones. */
-export function updateWords(words, before = {}, after = {}) {
-  const old = new Set([...String(before.name || '').split(/\s+/), ...String(before.city || '').split(/[,\s]+/)].map(w => w.toLowerCase()).filter(Boolean));
-  const kept = (words || []).filter(w => !old.has(String(w).toLowerCase()));
-  return defaultWords(after.name, after.city, kept);
 }
 
 /** "A, B and C" (the form the sample answers use for {skills}). */

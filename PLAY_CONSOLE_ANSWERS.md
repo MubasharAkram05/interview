@@ -27,7 +27,7 @@ Answers for Play Console > Policy and programs > **App content**. Every answer i
 ## 3. Ads
 
 - Does your app contain ads? **Yes, my app contains ads**
-- Ad placement (for your own reference, not asked by Play): one standard banner in its own reserved space, under the header on every screen and at the bottom of the Mock interview screen (it never covers content or buttons, and hides on forms, the welcome screen and while dialogs are open); interstitial only at natural breaks (after a finished mock interview, before the results screen, and after every 4th Practice question), never on launch, within 60 s of opening, while the mic records or the user types, on back/exit, or at two breaks in a row, and at least 3 minutes apart in the release build. No ad request before the UMP consent step; the app is not child-directed (tagForChildDirectedTreatment and tagForUnderAgeOfConsent are false).
+- Ad placement (for your own reference, not asked by Play): one standard banner in its own reserved space, under the header on every screen and at the bottom of the Mock interview screen (it never covers content or buttons, and hides on forms, the welcome screen and while dialogs are open); interstitial only at natural breaks (after a finished mock interview, before the results screen, after every 4th Practice question, and at the end of Practice), never on launch, within 60 s of opening, while the mic records or the user types, on back/exit, or at two breaks in a row, and at least 3 minutes apart in the release build. No ad request before the UMP consent step; the app is not child-directed (tagForChildDirectedTreatment and tagForUnderAgeOfConsent are false).
 
 ## 4. Advertising ID
 

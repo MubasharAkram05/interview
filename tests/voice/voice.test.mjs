@@ -18,7 +18,6 @@ import {
   TAP_TO_CONTINUE
 } from '../../src/services/voice.js';
 import { pickCandidate } from '../../src/services/voice-filter.js';
-import { joinSpoken } from '../../src/services/readalong.js';
 
 const out = [];
 const check = (name, ok, extra = '') => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : '   ' + extra}`);
@@ -33,7 +32,7 @@ function box(initial = '') {
     onState: st => b.states.push(st),
     onPartial: t => (b.live = t),
     onFinal: t => {
-      b.value = joinSpoken(b.value, t, ['Mubashar', 'Akram', 'Pakpattan']); // the app keeps the case of My words
+      b.value = [b.value, t].filter(Boolean).join(' '); // like the Mock box: each final is added
       b.live = '';
     },
     onEnd: e => b.ends.push(e),

@@ -4,7 +4,7 @@
 // My words, name, city and skills live in the profile (setup screen).
 import { getItem, setItem } from './storage.js';
 import { DEFAULT_VOICE_ACCENT, VOICE_ACCENTS } from '../config/app.js';
-import { buildVocab } from './vocab.js';
+import { norm, isCommon } from './vocab.js';
 
 const MAX_MEMORY = 50;
 
@@ -21,7 +21,8 @@ export function corrections() {
 }
 export function addCorrection(pair) {
   if (!pair) return;
-  const list = corrections().filter(m => !(m.prev === pair.prev && m.heard === pair.heard));
+  // One entry per heard word (the newest fix wins): that is how applyCorrections uses them.
+  const list = corrections().filter(m => m.heard !== pair.heard);
   list.unshift({ ...pair, at: Date.now() });
   setItem('is_voice_mem', list.slice(0, MAX_MEMORY));
 }
@@ -31,26 +32,33 @@ export function removeCorrection(i) {
   setItem('is_voice_mem', list);
 }
 
-// Cached vocabulary: rebuilt only when the profile's words or the learned corrections change.
-let cache = { key: '', vocab: null };
-export function userVocab(p = {}) {
-  const myWords = (p.words || []).map(word => ({ word, aliases: [] }));
-  const memory = corrections();
-  const key = JSON.stringify([p.words || [], p.name || '', p.city || '', p.skillTags || [], memory]);
-  if (cache.key !== key) cache = { key, vocab: buildVocab({ myWords, name: p.name || '', city: p.city || '', skills: p.skillTags || [], memory }) };
-  return cache.vocab;
+/**
+ * Learned corrections in use: a heard word the user later said right in Mock is written as the
+ * right word from then on. Only single whole words are swapped; everything else stays as heard.
+ * Time O(words) per text (a Map lookup per word).
+ */
+export function applyCorrections(text) {
+  const list = corrections();
+  if (!list.length) return String(text || '');
+  const fix = new Map(list.filter(m => m && m.heard && m.fix).map(m => [m.heard, m.fix]));
+  return String(text || '')
+    .split(/(\s+)/)
+    .map(t => {
+      const f = fix.get(norm(t));
+      return f && /\S/.test(t) ? f : t;
+    })
+    .join('');
 }
 
-/** Chips under the answer box: the name parts and My words (max 6), only the user's own data. */
-export function chipWords(p = {}) {
-  const out = [];
-  const add = w => {
-    const t = String(w || '').trim();
-    if (t && t.length <= 24 && !out.some(x => x.toLowerCase() === t.toLowerCase()) && out.length < 6) out.push(t);
-  };
-  String(p.name || '')
-    .split(/\s+/)
-    .forEach(add);
-  (p.words || []).forEach(add);
-  return out;
+/**
+ * Remember a correction from Mock: the phone heard `heard` where the saved answer has `fix`, and
+ * the user then said the word right. Only one heard word for one answer word, both 2+ letters, and
+ * never a common English word ("Lahore" for "Pakpattan" can be learned, "the" for "a" cannot).
+ */
+export function learnCorrection(heard, fix, prev = '') {
+  const h = norm(heard);
+  const f = String(fix || '').replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9+#]+$/g, '');
+  if (!h || /\s/.test(String(heard).trim()) || h.length < 2 || isCommon(h) || !f || norm(f).length < 2 || norm(f) === h) return false;
+  addCorrection({ prev: norm(prev), heard: h, fix: f });
+  return true;
 }

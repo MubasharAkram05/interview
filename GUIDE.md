@@ -279,7 +279,7 @@ Use the `app-debug.apk` from the workflow first, then the release build from the
 6. EEA/UK test (optional): the consent form shows once, with no banner on top of it. Profile > Privacy Policy shows "Ad privacy choices"; the banner hides while that form is open.
 
 ### Interstitial (full-screen ad)
-Rules: Interstitial only at natural breaks: after a mock interview is finished (just before the results screen) and after every 4th Practice question the user moves forward to. Never on app launch, never within 60 s of opening the app, never while the mic records or the user types, never on the back button or exit, never at two breaks in a row, and at least `INTERSTITIAL_COOLDOWN_MS` apart (3 minutes in every build). If no ad is loaded when a break comes, it is skipped silently; the app never waits. The banner hides while the interstitial is open.
+Rules: Interstitial only at natural breaks: after a mock interview is finished (just before the results screen), after every 4th Practice question the user moves forward to, and when the user taps Finish at the end of Practice. Never on app launch, never within 60 s of opening the app, never while the mic records or the user types, never on the back button or exit, never at two breaks in a row, and at least `INTERSTITIAL_COOLDOWN_MS` apart (3 minutes in every build). If no ad is loaded when a break comes, it is skipped silently; the app never waits. The banner hides while the interstitial is open.
 
 Use the **debug APK** for this test (it prints `ADS:` lines; the release build never does). With the phone connected by USB and USB debugging on, run on your PC:
 

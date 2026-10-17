@@ -1,13 +1,6 @@
 import dayjs from 'dayjs';
 
 /**
- * Format the top current full date header (e.g. "Wednesday, October 15, 2026")
- */
-export function formatFullCurrentDate() {
-  return dayjs().format('dddd, MMMM D, YYYY');
-}
-
-/**
  * Format short date for session history (e.g. "10/15/2026" or locale string)
  */
 export function formatSessionDate(timestamp = Date.now()) {
