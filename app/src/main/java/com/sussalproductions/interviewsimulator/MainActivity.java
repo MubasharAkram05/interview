@@ -1,9 +1,11 @@
 package com.sussalproductions.interviewsimulator;
 
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.core.splashscreen.SplashScreen;
@@ -30,6 +32,21 @@ public class MainActivity extends BridgeActivity {
         pageVisible = true;
     }
 
+    private void applyLaunchBackground() {
+        try {
+            getWindow().setBackgroundDrawableResource(R.drawable.launch_screen);
+        } catch (Exception ignored) {
+            // keep the theme background
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // SystemBars resets the window background on configuration changes too.
+        new Handler(Looper.getMainLooper()).post(this::applyLaunchBackground);
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // Start-up: keep Android's splash (logo on brand blue) on screen until the web page has
@@ -45,11 +62,20 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(VoicePlugin.class);
         super.onCreate(savedInstanceState);
 
+        // Logo on the brand gradient behind the (transparent) WebView until the page paints.
+        // Capacitor's SystemBars plugin replaces the WINDOW background right after start-up with
+        // the theme's windowBackground read as a plain colour; for this drawable that gives a
+        // meaningless colour, which showed as a blank white (or black) screen before the welcome
+        // screen. So the logo also goes on the content view, which SystemBars never touches, and
+        // the window background is set again after SystemBars has run.
+        applyLaunchBackground();
         try {
-            getWindow().setBackgroundDrawableResource(R.drawable.launch_screen);
+            View content = findViewById(android.R.id.content);
+            if (content != null) content.setBackgroundResource(R.drawable.launch_screen);
         } catch (Exception ignored) {
-            // keep the theme background
+            // the window background still shows
         }
+        new Handler(Looper.getMainLooper()).post(this::applyLaunchBackground);
         if (bridge == null) {
             pageVisible = true;
             return;
