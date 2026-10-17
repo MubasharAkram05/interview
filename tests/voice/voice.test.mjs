@@ -53,7 +53,10 @@ let b = box();
 await startListening(b.opts({ bias: ['Mubashar', 'Akram', 'Mubashar'] }));
 const o = state.starts[0];
 check('default language is en-IN', o.language === 'en-IN');
-check('5 guesses, silence 2000 / 1500 / minimum 2000 ms (a 2 s pause ends a sentence)', o.maxResults === 5 && o.completeMs === 2000 && o.possiblyMs === 1500 && o.minimumMs === 2000);
+check(
+  '5 guesses, silence 2000 / 1500 / minimum 2000 ms (a 2 s pause ends a sentence)',
+  o.maxResults === 5 && o.completeMs === 2000 && o.possiblyMs === 1500 && o.minimumMs === 2000
+);
 check('hints sent once each', JSON.stringify(o.bias) === '["Mubashar","Akram"]');
 check('"starting" until the recognizer is ready', voiceState() === 'starting');
 emit('ready');

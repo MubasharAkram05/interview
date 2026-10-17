@@ -147,7 +147,9 @@ function sessionLines() {
       out.push(`   written: "${r.text}"`);
       return;
     }
-    out.push(`[${r.n}] ${r.at} lang ${r.language} | hints sent ${r.hints} | max RMS ${r.maxRms === null ? '-' : Number(r.maxRms).toFixed(1)} | end ${r.end || '-'}`);
+    out.push(
+      `[${r.n}] ${r.at} lang ${r.language} | hints sent ${r.hints} | max RMS ${r.maxRms === null ? '-' : Number(r.maxRms).toFixed(1)} | end ${r.end || '-'}`
+    );
     if (!r.nbest.length) out.push('   n-best: (no final result)');
     r.nbest.forEach((c, i) => out.push(`   n-best ${i + 1}: "${c.text}" conf ${c.score === null ? '-' : c.score}`));
     if (r.picked) out.push(`   picked: ${r.picked}`);
@@ -160,7 +162,12 @@ function sessionLines() {
 
 async function voiceReport() {
   const a = appInfo || {};
-  return ['== Interview Simulator voice report ==', `Build: git ${__GIT_SHA__} | built ${__BUILD_TIME__} | ${a.device || 'browser'}`, '', ...(await voiceSection(50))].join('\n');
+  return [
+    '== Interview Simulator voice report ==',
+    `Build: git ${__GIT_SHA__} | built ${__BUILD_TIME__} | ${a.device || 'browser'}`,
+    '',
+    ...(await voiceSection(50))
+  ].join('\n');
 }
 
 function round(v) {

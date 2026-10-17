@@ -11,7 +11,10 @@ const check = (name, ok, extra = '') => out.push(`${ok ? 'PASS' : 'FAIL'}  ${nam
 const size = fs.statSync('src/data/interview-vocab.js').size;
 check(`file under 10 KB (${size} bytes)`, size < 10240);
 const lower = IV_LIST.map(t => t.toLowerCase());
-check(`start-up list is duplicate-free, case-insensitive (${IV_LIST.length} of ${INTERVIEW_VOCAB.flat().length} entries)`, new Set(lower).size === lower.length);
+check(
+  `start-up list is duplicate-free, case-insensitive (${IV_LIST.length} of ${INTERVIEW_VOCAB.flat().length} entries)`,
+  new Set(lower).size === lower.length
+);
 check('first spelling kept for display ("CGPA", "Node.js")', IV_LIST.includes('CGPA') && IV_LIST.includes('Node.js'));
 
 // A user whose words sound like many list words: nothing from the list may be replaced.

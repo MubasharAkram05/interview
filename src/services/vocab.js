@@ -46,7 +46,14 @@ export const IV_LIST = (() => {
   return [...seen.values()];
 })();
 // Every word of the list is protected: the name matcher never replaces it ("Python" stays Python).
-const IV_WORDS = new Set(IV_LIST.flatMap(t => t.split(/\s+/).map(w => norm(w)).filter(Boolean)));
+const IV_WORDS = new Set(
+  IV_LIST.flatMap(t =>
+    t
+      .split(/\s+/)
+      .map(w => norm(w))
+      .filter(Boolean)
+  )
+);
 export function isInterviewWord(w) {
   return IV_WORDS.has(norm(w));
 }
@@ -64,7 +71,10 @@ const NAME_TRIGGERS = [
 
 /** "Node.js," -> "nodejs", "I'm" -> "im". */
 export function norm(w) {
-  return String(w || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]/g, '');
+  return String(w || '')
+    .toLowerCase()
+    .replace(/[’']/g, '')
+    .replace(/[^a-z0-9]/g, '');
 }
 
 export function isCommon(w) {
@@ -166,7 +176,11 @@ export function buildVocab({ myWords = [], name = '', city = '', skills = [], me
     .split(/[\s,]+/)
     .filter(w => w.length > 2)
     .forEach(c => add(c, 'city'));
-  skills.forEach(sk => String(sk).split(/\s+/).forEach(w => !COMMON.has(norm(w)) && add(w, 'skill')));
+  skills.forEach(sk =>
+    String(sk)
+      .split(/\s+/)
+      .forEach(w => !COMMON.has(norm(w)) && add(w, 'skill'))
+  );
   memory.forEach(m => {
     if (!m || !m.heard || !m.fix) return;
     const k = norm(m.heard);
@@ -298,7 +312,9 @@ export function correctText(text, vocab, opts = {}) {
       let merged = false;
       if (next && !PLACE_WORDS.has(k) && !PLACE_WORDS.has(next) && !isNumber(tok.core) && !isNumber(toks[words[wi + 1]].core)) {
         const joined = k + next;
-        const t = [...nearby(joined, vocab, cfg)].find(x => similarity(joined, x.key) >= cfg.mergeSim && !(COMMON.has(k) && COMMON.has(next) && x.key !== joined));
+        const t = [...nearby(joined, vocab, cfg)].find(
+          x => similarity(joined, x.key) >= cfg.mergeSim && !(COMMON.has(k) && COMMON.has(next) && x.key !== joined)
+        );
         if (t && joined.length >= 5) {
           put(wi, t.text, 'joined split word', 2);
           merged = true;
@@ -308,7 +324,12 @@ export function correctText(text, vocab, opts = {}) {
       if (!merged && k.length >= cfg.minLen && !isNumber(tok.core) && !PLACE_WORDS.has(k) && !IV_WORDS.has(k)) {
         const slot = slots.has(wi);
         const b = match(k, vocab, cfg, slot);
-        if (b) put(wi, b.t.text, `${b.phon ? 'sounds like' : 'spelled like'} ${b.t.source === 'name' ? 'profile name' : b.t.source === 'memory' ? 'a learned word' : 'My word'} (${b.s.toFixed(2)})${slot ? ', name slot' : ''}`);
+        if (b)
+          put(
+            wi,
+            b.t.text,
+            `${b.phon ? 'sounds like' : 'spelled like'} ${b.t.source === 'name' ? 'profile name' : b.t.source === 'memory' ? 'a learned word' : 'My word'} (${b.s.toFixed(2)})${slot ? ', name slot' : ''}`
+          );
       }
     }
     if (/[.!?]$/.test(toks[words[wi]].post)) inSentence = 0; // new sentence, new change budget
@@ -374,7 +395,10 @@ export function hintWords(vocab, { first = [], context = '' } = {}, cfg = VOCAB_
   if (vocab.city) push(vocab.city);
   (vocab.skills || []).forEach(push);
   first.forEach(push);
-  const ctx = ` ${String(context || '').toLowerCase().replace(/[^a-z0-9/.+#\s]/g, ' ').replace(/\s+/g, ' ')} `;
+  const ctx = ` ${String(context || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9/.+#\s]/g, ' ')
+    .replace(/\s+/g, ' ')} `;
   IV_LIST.filter(t => ctx.includes(` ${t.toLowerCase()} `)).forEach(push);
   IV_LIST.forEach(push);
   return out;
@@ -382,7 +406,10 @@ export function hintWords(vocab, { first = [], context = '' } = {}, cfg = VOCAB_
 
 /** Interview words (single words or phrases) found in a text: Mock keyword chips. */
 export function keywordsIn(text, max = 4) {
-  const ctx = ` ${String(text || '').toLowerCase().replace(/[^a-z0-9/.+#\s]/g, ' ').replace(/\s+/g, ' ')} `;
+  const ctx = ` ${String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9/.+#\s]/g, ' ')
+    .replace(/\s+/g, ' ')} `;
   return IV_LIST.filter(t => t.length > 3 && !COMMON.has(t.toLowerCase()) && ctx.includes(` ${t.toLowerCase()} `)).slice(0, max);
 }
 
@@ -404,8 +431,14 @@ export function rareWords(text, max = 20) {
  * Returns { prev, heard, fix } or null. Nothing leaves the phone.
  */
 export function learnFromEdit(before, after) {
-  const a = String(before || '').trim().split(/\s+/).filter(Boolean);
-  const b = String(after || '').trim().split(/\s+/).filter(Boolean);
+  const a = String(before || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const b = String(after || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
   if (!a.length || a.length !== b.length) return null;
   const diff = [];
   for (let i = 0; i < a.length; i++) if (norm(a[i]) !== norm(b[i])) diff.push(i);

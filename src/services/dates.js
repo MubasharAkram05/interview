@@ -28,11 +28,7 @@ export function calculateStreak(historyList = []) {
   if (!historyList || !historyList.length) return 0;
 
   // Extract unique day strings
-  const sessionDays = new Set(
-    historyList
-      .filter(item => item && item.ts)
-      .map(item => dayjs(item.ts).format('YYYY-MM-DD'))
-  );
+  const sessionDays = new Set(historyList.filter(item => item && item.ts).map(item => dayjs(item.ts).format('YYYY-MM-DD')));
 
   let streak = 0;
   let cursor = dayjs();

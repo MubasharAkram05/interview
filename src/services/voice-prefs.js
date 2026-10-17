@@ -48,7 +48,9 @@ export function chipWords(p = {}) {
     const t = String(w || '').trim();
     if (t && t.length <= 24 && !out.some(x => x.toLowerCase() === t.toLowerCase()) && out.length < 6) out.push(t);
   };
-  String(p.name || '').split(/\s+/).forEach(add);
+  String(p.name || '')
+    .split(/\s+/)
+    .forEach(add);
   (p.words || []).forEach(add);
   return out;
 }

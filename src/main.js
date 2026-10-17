@@ -1,20 +1,4 @@
-import {
-  CATS,
-  LEVELS,
-  ROLE,
-  DEF,
-  HEAD,
-  TAIL,
-  MID,
-  OV,
-  MYEX,
-  LK,
-  LVH,
-  LVT,
-  LVX,
-  TIPS,
-  PCI
-} from './data/questions.js';
+import { CATS, LEVELS, ROLE, DEF, HEAD, TAIL, MID, OV, MYEX, LK, LVH, LVT, LVX, TIPS, PCI } from './data/questions.js';
 
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
@@ -55,7 +39,19 @@ import {
 import { voiceAccent, setAccentPref, corrections, removeCorrection } from './services/voice-prefs.js';
 import { rareWords, norm } from './services/vocab.js';
 import { alignToExpected, introTemplate, isIntroQuestion, memoryStatus, phraseHits, expandDegree, roleText } from './services/expected.js';
-import { ROLES, EXPERIENCE, MAX_SKILLS, ROLE_SKILLS, nameError, cleanTags, buildProfile, setupDone, catToRole, autoWords, LEGACY_DEMO_NAMES } from './services/setup.js';
+import {
+  ROLES,
+  EXPERIENCE,
+  MAX_SKILLS,
+  ROLE_SKILLS,
+  nameError,
+  cleanTags,
+  buildProfile,
+  setupDone,
+  catToRole,
+  autoWords,
+  LEGACY_DEMO_NAMES
+} from './services/setup.js';
 import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
 
 import { speak, stopSpeaking, isSpeaking, onSpeakingChange, TTS_MESSAGES } from './services/tts.js';
@@ -70,9 +66,18 @@ import { fireConfetti, fireGrandCelebration } from './services/celebration.js';
 const $ = id => document.getElementById(id);
 
 // Safe HTML escaping
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const clean = v => String(v).trim().replace(/[.\s]+$/, '');
-const ini = n => n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const clean = v =>
+  String(v)
+    .trim()
+    .replace(/[.\s]+$/, '');
+const ini = n =>
+  n
+    .split(' ')
+    .map(w => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
 // SVG Icons mapping
 const IC = {
@@ -80,7 +85,8 @@ const IC = {
   user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
   star: 'M12 2l3 6.9 7.4.6-5.6 4.8 1.7 7.2L12 17.8 5.5 21.5l1.7-7.2L1.6 9.5 9 8.9z',
   eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
-  eyeoff: 'M17.9 17.9A10.1 10.1 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22',
+  eyeoff:
+    'M17.9 17.9A10.1 10.1 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22',
   edit: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
   speaker: 'M11 5L6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13',
   undo: 'M3 7v6h6M3 13a9 9 0 1 0 3-7',
@@ -158,9 +164,7 @@ const FKEEP = (n, m) => {
 const bank = (c, level = 'fresher') => {
   const k0 = CK(c, level);
   const fr = level === 'fresher';
-  const L = fr
-    ? [...HEAD, ...MID[c], ...TAIL]
-    : [...LVH[level], ...MID[c], ...(LVX[level]?.[c] || []), ...LVT[level]];
+  const L = fr ? [...HEAD, ...MID[c], ...TAIL] : [...LVH[level], ...MID[c], ...(LVX[level]?.[c] || []), ...LVT[level]];
   const seen = new Set();
   const items = L.map(([q, a], i) => {
     const k = LK[c]?.[q];
@@ -282,7 +286,9 @@ async function checkHeaderInset() {
   const below = l.webViewTop > 1;
   // Same at the bottom: a WebView that ends above the navigation bar needs no bottom inset.
   const above =
-    typeof l.windowHeight === 'number' && l.windowHeight > 0 && (l.insetBottom || 0) > 0 &&
+    typeof l.windowHeight === 'number' &&
+    l.windowHeight > 0 &&
+    (l.insetBottom || 0) > 0 &&
     l.webViewTop + l.webViewHeight <= l.windowHeight - l.insetBottom + 1;
   if (below !== root.contains('wv-below-bars') || above !== root.contains('wv-above-navbar')) {
     root.toggle('wv-below-bars', below);
@@ -467,7 +473,11 @@ function stats() {
   $('hsDone').textContent = h.length;
   $('hsBest').textContent = h.length ? `${Math.max(...h.map(x => x.s))}/10` : '-';
   const done = setupDone(p);
-  $('hSub').textContent = !done ? "Let's set up your details and start practising." : h.length ? 'Keep going. Practise a few answers today.' : 'Ready to practise your first answers?';
+  $('hSub').textContent = !done
+    ? "Let's set up your details and start practising."
+    : h.length
+      ? 'Keep going. Practise a few answers today.'
+      : 'Ready to practise your first answers?';
   $('hGoT').textContent = done ? 'Start practice' : 'Get Started';
 }
 
@@ -521,10 +531,30 @@ function fillHx() {
     const qs = streakNow(getItem('is_qstreak', {}));
     const fire = qs ? `<span class="qstreak${pick.done ? ' on' : ''}" title="Days in a row">🔥 ${qs} day${qs === 1 ? '' : 's'}</span>` : '';
     o += pick.done
-      ? card('qotd done', '✅', `Question of the day${fire}`, `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="sm" id="qotdBtn">Practice again</button>', '<small class="qdone">Done today</small>')
-      : card('qotd', '💡', `Question of the day${fire}`, `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="pri sm" id="qotdBtn">Practice it</button>', `<small>${esc(qs ? 'Practise today to keep your streak' : CL(pick.c, pick.lv))}</small>`);
+      ? card(
+          'qotd done',
+          '✅',
+          `Question of the day${fire}`,
+          `<p class="qotdq">${esc(pick.q)}</p>`,
+          '<button class="sm" id="qotdBtn">Practice again</button>',
+          '<small class="qdone">Done today</small>'
+        )
+      : card(
+          'qotd',
+          '💡',
+          `Question of the day${fire}`,
+          `<p class="qotdq">${esc(pick.q)}</p>`,
+          '<button class="pri sm" id="qotdBtn">Practice it</button>',
+          `<small>${esc(qs ? 'Practise today to keep your streak' : CL(pick.c, pick.lv))}</small>`
+        );
   } else {
-    o += card('qotd', '💡', 'Question of the day', '<p class="hce">No question today. Add your own in Practice.</p>', '<button class="sm" onclick="startPractice()">Open Practice</button>');
+    o += card(
+      'qotd',
+      '💡',
+      'Question of the day',
+      '<p class="hce">No question today. Add your own in Practice.</p>',
+      '<button class="sm" onclick="startPractice()">Open Practice</button>'
+    );
   }
   $('hCards').innerHTML = o;
 
@@ -588,34 +618,48 @@ function openFav(c, l, i) {
   playTapSound();
   pcLv = l;
   setItem('is_pclv', l);
-  pcGo(c, Math.max(0, bank(c, l).findIndex(x => x.i === i)));
+  pcGo(
+    c,
+    Math.max(
+      0,
+      bank(c, l).findIndex(x => x.i === i)
+    )
+  );
 }
-
 
 function fillHomeGrid() {
   if (!LEVELS[pcLv]) pcLv = 'fresher';
-  $('hSeg').innerHTML = Object.entries(LEVELS).map(([k, v]) =>
-    `<button class="${k === pcLv ? 'on' : ''}" data-lvl="${k}">${esc(v)}</button>`
-  ).join('');
+  $('hSeg').innerHTML = Object.entries(LEVELS)
+    .map(([k, v]) => `<button class="${k === pcLv ? 'on' : ''}" data-lvl="${k}">${esc(v)}</button>`)
+    .join('');
 
-  $('hSeg').querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      playTapSound();
-      homeLevel(btn.dataset.lvl);
+  $('hSeg')
+    .querySelectorAll('button')
+    .forEach(btn => {
+      btn.addEventListener('click', () => {
+        playTapSound();
+        homeLevel(btn.dataset.lvl);
+      });
     });
-  });
 
-  $('hPath').innerHTML = '<div class="pgrid">' + Object.keys(CATS).map(c => {
-    const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
-    return `<button class="pt" data-c="${c}"><span class="pc" style="background:${col}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg></span><span class="pl">${esc(CATS[c])}</span></button>`;
-  }).join('') + `<button class="pt" id="favT" aria-label="Favorite Question"><span class="pc" style="background:#f59e0b"><svg viewBox="0 0 24 24" style="fill:#fff"><path d="${IC.star}"/></svg></span><span class="pl">Favorite Question</span></button></div>`;
+  $('hPath').innerHTML =
+    '<div class="pgrid">' +
+    Object.keys(CATS)
+      .map(c => {
+        const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
+        return `<button class="pt" data-c="${c}"><span class="pc" style="background:${col}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg></span><span class="pl">${esc(CATS[c])}</span></button>`;
+      })
+      .join('') +
+    `<button class="pt" id="favT" aria-label="Favorite Question"><span class="pc" style="background:#f59e0b"><svg viewBox="0 0 24 24" style="fill:#fff"><path d="${IC.star}"/></svg></span><span class="pl">Favorite Question</span></button></div>`;
 
-  $('hPath').querySelectorAll('.pt[data-c]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      playTapSound();
-      openCS(btn.dataset.c);
+  $('hPath')
+    .querySelectorAll('.pt[data-c]')
+    .forEach(btn => {
+      btn.addEventListener('click', () => {
+        playTapSound();
+        openCS(btn.dataset.c);
+      });
     });
-  });
 
   $('favT')?.addEventListener('click', () => {
     playTapSound();
@@ -667,16 +711,18 @@ function fillFavList() {
   if (!fv.length) favOpen = false;
   $('favT')?.classList.toggle('on', favOpen);
   $('favList').innerHTML = favOpen
-    ? fv.map(({ f, it }) =>
-        `<button class="favr" data-c="${f.c}" data-l="${f.l}" data-i="${f.i}">${esc(it.q)}<small>${esc(CL(f.c, f.l))}</small></button>`
-      ).join('')
+    ? fv
+        .map(({ f, it }) => `<button class="favr" data-c="${f.c}" data-l="${f.l}" data-i="${f.i}">${esc(it.q)}<small>${esc(CL(f.c, f.l))}</small></button>`)
+        .join('')
     : '';
 
-  $('favList').querySelectorAll('.favr').forEach(btn => {
-    btn.addEventListener('click', () => {
-      openFav(btn.dataset.c, btn.dataset.l, parseInt(btn.dataset.i, 10));
+  $('favList')
+    .querySelectorAll('.favr')
+    .forEach(btn => {
+      btn.addEventListener('click', () => {
+        openFav(btn.dataset.c, btn.dataset.l, parseInt(btn.dataset.i, 10));
+      });
     });
-  });
 }
 
 function toggleFavList() {
@@ -708,10 +754,14 @@ function retryLast() {
 function fillHome() {
   stats();
   if (!$('lvl').options.length) {
-    $('lvl').innerHTML = Object.entries(LEVELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+    $('lvl').innerHTML = Object.entries(LEVELS)
+      .map(([k, v]) => `<option value="${k}">${v}</option>`)
+      .join('');
   }
   if (!$('cat').options.length) {
-    $('cat').innerHTML = Object.entries(CATS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+    $('cat').innerHTML = Object.entries(CATS)
+      .map(([k, v]) => `<option value="${k}">${v}</option>`)
+      .join('');
   }
 
   fillHx();
@@ -817,7 +867,15 @@ function openSetup(then = null, { fresh = false, step = 0, cat = '' } = {}) {
     role: custom ? 'Other' : p.roleKey || p.role || catToRole(cat),
     roleOther: custom ? p.role : '',
     exp: EXPERIENCE[p.exp] ? p.exp : 'fresher',
-    skills: p.skillTags || (p.skills ? String(p.skills).split(/,\s*|\s+and\s+/).map(x => x.trim()).filter(Boolean).slice(0, MAX_SKILLS) : []),
+    skills:
+      p.skillTags ||
+      (p.skills
+        ? String(p.skills)
+            .split(/,\s*|\s+and\s+/)
+            .map(x => x.trim())
+            .filter(Boolean)
+            .slice(0, MAX_SKILLS)
+        : []),
     accent: voiceAccent(),
     before: { name: p.name || '', city: p.city || '' }
   };
@@ -846,13 +904,19 @@ function renderSetup() {
   $('sName').value = sData.name;
   $('sEdu').value = sData.edu;
   $('sCity').value = sData.city;
-  $('sRole').innerHTML = '<option value="">Choose your target role</option>' + ROLES.map(r => `<option${r === sData.role ? ' selected' : ''}>${esc(r)}</option>`).join('');
+  $('sRole').innerHTML =
+    '<option value="">Choose your target role</option>' + ROLES.map(r => `<option${r === sData.role ? ' selected' : ''}>${esc(r)}</option>`).join('');
   $('sRoleOther').value = sData.roleOther;
   $('sRoleOther').classList.toggle('hidden', sData.role !== 'Other');
   $('sExp').innerHTML = Object.entries(EXPERIENCE)
-    .map(([k, v]) => `<button type="button" role="radio" aria-checked="${k === sData.exp}" class="${k === sData.exp ? 'on' : ''}" data-exp="${k}">${esc(v)}</button>`)
+    .map(
+      ([k, v]) =>
+        `<button type="button" role="radio" aria-checked="${k === sData.exp}" class="${k === sData.exp ? 'on' : ''}" data-exp="${k}">${esc(v)}</button>`
+    )
     .join('');
-  $('sAccent').innerHTML = Object.entries(VOICE_ACCENTS).map(([k, v]) => `<option value="${k}"${k === sData.accent ? ' selected' : ''}>${esc(v.label)}</option>`).join('');
+  $('sAccent').innerHTML = Object.entries(VOICE_ACCENTS)
+    .map(([k, v]) => `<option value="${k}"${k === sData.accent ? ' selected' : ''}>${esc(v.label)}</option>`)
+    .join('');
   renderTags('sSkills', sData.skills, MAX_SKILLS);
   renderSuggestions();
   showSetupStep();
@@ -916,7 +980,10 @@ function saveSetup() {
     setItem('is_qedits', QE);
     // Favourites and Practice best scores are keyed by the name too: move them with it.
     const re = k => (String(k).startsWith(oldName + '|') ? p.name + String(k).slice(oldName.length) : k);
-    setItem('is_fav', favs().map(f => (f.n === oldName ? { ...f, n: p.name, k: re(f.k) } : f)));
+    setItem(
+      'is_fav',
+      favs().map(f => (f.n === oldName ? { ...f, n: p.name, k: re(f.k) } : f))
+    );
     const pb = pBest();
     setItem('is_pbest', Object.fromEntries(Object.entries(pb).map(([k, v]) => [re(k), v])));
   }
@@ -953,7 +1020,10 @@ function renderTags(id, list, max) {
 function addTag(kind, value) {
   if (!sData) return;
   const max = MAX_SKILLS;
-  const parts = String(value || '').split(',').map(x => x.trim()).filter(Boolean);
+  const parts = String(value || '')
+    .split(',')
+    .map(x => x.trim())
+    .filter(Boolean);
   if (!parts.length) return;
   sData[kind] = cleanTags([...sData[kind], ...parts], max);
   renderTags('sSkills', sData[kind], max);
@@ -966,7 +1036,8 @@ function renderSuggestions() {
   // Suggestions for the chosen target role first, then the general interview list.
   const pool = [...new Set([...(ROLE_SKILLS[$('sRole').value] || []), ...(q ? SKILL_SUGGESTIONS : [])])];
   const list = (pool.length ? pool : SKILL_SUGGESTIONS).filter(x => !have.has(x.toLowerCase()) && (!q || x.toLowerCase().includes(q))).slice(0, 8);
-  $('sSugg').innerHTML = sData.skills.length >= MAX_SKILLS ? '' : list.map(x => `<button type="button" class="sg" data-s="${esc(x)}">+ ${esc(x)}</button>`).join('');
+  $('sSugg').innerHTML =
+    sData.skills.length >= MAX_SKILLS ? '' : list.map(x => `<button type="button" class="sg" data-s="${esc(x)}">+ ${esc(x)}</button>`).join('');
 }
 
 function initSetup() {
@@ -981,10 +1052,12 @@ function initSetup() {
     if (!b || !sData) return;
     playTapSound();
     sData.exp = b.dataset.exp;
-    $('sExp').querySelectorAll('button').forEach(x => {
-      x.classList.toggle('on', x === b);
-      x.setAttribute('aria-checked', String(x === b));
-    });
+    $('sExp')
+      .querySelectorAll('button')
+      .forEach(x => {
+        x.classList.toggle('on', x === b);
+        x.setAttribute('aria-checked', String(x === b));
+      });
   });
   [['sSkills', 'skills']].forEach(([id, kind]) => {
     const box = $(id);
@@ -1059,24 +1132,30 @@ function fillMock() {
 function renderMockPicker() {
   const c0 = $('mcat').value;
   const l0 = $('mlvl').value;
-  $('mSeg').innerHTML = Object.entries(LEVELS).map(([k, v]) =>
-    `<button class="${k === l0 ? 'on' : ''}" data-lvl="${k}" role="tab" aria-selected="${k === l0}">${esc(v)}</button>`
-  ).join('');
-  $('mSeg').querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => mPick(c0, btn.dataset.lvl));
-  });
-
-  $('mGrid').innerHTML = Object.keys(CATS).map(c => {
-    const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
-    // No tile is pre-selected: tapping one starts the interview.
-    return `<button class="mt" data-c="${c}" style="--c:${col}"><span class="mc"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><i class="mck" aria-hidden="true"></i></span><span class="pl">${esc(CATS[c])}</span></button>`;
-  }).join('');
-  $('mGrid').querySelectorAll('.mt').forEach(btn => {
-    btn.addEventListener('click', () => {
-      mPick(btn.dataset.c, $('mlvl').value);
-      startInterview();
+  $('mSeg').innerHTML = Object.entries(LEVELS)
+    .map(([k, v]) => `<button class="${k === l0 ? 'on' : ''}" data-lvl="${k}" role="tab" aria-selected="${k === l0}">${esc(v)}</button>`)
+    .join('');
+  $('mSeg')
+    .querySelectorAll('button')
+    .forEach(btn => {
+      btn.addEventListener('click', () => mPick(c0, btn.dataset.lvl));
     });
-  });
+
+  $('mGrid').innerHTML = Object.keys(CATS)
+    .map(c => {
+      const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
+      // No tile is pre-selected: tapping one starts the interview.
+      return `<button class="mt" data-c="${c}" style="--c:${col}"><span class="mc"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><i class="mck" aria-hidden="true"></i></span><span class="pl">${esc(CATS[c])}</span></button>`;
+    })
+    .join('');
+  $('mGrid')
+    .querySelectorAll('.mt')
+    .forEach(btn => {
+      btn.addEventListener('click', () => {
+        mPick(btn.dataset.c, $('mlvl').value);
+        startInterview();
+      });
+    });
 }
 
 function mPick(c, l) {
@@ -1121,22 +1200,31 @@ function pcGo(c, i, lv, one = null) {
 
 function fillPcat() {
   if (!LEVELS[pcLv]) pcLv = 'fresher';
-  $('pSeg').innerHTML = Object.entries(LEVELS).map(([k, v]) =>
-    `<button class="${k === pcLv ? 'on' : ''}" data-lvl="${k}">${esc(v)}</button>`
-  ).join('');
+  $('pSeg').innerHTML = Object.entries(LEVELS)
+    .map(([k, v]) => `<button class="${k === pcLv ? 'on' : ''}" data-lvl="${k}">${esc(v)}</button>`)
+    .join('');
 
-  $('pSeg').querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => pcLevel(btn.dataset.lvl));
-  });
+  $('pSeg')
+    .querySelectorAll('button')
+    .forEach(btn => {
+      btn.addEventListener('click', () => pcLevel(btn.dataset.lvl));
+    });
 
-  $('pPath').innerHTML = '<div class="pgrid">' + Object.keys(CATS).map(c => {
-    const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
-    return `<button class="pt" data-c="${c}"><span class="pc" style="background:${col}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg></span><span class="pl">${esc(CATS[c])}</span></button>`;
-  }).join('') + '</div>';
+  $('pPath').innerHTML =
+    '<div class="pgrid">' +
+    Object.keys(CATS)
+      .map(c => {
+        const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
+        return `<button class="pt" data-c="${c}"><span class="pc" style="background:${col}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg></span><span class="pl">${esc(CATS[c])}</span></button>`;
+      })
+      .join('') +
+    '</div>';
 
-  $('pPath').querySelectorAll('.pt').forEach(btn => {
-    btn.addEventListener('click', () => pcGo(btn.dataset.c, 0));
-  });
+  $('pPath')
+    .querySelectorAll('.pt')
+    .forEach(btn => {
+      btn.addEventListener('click', () => pcGo(btn.dataset.c, 0));
+    });
 }
 
 function saveA() {
@@ -1175,7 +1263,10 @@ function bank0(it) {
 const ch = x => [...x].map(c => `<span class="c">${esc(c)}</span>`).join('');
 
 function pWords(t) {
-  $('pA').innerHTML = t.split(/(\s+)/).map(x => (/\S/.test(x) ? `<span class="pw">${ch(x)}</span>` : esc(x))).join('');
+  $('pA').innerHTML = t
+    .split(/(\s+)/)
+    .map(x => (/\S/.test(x) ? `<span class="pw">${ch(x)}</span>` : esc(x)))
+    .join('');
   PW = [...$('pA').querySelectorAll('.pw')];
   $('pA').scrollTop = 0;
 }
@@ -1184,7 +1275,10 @@ function pReveal(q) {
   clearTimeout(pRv);
   $('pMic').classList.add('mwait');
   const qe = $('pQt');
-  qe.innerHTML = q.split(' ').map(x => `<span class="qw">${ch(x)}</span>`).join(' ');
+  qe.innerHTML = q
+    .split(' ')
+    .map(x => `<span class="qw">${ch(x)}</span>`)
+    .join(' ');
   const L = [...qe.querySelectorAll('.c'), ...$('pA').querySelectorAll('.c')];
   const ql = qe.querySelectorAll('.c').length;
   let n = 0;
@@ -1258,7 +1352,7 @@ function pr() {
   }
   if (P.i >= n) P.i = n - 1;
   const it = P.list[P.i];
-  const ed = (ekey(it) in E) || (ekey(it) in QE);
+  const ed = ekey(it) in E || ekey(it) in QE;
   $('pCount').textContent = `${CL(P.cat, P.lv)} · ${P.i + 1} / ${n}`;
   pWords(ansText(it) || 'No answer yet. Tap the pencil to write one.');
   pReveal(it.q);
@@ -1309,9 +1403,11 @@ function dots() {
     h += `<button class="dot${k === P.i ? ' on' : ''}${sm ? ' sm' : ''}" data-k="${k}" aria-label="Question ${k + 1}"></button>`;
   }
   $('pDots').innerHTML = h;
-  $('pDots').querySelectorAll('.dot').forEach(d => {
-    d.addEventListener('click', () => pGo(parseInt(d.dataset.k, 10)));
-  });
+  $('pDots')
+    .querySelectorAll('.dot')
+    .forEach(d => {
+      d.addEventListener('click', () => pGo(parseInt(d.dataset.k, 10)));
+    });
 }
 
 function slide(d) {
@@ -1433,8 +1529,6 @@ function updateMicButtons() {
   $('mic').classList.toggle('hidden', !voiceOK);
   if (!voiceOK) $('micSt').textContent = 'Voice input is not available on this phone. Type your answer.';
 }
-
-
 
 // Mic button grows a little with your voice, so you can see it is hearing you.
 function micLevel(el, db) {
@@ -1570,14 +1664,22 @@ async function togglePMic() {
       total: r.total,
       extra: r.extra,
       missed: r.missed,
-      alignment: r.ops.map(o => (o.type === 'extra' ? `+${o.heard}` : o.type === 'missed' ? `-${o.expected}` : o.type === 'fix' ? `${o.heard}>${o.expected}` : o.expected)).join(' ')
+      alignment: r.ops
+        .map(o => (o.type === 'extra' ? `+${o.heard}` : o.type === 'missed' ? `-${o.expected}` : o.type === 'fix' ? `${o.heard}>${o.expected}` : o.expected))
+        .join(' ')
     });
     if (r.score >= 80) {
       fireConfetti();
       // Sound is muted while the mic is on (no beeps); play the chime once it is back.
       setTimeout(playSuccessChime, 900);
     }
-    toast(r.missed ? `${r.score}% matched. ${r.missed} word${r.missed === 1 ? '' : 's'} missed (red).` : r.extra ? `${r.score}% matched. Extra words are amber.` : 'Perfect! You said it all 🎉');
+    toast(
+      r.missed
+        ? `${r.score}% matched. ${r.missed} word${r.missed === 1 ? '' : 's'} missed (red).`
+        : r.extra
+          ? `${r.score}% matched. Extra words are amber.`
+          : 'Perfect! You said it all 🎉'
+    );
   };
   let doneT = null;
   // The last word was said: wait 2 s (the user may still be finishing), then end the attempt.
@@ -1621,7 +1723,15 @@ async function togglePMic() {
     onState: st => {
       if (!here() || finished) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
-      pMicNote(st === 'ready' || st === 'listening' ? 'Speak now. Read at your own pace.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : '');
+      pMicNote(
+        st === 'ready' || st === 'listening'
+          ? 'Speak now. Read at your own pace.'
+          : st === 'starting'
+            ? readyOnce
+              ? 'Listening...'
+              : 'Getting the mic ready...'
+            : ''
+      );
     },
     onLevel: db => micLevel($('pMic'), db),
     onPartial: text => {
@@ -1745,9 +1855,14 @@ function saveQ() {
 function delQ() {
   if (!P.list[P.i]) return;
   playTapSound();
-  ask('Delete this question?', 'It will be removed from this interview type. Default questions can be restored from Profile.', 'Delete', 'Keep', '🗑️', true).then(
-    y => y && _delQ()
-  );
+  ask(
+    'Delete this question?',
+    'It will be removed from this interview type. Default questions can be restored from Profile.',
+    'Delete',
+    'Keep',
+    '🗑️',
+    true
+  ).then(y => y && _delQ());
 }
 
 function _delQ() {
@@ -1861,9 +1976,11 @@ function mDots() {
     h += `<button class="dot${k === idx ? ' on' : ''}${sm ? ' sm' : ''}" data-k="${k}" aria-label="Question ${k + 1}"></button>`;
   }
   $('mDots').innerHTML = h;
-  $('mDots').querySelectorAll('.dot').forEach(d => {
-    d.addEventListener('click', () => mGo(parseInt(d.dataset.k, 10)));
-  });
+  $('mDots')
+    .querySelectorAll('.dot')
+    .forEach(d => {
+      d.addEventListener('click', () => mGo(parseInt(d.dataset.k, 10)));
+    });
 }
 
 function mGo(k) {
@@ -1901,10 +2018,13 @@ function reveal(t, sp) {
   const timer = () => {
     clearInterval(rv);
     clearTimeout(rv);
-    rv = setInterval(() => {
-      showWord(n);
-      if (n >= S.length) clearInterval(rv);
-    }, sp ? 320 : 140);
+    rv = setInterval(
+      () => {
+        showWord(n);
+        if (n >= S.length) clearInterval(rv);
+      },
+      sp ? 320 : 140
+    );
   };
   if (!sp) {
     timer();
@@ -1953,7 +2073,10 @@ function mockNote(m) {
 // mHeard[i]: heard (or typed) words of question i ({ w }), the source of the box and of answers[i].
 let mHeard = [];
 let mOk = []; // mOk[i]: answer word indices said right at least once (sticky)
-const mWords = t => String(t || '').split(/\s+/).filter(w => norm(w));
+const mWords = t =>
+  String(t || '')
+    .split(/\s+/)
+    .filter(w => norm(w));
 
 // Status of every answer word of question i (with the live words while speaking).
 function mStatus(i, live = '') {
@@ -1981,14 +2104,15 @@ function mRender(i, live = '') {
   // still from memory); when it stops, the words not said show dull.
   const reach = mMicOn ? st.reduce((n, s, j) => (s !== 'dim' ? j : n), -1) : st.length - 1;
   const CLS = { ok: 'said', bad: 'wrongw', dim: 'notsaid' };
-  box.innerHTML = mWords(ref)
-    .slice(0, reach + 1)
-    .map((w, j) =>
-      st[j] === 'bad'
-        ? `<button type="button" class="aw wrongw" data-heard="${esc(heard[j] || '')}" aria-label="${esc(w)}: you said ${esc(heard[j] || '')}">${esc(w)}</button>`
-        : `<span class="aw ${CLS[st[j]]}">${esc(w)}</span>`
-    )
-    .join(' ') || '<span class="aph">Listening...</span>';
+  box.innerHTML =
+    mWords(ref)
+      .slice(0, reach + 1)
+      .map((w, j) =>
+        st[j] === 'bad'
+          ? `<button type="button" class="aw wrongw" data-heard="${esc(heard[j] || '')}" aria-label="${esc(w)}: you said ${esc(heard[j] || '')}">${esc(w)}</button>`
+          : `<span class="aw ${CLS[st[j]]}">${esc(w)}</span>`
+      )
+      .join(' ') || '<span class="aph">Listening...</span>';
   const last = box.querySelectorAll('.aw.said, .aw.wrongw');
   const x = last[last.length - 1];
   if (x && x.offsetTop + x.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = x.offsetTop - box.clientHeight / 2;
@@ -2009,7 +2133,6 @@ function showWordTip(el, text) {
   clearTimeout(showWordTip.t);
   showWordTip.t = setTimeout(() => tip.classList.add('hidden'), 3500);
 }
-
 
 // Every word of the saved answer said right.
 function mAllOk(i) {
@@ -2155,7 +2278,17 @@ async function startMockMic() {
     onState: st => {
       if (!here()) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
-      mockNote(st === 'ready' || st === 'listening' ? 'Speak now. Say your answer from memory.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : st === 'stopping' ? 'Finishing...' : '');
+      mockNote(
+        st === 'ready' || st === 'listening'
+          ? 'Speak now. Say your answer from memory.'
+          : st === 'starting'
+            ? readyOnce
+              ? 'Listening...'
+              : 'Getting the mic ready...'
+            : st === 'stopping'
+              ? 'Finishing...'
+              : ''
+      );
     },
     onLevel: db => micLevel($('mic'), db),
     // Shown in the box at once (at most one render per frame: partials can come faster than the
@@ -2185,7 +2318,13 @@ async function startMockMic() {
         const ok = st.filter(s => s === 'ok').length;
         const score = Math.round((ok / st.length) * 100);
         mockNote('');
-        return toast(ok ? (score === 100 ? 'Perfect! You said the whole answer 🎉' : `${score}% of your answer said. Red = said wrong, grey = missed.`) : 'No words of your saved answer were heard. Try again.');
+        return toast(
+          ok
+            ? score === 100
+              ? 'Perfect! You said the whole answer 🎉'
+              : `${score}% of your answer said. Red = said wrong, grey = missed.`
+            : 'No words of your saved answer were heard. Try again.'
+        );
       }
       mockNote(reason === 'cancelled' ? '' : message);
     }
@@ -2211,7 +2350,6 @@ function refText(q) {
   }
   return q.a ? fill(q.a, p && { ...p, role: ROLE[cat] || p.role }) : '';
 }
-
 
 // Finish while the mic is on: stop it and wait for the last sentence (up to 2.5 s), so the words
 // said last still count in the score (before, the session was cancelled and they were lost).
@@ -2267,10 +2405,13 @@ function finish() {
     (!done.length
       ? 'Add answers to get a score.'
       : total
-      ? `You said ${said} of ${total} words of your saved answers right${wrong ? `, ${wrong} wrong` : ''}. Words you skipped or said wrong lower the score.`
-      : 'Well done for answering.');
+        ? `You said ${said} of ${total} words of your saved answers right${wrong ? `, ${wrong} wrong` : ''}. Words you skipped or said wrong lower the score.`
+        : 'Well done for answering.');
 
-  $('tips').innerHTML = shuffle(TIPS).slice(0, 3).map(t => '• ' + t).join('<br>');
+  $('tips').innerHTML = shuffle(TIPS)
+    .slice(0, 3)
+    .map(t => '• ' + t)
+    .join('<br>');
   renderReview();
 
   // Natural break: the interview is over. The interstitial (if one is ready and allowed)
@@ -2301,18 +2442,22 @@ function finish() {
 }
 
 function renderReview() {
-  $('review').innerHTML = cur.map((q, i) =>
-    `<label class="l">Q${i + 1}. ${esc(q.q)}</label><div class="rans${answers[i] ? '' : ' none'}">${answers[i] ? esc(answers[i]) : 'Empty'}</div>`
-  ).join('');
+  $('review').innerHTML = cur
+    .map(
+      (q, i) => `<label class="l">Q${i + 1}. ${esc(q.q)}</label><div class="rans${answers[i] ? '' : ' none'}">${answers[i] ? esc(answers[i]) : 'Empty'}</div>`
+    )
+    .join('');
 }
 
 function renderHist() {
   const h = getItem('is_hist', []) || [];
   $('hList').innerHTML = h.length
-    ? h.map(x =>
-        `<div class="hist"><span>${esc(x.c)}<br><small class="cnt">${x.d} · ${x.a}/${x.t} answered${x.n ? ' · ' + esc(x.n) : ''}</small></span><b class="hs">${x.s}/10</b></div>`
-      ).join('') +
-      `<button class="full danger" id="clearHistBtn" data-i="trash" aria-label="Clear history" title="Clear history"></button>`
+    ? h
+        .map(
+          x =>
+            `<div class="hist"><span>${esc(x.c)}<br><small class="cnt">${x.d} · ${x.a}/${x.t} answered${x.n ? ' · ' + esc(x.n) : ''}</small></span><b class="hs">${x.s}/10</b></div>`
+        )
+        .join('') + `<button class="full danger" id="clearHistBtn" data-i="trash" aria-label="Clear history" title="Clear history"></button>`
     : `<div class="empty">No attempts yet. Finish a mock interview to see it here.</div>`;
 
   $('clearHistBtn')?.addEventListener('click', () => {
@@ -2391,43 +2536,61 @@ async function adPrivacyChoices() {
 
 // Global Touch Gestures
 function setupSwipeGestures() {
-  let px = 0, py = 0;
+  let px = 0,
+    py = 0;
   const elP = $('practice');
-  elP.addEventListener('touchstart', e => {
-    px = e.touches[0].clientX;
-    py = e.touches[0].clientY;
-  }, { passive: true });
-  elP.addEventListener('touchend', e => {
-    if (!$('pEdit').classList.contains('hidden')) return;
-    const dx = e.changedTouches[0].clientX - px;
-    const dy = e.changedTouches[0].clientY - py;
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      pStep(dx < 0 ? 1 : -1);
-    }
-  }, { passive: true });
+  elP.addEventListener(
+    'touchstart',
+    e => {
+      px = e.touches[0].clientX;
+      py = e.touches[0].clientY;
+    },
+    { passive: true }
+  );
+  elP.addEventListener(
+    'touchend',
+    e => {
+      if (!$('pEdit').classList.contains('hidden')) return;
+      const dx = e.changedTouches[0].clientX - px;
+      const dy = e.changedTouches[0].clientY - py;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        pStep(dx < 0 ? 1 : -1);
+      }
+    },
+    { passive: true }
+  );
 
-  let mx = 0, my = 0, mt = 0;
+  let mx = 0,
+    my = 0,
+    mt = 0;
   const elI = $('interview');
   let ok = true;
-  elI.addEventListener('touchstart', e => {
-    mx = e.touches[0].clientX;
-    my = e.touches[0].clientY;
-    mt = Date.now();
-    ok = my <= $('mDots').getBoundingClientRect().bottom + 4;
-  }, { passive: true });
-  elI.addEventListener('touchend', e => {
-    if (!ok) return;
-    const dx = e.changedTouches[0].clientX - mx;
-    const dy = e.changedTouches[0].clientY - my;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2 && Date.now() - mt < 600) {
-      mGo(idx + (dx < 0 ? 1 : -1));
-    }
-  }, { passive: true });
+  elI.addEventListener(
+    'touchstart',
+    e => {
+      mx = e.touches[0].clientX;
+      my = e.touches[0].clientY;
+      mt = Date.now();
+      ok = my <= $('mDots').getBoundingClientRect().bottom + 4;
+    },
+    { passive: true }
+  );
+  elI.addEventListener(
+    'touchend',
+    e => {
+      if (!ok) return;
+      const dx = e.changedTouches[0].clientX - mx;
+      const dy = e.changedTouches[0].clientY - my;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2 && Date.now() - mt < 600) {
+        mGo(idx + (dx < 0 ? 1 : -1));
+      }
+    },
+    { passive: true }
+  );
 }
 
 // Event Listeners Initialization
 function initEventListeners() {
-
   // Dialog buttons
   $('dYes')?.addEventListener('click', () => dlgRes && dlgRes(true));
   $('dNo')?.addEventListener('click', () => dlgRes && dlgRes(false));
@@ -2446,7 +2609,6 @@ function initEventListeners() {
   document.addEventListener('pointerdown', e => {
     if (!e.target.closest('#wTip, .aw.wrongw')) $('wTip')?.classList.add('hidden');
   });
-
 
   // Links inside the bundled policy text open in the browser (with an offline message).
   $('policyText')?.addEventListener('click', e => {
@@ -2477,14 +2639,12 @@ function initEventListeners() {
     }
     if (cs === 'interview' && st.s !== 'interview' && !leaveOK) {
       history.pushState({ s: 'interview', d: dep }, '');
-      ask('Leaving already?', 'Your answers so far will be lost. Want to keep going?', 'Leave', 'Stay', '🥺', true).then(
-        y => {
-          if (y) {
-            leaveOK = true;
-            history.back();
-          }
+      ask('Leaving already?', 'Your answers so far will be lost. Want to keep going?', 'Leave', 'Stay', '🥺', true).then(y => {
+        if (y) {
+          leaveOK = true;
+          history.back();
         }
-      );
+      });
       return;
     }
     leaveOK = false;
@@ -2658,14 +2818,12 @@ async function initAppMain() {
       }
       // 2. Mock interview leave confirmation
       if (cs === 'interview') {
-        ask('Leaving already?', 'Your answers so far will be lost. Want to keep going?', 'Leave', 'Stay', '🥺', true).then(
-          y => {
-            if (y) {
-              leaveOK = true;
-              history.back();
-            }
+        ask('Leaving already?', 'Your answers so far will be lost. Want to keep going?', 'Leave', 'Stay', '🥺', true).then(y => {
+          if (y) {
+            leaveOK = true;
+            history.back();
           }
-        );
+        });
         return;
       }
       // 3. Cancel active edits
@@ -2722,7 +2880,6 @@ async function initApp() {
     introReady();
   }
 }
-
 
 // Profile > Voice: accent and learned corrections (My words are automatic and not shown).
 function renderVoiceSettings() {

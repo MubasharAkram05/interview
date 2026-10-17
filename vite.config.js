@@ -3,7 +3,9 @@ import { execSync } from 'node:child_process';
 
 function gitShortSha() {
   try {
-    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
   } catch {
     return process.env.GITHUB_SHA ? process.env.GITHUB_SHA.slice(0, 7) : 'unknown';
   }
@@ -34,23 +36,23 @@ export default defineConfig(({ mode }) => {
 
 function config(mode, debugTools, releaseAds) {
   return {
-  root: '.',
-  base: './',
-  define: {
-    __DEBUG_TOOLS__: JSON.stringify(debugTools),
-    __RELEASE_ADS__: JSON.stringify(releaseAds),
-    __GIT_SHA__: JSON.stringify(gitShortSha()),
-    __BUILD_TIME__: JSON.stringify(new Date().toISOString().replace(/\.\d+Z$/, 'Z'))
-  },
-  build: {
-    outDir: 'dist',
-    emptyOutDir: true,
-    assetsDir: 'assets',
-    target: 'es2022',
-    sourcemap: false,
-    // Release bundle: no console output at all (also drops the console lines inside the
-    // plugins' unused web fallbacks). Debug builds keep the console for the logs.
-    rolldownOptions: debugTools ? {} : { output: { minify: { compress: { dropConsole: true }, mangle: true } } }
-  }
+    root: '.',
+    base: './',
+    define: {
+      __DEBUG_TOOLS__: JSON.stringify(debugTools),
+      __RELEASE_ADS__: JSON.stringify(releaseAds),
+      __GIT_SHA__: JSON.stringify(gitShortSha()),
+      __BUILD_TIME__: JSON.stringify(new Date().toISOString().replace(/\.\d+Z$/, 'Z'))
+    },
+    build: {
+      outDir: 'dist',
+      emptyOutDir: true,
+      assetsDir: 'assets',
+      target: 'es2022',
+      sourcemap: false,
+      // Release bundle: no console output at all (also drops the console lines inside the
+      // plugins' unused web fallbacks). Debug builds keep the console for the logs.
+      rolldownOptions: debugTools ? {} : { output: { minify: { compress: { dropConsole: true }, mangle: true } } }
+    }
   };
 }

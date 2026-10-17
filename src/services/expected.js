@@ -219,15 +219,23 @@ const DEGREES = [
 
 /** "BS IT student" -> { degree: 'BS in Information Technology', studying: true }. */
 export function expandDegree(edu = '') {
-  let t = String(edu).trim().replace(/[.\s]+$/, '');
+  let t = String(edu)
+    .trim()
+    .replace(/[.\s]+$/, '');
   const studying = /\b(student|studying|pursuing|in progress|final year|semester)\b/i.test(t);
-  t = t.replace(/\b(student|studying|pursuing|in progress)\b/gi, '').replace(/\s{2,}/g, ' ').trim();
+  t = t
+    .replace(/\b(student|studying|pursuing|in progress)\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
   for (const [re, full] of DEGREES) if (re.test(t)) return { degree: full || t, studying };
   return { degree: t, studying };
 }
 
 /** "Marketing/Sales" -> "Marketing and Sales", "Cloud/DevOps" -> "Cloud and DevOps". */
-export const roleText = r => String(r || '').trim().replace(/\s*\/\s*/g, ' and ');
+export const roleText = r =>
+  String(r || '')
+    .trim()
+    .replace(/\s*\/\s*/g, ' and ');
 
 /**
  * "Introduce yourself" answer built from the setup details (a template, no AI). Sentences whose
@@ -248,7 +256,8 @@ export function introTemplate(p = {}) {
   else if (city) out.push(`I am from ${city}.`);
   if (degree) out.push(studying ? `I am currently pursuing ${article(degree)} ${degree}.` : `I hold ${article(degree)} ${degree}.`);
   if (skills.length) out.push(`My key skills include ${list(skills)}.`);
-  if (role) out.push(`I am now looking for ${article(role)} ${role} role where I can ${skills.length ? 'use these skills' : 'learn'}, grow and add value to the team.`);
+  if (role)
+    out.push(`I am now looking for ${article(role)} ${role} role where I can ${skills.length ? 'use these skills' : 'learn'}, grow and add value to the team.`);
   return out.join(' ');
 }
 

@@ -17,7 +17,11 @@ export const VOICE_FILTER = {
   minOverlapWords: 2 // suffix/prefix overlap shorter than this is not treated as a repeat
 };
 
-const keyOf = w => String(w || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]/g, '');
+const keyOf = w =>
+  String(w || '')
+    .toLowerCase()
+    .replace(/[’']/g, '')
+    .replace(/[^a-z0-9]/g, '');
 
 /** "I'm from, Pakpattan." -> "im from pakpattan" */
 export function phraseKey(t) {

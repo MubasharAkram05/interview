@@ -6,7 +6,10 @@ import sharp from 'sharp';
 import fs from 'node:fs';
 
 const B = { a: '#2d7dca', b: '#2a45b5', c: '#9b7fd8' }; // same as --brand-1/2/3 in src/style.css
-const glyph = fs.readFileSync('assets/logo/glyph.svg', 'utf8').replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
+const glyph = fs
+  .readFileSync('assets/logo/glyph.svg', 'utf8')
+  .replace(/^[\s\S]*?<svg[^>]*>/, '')
+  .replace(/<\/svg>\s*$/, '');
 fs.mkdirSync('store-assets', { recursive: true });
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${B.a}"/><stop offset=".5" stop-color="${B.b}"/><stop offset="1" stop-color="${B.c}"/></linearGradient></defs>

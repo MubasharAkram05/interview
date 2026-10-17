@@ -9,8 +9,10 @@ const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 375, height: 740 }, hasTouch: true });
 const errors = [];
 p.on('pageerror', e => errors.push(e.message));
-await p.addInitScript(() => { window.__skipIntro = true; });
-await p.goto((process.env.UI_URL || 'http://localhost:4173/'));
+await p.addInitScript(() => {
+  window.__skipIntro = true;
+});
+await p.goto(process.env.UI_URL || 'http://localhost:4173/');
 // An older version's demo profile ("Alex Khan") and its edit: both must be deleted at start-up.
 await p.evaluate(() => {
   const old = { name: 'Alex Khan', degree: 'BS Computer Science', uni: 'Example University', role: 'Junior Software Developer', skills: 'JavaScript' };
@@ -20,7 +22,12 @@ await p.evaluate(() => {
 });
 await p.reload();
 await wait(900);
-check('old demo profile deleted', await p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('is_profiles') || '{}')).length === 0 && !localStorage.getItem('is_edits').includes('Alex')));
+check(
+  'old demo profile deleted',
+  await p.evaluate(
+    () => Object.keys(JSON.parse(localStorage.getItem('is_profiles') || '{}')).length === 0 && !localStorage.getItem('is_edits').includes('Alex')
+  )
+);
 check('no Alex or Khan anywhere on Home', !/\bAlex\b|\bKhan\b/.test(await p.textContent('body')));
 
 // Practice shows the categories first; tapping one opens the setup form
@@ -30,12 +37,18 @@ check('Practice first tap: categories shown, no form yet', (await p.isVisible('#
 await p.evaluate(() => window.pcGo('cloud', 0, 'fresher'));
 await wait(500);
 check('category tap: setup form appears', await p.isVisible('#setup'));
-check('setup form: no banner space (no-ad)', await p.evaluate(() => document.documentElement.classList.contains('no-ad') && getComputedStyle(document.getElementById('adSlot')).height === '0px'));
+check(
+  'setup form: no banner space (no-ad)',
+  await p.evaluate(() => document.documentElement.classList.contains('no-ad') && getComputedStyle(document.getElementById('adSlot')).height === '0px')
+);
 check('setup: 2 steps', (await p.textContent('#sStepT')).startsWith('Step 1 of 2'));
 check('setup: no Alex or Khan anywhere', !/\bAlex\b|\bKhan\b/.test(await p.textContent('body')));
 await p.click('#sNext');
 await wait(200);
-check('setup: name is required (inline error, stays on step 1)', (await p.textContent('#sNameErr')).length > 0 && (await p.textContent('#sStepT')).startsWith('Step 1'));
+check(
+  'setup: name is required (inline error, stays on step 1)',
+  (await p.textContent('#sNameErr')).length > 0 && (await p.textContent('#sStepT')).startsWith('Step 1')
+);
 await p.fill('#sName', 'Mubashar_1');
 check('setup: inline validation, letters and spaces only', /letters/i.test(await p.textContent('#sNameErr')));
 await p.fill('#sName', 'Mubashar Akram');
@@ -46,7 +59,10 @@ await p.click('#sNext');
 await wait(200);
 check('setup: role picked from the category (Cloud/DevOps)', (await p.inputValue('#sRole')) === 'Cloud/DevOps');
 const roleSugg = await p.$$eval('#sSugg .sg', x => x.map(e => e.textContent.replace(/^\+\s*/, '')));
-check(`setup: key skills follow the role (${roleSugg.slice(0, 4).join(', ')})`, roleSugg.includes('AWS') && roleSugg.includes('Docker') && !roleSugg.includes('SEO'));
+check(
+  `setup: key skills follow the role (${roleSugg.slice(0, 4).join(', ')})`,
+  roleSugg.includes('AWS') && roleSugg.includes('Docker') && !roleSugg.includes('SEO')
+);
 await p.selectOption('#sRole', 'Marketing/Sales');
 await wait(100);
 const mkSugg = await p.$$eval('#sSugg .sg', x => x.map(e => e.textContent.replace(/^\+\s*/, '')));
@@ -58,7 +74,10 @@ await p.keyboard.press('Enter');
 await p.fill('#sSkillIn', 'Dev');
 await wait(100);
 const sugg = await p.$$eval('#sSugg .sg', x => x.map(e => e.textContent));
-check(`setup: typed text filters the suggestions (${sugg.slice(0, 3).join(', ')})`, sugg.some(t => /DevOps/.test(t)));
+check(
+  `setup: typed text filters the suggestions (${sugg.slice(0, 3).join(', ')})`,
+  sugg.some(t => /DevOps/.test(t))
+);
 await p.click('#sSugg .sg');
 await p.fill('#sSkillIn', 'Linux,');
 await wait(100);
@@ -73,7 +92,14 @@ await p.click('#sNext');
 await wait(800);
 check('after saving: the picked category opens in Practice', (await p.isVisible('#practice')) && /Cloud/i.test(await p.textContent('#pCount')));
 const prof = await p.evaluate(() => JSON.parse(localStorage.getItem('is_profiles'))['Mubashar Akram']);
-check(`profile words made automatically (${prof && prof.words.join(', ')})`, prof && prof.city === 'Pakpattan' && prof.skills === 'AWS, DevOps and Linux' && prof.setup === 1 && ['Mubashar', 'Akram', 'Pakpattan', 'BS', 'IT', 'AWS', 'Cloud', 'DevOps'].every(w => prof.words.includes(w)));
+check(
+  `profile words made automatically (${prof && prof.words.join(', ')})`,
+  prof &&
+    prof.city === 'Pakpattan' &&
+    prof.skills === 'AWS, DevOps and Linux' &&
+    prof.setup === 1 &&
+    ['Mubashar', 'Akram', 'Pakpattan', 'BS', 'IT', 'AWS', 'Cloud', 'DevOps'].every(w => prof.words.includes(w))
+);
 
 // Practice: Read it only (no mode buttons); Introduce yourself uses the generated answer
 await p.evaluate(() => window.home());
@@ -85,7 +111,12 @@ await p.evaluate(() => window.pcGo('fresh', 0, 'fresher'));
 await wait(900);
 const q = (await p.textContent('#pQt')).trim();
 const a = (await p.textContent('#pA')).trim();
-check(`Practice "${q.slice(0, 30)}": generated answer from setup`, /introduce yourself|tell me about yourself/i.test(q) ? a.startsWith('My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing a BS in Information Technology.') : true);
+check(
+  `Practice "${q.slice(0, 30)}": generated answer from setup`,
+  /introduce yourself|tell me about yourself/i.test(q)
+    ? a.startsWith('My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing a BS in Information Technology.')
+    : true
+);
 check('Practice: no From memory / mode buttons, answer shown', (await p.locator('#pModes, #pHint').count()) === 0 && (await p.isVisible('#pA')));
 check('Practice: result panel hidden before speaking', !(await p.isVisible('#pRes')));
 check('Practice: mic switched off (PRACTICE_MIC = false), Listen button stays', !(await p.isVisible('#pMic')) && (await p.isVisible('#pSpk')));
@@ -109,7 +140,13 @@ if (await p.isVisible('#dlg')) {
 }
 await p.evaluate(() => document.documentElement.style.setProperty('--ad-h', '50px')); // bottom banner space
 await wait(150);
-check('Mock: the session page fits the screen (no scroll)', await p.evaluate(() => { const m = document.getElementById('main'); return m.scrollHeight <= m.clientHeight + 1; }));
+check(
+  'Mock: the session page fits the screen (no scroll)',
+  await p.evaluate(() => {
+    const m = document.getElementById('main');
+    return m.scrollHeight <= m.clientHeight + 1;
+  })
+);
 check('Mock: no Free answer / From memory toggle, no chips', (await p.locator('#mModes, #vChips, #micLive').count()) === 0);
 const boxH = await p.$eval('#ansBox', e => e.getBoundingClientRect().height);
 check(`Mock: answer box fills the free space (${Math.round(boxH)}px)`, boxH >= 200);
@@ -133,16 +170,28 @@ await p.evaluate(() => {
   localStorage.setItem('is_scr', JSON.stringify(o));
 });
 // The app reads IndexedDB first; drop it so the edited localStorage copy is used.
-await p.evaluate(() => new Promise(r => { const q = indexedDB.deleteDatabase('InterviewSimulator'); q.onsuccess = q.onerror = q.onblocked = () => r(); }));
+await p.evaluate(
+  () =>
+    new Promise(r => {
+      const q = indexedDB.deleteDatabase('InterviewSimulator');
+      q.onsuccess = q.onerror = q.onblocked = () => r();
+    })
+);
 await p.reload();
 await wait(1200);
 const shown = (await p.textContent('#ansBox')).replace(/\s+/g, ' ').trim();
 const intro = /introduce yourself|tell me about yourself/i.test(q0);
 if (intro) {
   const ref = await p.evaluate(() => document.querySelectorAll('#ansBox .aw').length);
-  check(`Mock: the whole saved answer is shown in order ("${shown.slice(0, 60)}...")`, shown.startsWith('My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing') && ref > 15);
+  check(
+    `Mock: the whole saved answer is shown in order ("${shown.slice(0, 60)}...")`,
+    shown.startsWith('My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing') && ref > 15
+  );
   const ok = await p.$$eval('#ansBox .aw.said', x => x.map(e => e.textContent).join(' '));
-  check(`Mock: said words dark, saved spelling ("${ok}")`, ok.startsWith('My name is Mubashar Akram, and I am from I am currently pursuing a BS in Information Technology.'));
+  check(
+    `Mock: said words dark, saved spelling ("${ok}")`,
+    ok.startsWith('My name is Mubashar Akram, and I am from I am currently pursuing a BS in Information Technology.')
+  );
   check('Mock: the word said wrong is red', (await p.$$eval('#ansBox .aw.wrongw', x => x.map(e => e.textContent).join())) === 'Pakpattan.');
   check('Mock: words not said are dull', (await p.locator('#ansBox .aw.notsaid').count()) > 5);
   await p.click('#ansBox .aw.wrongw');
@@ -156,7 +205,10 @@ if (intro) {
   const row = await p.evaluate(() => ['.mctl .mnav', '#mic', '#nBtn'].map(q => document.querySelector(q).getBoundingClientRect()));
   // In the test browser there is no speech service, so the mic is hidden; then only Prev | Next.
   const micShown = row[1].width > 0;
-  check(`Mock: Previous and Next sit left and right of the mic (mic ${micShown ? 'shown' : 'hidden here'})`, micShown ? row[0].right <= row[1].left && row[1].right <= row[2].left : row[0].right <= row[2].left && Math.abs(row[0].top - row[2].top) < 4);
+  check(
+    `Mock: Previous and Next sit left and right of the mic (mic ${micShown ? 'shown' : 'hidden here'})`,
+    micShown ? row[0].right <= row[1].left && row[1].right <= row[2].left : row[0].right <= row[2].left && Math.abs(row[0].top - row[2].top) < 4
+  );
   const dimC = await p.$eval('#ansBox .aw.notsaid', e => getComputedStyle(e).color);
   const okC = await p.$eval('#ansBox .aw.said', e => getComputedStyle(e).color);
   check(`Mock: dull and dark colours differ (${dimC} vs ${okC})`, dimC !== okC);
@@ -180,7 +232,10 @@ await p.evaluate(() => window.startMock());
 await wait(400);
 await p.click('#mGrid .mt[data-c=fresh]');
 await wait(1200);
-if (await p.isVisible('#dlg')) { await p.click('#dYes'); await wait(900); }
+if (await p.isVisible('#dlg')) {
+  await p.click('#dYes');
+  await wait(900);
+}
 await p.click('#mTypeB');
 await p.keyboard.type(' Pakpatan');
 await p.click('#qText');

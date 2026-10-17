@@ -37,7 +37,9 @@ export function questionOfDay({ saved, cats, lv, list, today = dayKey() }) {
     [order[i], order[j]] = [order[j], order[i]];
   }
   for (const c of order) {
-    const qs = list(c, lv).map(x => x.q).filter(q => q && q !== saved?.q);
+    const qs = list(c, lv)
+      .map(x => x.q)
+      .filter(q => q && q !== saved?.q);
     if (qs.length) {
       return { pick: { d: today, c, lv, q: qs[Math.floor(r() * qs.length)] }, changed: true };
     }

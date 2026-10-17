@@ -1,13 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { Network } from '@capacitor/network';
-import {
-  AdMob,
-  AdmobConsentStatus,
-  BannerAdSize,
-  BannerAdPosition,
-  BannerAdPluginEvents,
-  InterstitialAdPluginEvents
-} from '@capacitor-community/admob';
+import { AdMob, AdmobConsentStatus, BannerAdSize, BannerAdPosition, BannerAdPluginEvents, InterstitialAdPluginEvents } from '@capacitor-community/admob';
 import { ADS_CONFIG } from '../config/ads.js';
 import { adsLog } from './debug.js';
 import { nativeAdLayout } from './native-info.js';
