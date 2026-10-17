@@ -233,11 +233,35 @@ jobs:
             # Google's sample publisher: the test App ID and every test ad unit start with it.
             TEST_PUB='ca-app-pub-3940256099942544'
             echo "test ad IDs in the release AAB web assets: $(grep -rao "$TEST_PUB" "$WEB" | wc -l) (0 expected only with RELEASE_ADS=true)"
-            TEST_ANY=$(grep -rao "$TEST_PUB" aab_scan | wc -l)
-            echo "test ad IDs anywhere in the release AAB (manifest, dex, assets): $TEST_ANY"
-            if [ "$RELEASE_ADS" = "true" ] && [ "$TEST_ANY" -gt 0 ]; then
-              echo "release AAB contains Google test ad IDs: YES-BAD"
-              grep -rlaF "$TEST_PUB" aab_scan | sed 's|^aab_scan/|  in |'
+            # Every test ID in the AAB, as "file:id". The ID pattern also catches a bare prefix.
+            HITS=$(grep -raoE "$TEST_PUB[~/]?[0-9]*" aab_scan | sed 's|^aab_scan/||' | sort -u)
+            # The dex may hold only these 6: the *_TESTER_ID constants of the
+            # @capacitor-community/admob plugin (AdOptions.java and NativeAdExecutor.kt). The plugin
+            # uses them only when a call passes isTesting: true; the release build passes
+            # ADS_CONFIG.isTesting = false (src/config/ads.js). Matched by exact string, not count.
+            DEX_ALLOWED="
+            ca-app-pub-3940256099942544/6300978111
+            ca-app-pub-3940256099942544/1033173712
+            ca-app-pub-3940256099942544/5224354917
+            ca-app-pub-3940256099942544/5354046379
+            ca-app-pub-3940256099942544/9257395921
+            ca-app-pub-3940256099942544/2247696110"
+            allowed() { echo "$DEX_ALLOWED" | sed 's/^ *//' | grep -qxF -- "$1"; }
+            NOT_DEX=$(echo "$HITS" | grep -v '^base/dex/' | grep . || true)
+            DEX_OK=""
+            DEX_BAD=""
+            for h in $(echo "$HITS" | grep '^base/dex/' || true); do
+              if allowed "${h#*:}"; then DEX_OK="$DEX_OK $h"; else DEX_BAD="$DEX_BAD $h"; fi
+            done
+            echo "test ad IDs in the release AAB outside dex (manifest, assets, res): $(echo "$NOT_DEX" | grep -c . || true)"
+            for h in $NOT_DEX; do echo "  found: $h"; done
+            echo "test ad IDs in the release AAB dex, allowed AdMob plugin constants: $(echo $DEX_OK | wc -w)"
+            for h in $DEX_OK; do echo "  allowed: $h"; done
+            echo "test ad IDs in the release AAB dex, NOT allowed: $(echo $DEX_BAD | wc -w)"
+            for h in $DEX_BAD; do echo "  unexpected: $h"; done
+            if [ "$RELEASE_ADS" = "true" ]; then
+              [ -z "$NOT_DEX" ] || echo "release AAB has test ad IDs outside the dex: YES-BAD"
+              [ -z "$DEX_BAD" ] || echo "release AAB dex has unexpected test ad IDs: YES-BAD"
             fi
           } | tee $R
           cat $R >> "$GITHUB_STEP_SUMMARY"
