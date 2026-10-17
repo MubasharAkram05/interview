@@ -6,11 +6,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
+import java.util.WeakHashMap;
 
 // Capacitor registers npm plugins from capacitor.plugins.json automatically.
 // Local plugins (inside this app) are registered here, before super.onCreate().
@@ -25,11 +27,81 @@ public class MainActivity extends BridgeActivity {
     // After the page load event, wait this long for the page's own "painted" signal.
     private static final long PAGE_LOADED_GRACE_MS = 1500;
 
-    private volatile boolean pageVisible = false;
+    // Splash fade-out and WebView fade-in when the welcome screen is ready (no sudden jump).
+    private static final long FADE_MS = 280;
 
-    /** Called when the welcome screen is on screen: let Android's splash go. */
+    private volatile boolean pageVisible = false;
+    private boolean revealed = false;
+
+    /**
+     * The welcome screen is ready to draw (BuildInfo.appReady waits for postVisualStateCallback,
+     * which is the documented way to show a WebView without a blank first frame): make the
+     * WebView visible, fading in, and let Android's splash fade out on top of it.
+     */
     public void onWebReady() {
-        pageVisible = true;
+        runOnUiThread(() -> {
+            if (revealed) return;
+            revealed = true;
+            try {
+                WebView wv = bridge != null ? bridge.getWebView() : null;
+                if (wv != null) {
+                    wv.setAlpha(0f);
+                    wv.setVisibility(View.VISIBLE);
+                    wv.animate().alpha(1f).setDuration(FADE_MS).start();
+                }
+            } catch (Exception ignored) {
+                // still let the splash go
+            }
+            pageVisible = true;
+        });
+    }
+
+    // Ads: the banner fades in when it appears or shows a new ad, instead of popping up.
+    private static final String AD_VIEW_CLASS = "com.google.android.gms.ads.AdView";
+    private static final long AD_FADE_MS = 300;
+    private final WeakHashMap<View, Boolean> fadedAds = new WeakHashMap<>();
+    private boolean adShown = false;
+
+    private View findAdView(View v) {
+        if (v == null) return null;
+        if (AD_VIEW_CLASS.equals(v.getClass().getName())) return v;
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                View found = findAdView(g.getChildAt(i));
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private void fadeIn(View v) {
+        v.animate().cancel();
+        v.setAlpha(0f);
+        v.animate().alpha(1f).setDuration(AD_FADE_MS).start();
+    }
+
+    /** Runs before each layout pass is drawn, so a new banner never shows at full opacity first. */
+    private void fadeInAds() {
+        try {
+            View ad = findAdView(getWindow().getDecorView());
+            if (ad == null) {
+                adShown = false;
+                return;
+            }
+            boolean shown = ad.isShown() && ad.getHeight() > 0;
+            if (shown && !adShown) fadeIn(ad); // banner created or shown again after a dialog
+            adShown = shown;
+            if (shown && ad instanceof ViewGroup && ((ViewGroup) ad).getChildCount() > 0) {
+                View creative = ((ViewGroup) ad).getChildAt(0);
+                if (creative.getHeight() > 0 && !fadedAds.containsKey(creative)) {
+                    fadedAds.put(creative, Boolean.TRUE);
+                    fadeIn(creative); // a newly loaded ad
+                }
+            }
+        } catch (Exception ignored) {
+            // never break the layout pass for an animation
+        }
     }
 
     private void applyLaunchBackground() {
@@ -56,7 +128,14 @@ public class MainActivity extends BridgeActivity {
         // splash because launchShowDuration is 0, so it is done here, before super.onCreate().
         SplashScreen splash = SplashScreen.installSplashScreen(this);
         splash.setKeepOnScreenCondition(() -> !pageVisible);
-        new Handler(Looper.getMainLooper()).postDelayed(() -> pageVisible = true, SPLASH_MAX_MS);
+        splash.setOnExitAnimationListener(provider -> {
+            try {
+                provider.getView().animate().alpha(0f).setDuration(FADE_MS).withEndAction(provider::remove).start();
+            } catch (Exception e) {
+                provider.remove();
+            }
+        });
+        new Handler(Looper.getMainLooper()).postDelayed(this::onWebReady, SPLASH_MAX_MS);
 
         registerPlugin(BuildInfoPlugin.class);
         registerPlugin(VoicePlugin.class);
@@ -76,12 +155,23 @@ public class MainActivity extends BridgeActivity {
             // the window background still shows
         }
         new Handler(Looper.getMainLooper()).post(this::applyLaunchBackground);
+        try {
+            getWindow().getDecorView().getViewTreeObserver().addOnGlobalLayoutListener(this::fadeInAds);
+        } catch (Exception ignored) {
+            // ads just appear without the fade
+        }
         if (bridge == null) {
-            pageVisible = true;
+            onWebReady();
             return;
         }
         try {
-            if (bridge.getWebView() != null) bridge.getWebView().setBackgroundColor(Color.TRANSPARENT);
+            WebView wv = bridge.getWebView();
+            if (wv != null) {
+                wv.setBackgroundColor(Color.TRANSPARENT);
+                // Hidden until the welcome screen is ready: on some phones a new WebView draws a
+                // white first frame on the first start, whatever its background colour.
+                if (!revealed) wv.setVisibility(View.INVISIBLE);
+            }
         } catch (Exception ignored) {
             // the page paints its own background anyway
         }

@@ -165,7 +165,7 @@ await p.waitForTimeout(400);
 await p.evaluate(() => history.back());
 await p.waitForTimeout(600);
 check('Back from Mock after a fresh start: Home, no exit warning', (await p.isVisible('#home')) && !/back again/i.test(await p.textContent('#toast')));
-// New user: Get Started on the welcome screen opens the details form
+// New user: Get Started on the welcome screen opens Home (no form)
 const p2 = await b.newPage({ viewport: { width: 375, height: 740 } });
 await p2.goto('http://localhost:4173/');
 await p2.evaluate(() => localStorage.clear());
@@ -174,7 +174,10 @@ await p2.reload();
 await p2.waitForSelector('#iGo:not(.hidden)', { timeout: 5000 });
 await p2.click('#iGo');
 await p2.waitForTimeout(600);
-check('welcome: Get Started for a new user opens the details form', await p2.isVisible('#setup'));
+check('welcome: Get Started for a new user opens Home, no form', (await p2.isVisible('#home')) && !(await p2.isVisible('#setup')));
+await p2.click('#hGo');
+await p2.waitForTimeout(500);
+check('new user: hero Get Started opens Practice, no form', (await p2.isVisible('#pcat')) && !(await p2.isVisible('#setup')));
 await b.close();
 console.log(out.join('\n'));
 if (out.some(l => l.startsWith('FAIL'))) process.exit(1);
