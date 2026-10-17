@@ -1,15 +1,8 @@
 // Practice expected-text matching (src/services/expected.js). Run: node tests/practice/expected.test.mjs
-import {
-  alignToExpected,
-  introTemplate,
-  isIntroQuestion,
-  wordStatus,
-  wordDetail,
-  expandDegree,
-  roleText,
-  phraseHits,
-  memoryStatus
-} from '../../src/services/expected.js';
+import { alignToExpected, introTemplate, isIntroQuestion, wordDetail, expandDegree, roleText, phraseHits, memoryStatus } from '../../src/services/expected.js';
+
+// Status of every answer word ('ok' | 'bad' | 'dim'), as the Mock box colours them.
+const wordStatus = r => wordDetail(r).st;
 
 const out = [];
 const check = (name, ok, extra = '') => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : '   ' + extra}`);

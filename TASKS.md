@@ -31,7 +31,7 @@
 - [x] Transcript export fixed for Android (share sheet instead of blob download, which WebView cannot do)
 - [x] Fixed pre-existing bugs: header clipped to 8px, blank "Practice it" button, `answers is not defined` error from inline handler
 - [x] Mobile layout: tap targets 44px, body text 16px, toast wraps, safe-area padding (env() and Capacitor's --safe-area-inset-* vars)
-- [x] Interstitial: Interstitial only at natural breaks: after a mock interview is finished (just before the results screen) and after every 4th Practice question the user moves forward to. Never on app launch, never within 60 s of opening the app, never while the mic records or the user types, never on the back button or exit, never at two breaks in a row, and at least `INTERSTITIAL_COOLDOWN_MS` apart (30 s in the debug APK, 180 s in the release build). If no ad is loaded when a break comes, it is skipped silently; the app never waits. The banner hides while the interstitial is open. Preloaded after consent, reloaded after every dismiss or failure, retried with backoff 15 s, 30 s, 60 s. `ADS:` diagnostic logs print only in the debug APK (native `BuildInfo` plugin)
+- [x] Interstitial: Interstitial only at natural breaks: after a mock interview is finished (just before the results screen), after every 4th Practice question the user moves forward to, and when the user taps Finish at the end of Practice. Never on app launch, never within 60 s of opening the app, never while the mic records or the user types, never on the back button or exit, never at two breaks in a row, and at least `INTERSTITIAL_COOLDOWN_MS` apart (3 minutes in every build). If no ad is loaded when a break comes, it is skipped silently; the app never waits. The banner hides while the interstitial is open. Preloaded after consent, reloaded after every dismiss or failure, retried with backoff 15 s, 30 s, 60 s. `ADS:` diagnostic logs print only in the debug APK (native `BuildInfo` plugin)
 - [x] Interstitial rules unit-tested with mocked AdMob (`npm run test:ads`, 20 checks, also run in CI)
 - [ ] Interstitial shown and dismissed on a real phone (GUIDE section 14, Interstitial): **NOT CHECKED**
 - [x] Banner layout checked in a 375px browser emulation on all 10 screens, with and without a 32px notch, and with the keyboard height: 0 overlaps with content, nav or mic, 18px clear to header buttons, 8px clear to content
@@ -104,7 +104,7 @@
 
 ## Production release
 
-- [x] Interstitial cooldown: 180 s in release, 30 s only in the debug APK (build flag, no edit needed)
+- [x] Interstitial cooldown: 180 s (3 minutes) in every build, debug APK too
 - [ ] Create AdMob app, real banner and interstitial units, publish GDPR message
 - [ ] Paste real IDs into `PRODUCTION_IDS` in `src/config/ads.js` and set the `RELEASE_ADS=true` repository variable (GUIDE section 5, RELEASE_CHECKLIST.md)
 - [ ] Bump versionCode, build, upload
@@ -126,7 +126,8 @@
 - [x] No restart loop: next session only after real speech; one empty session stops with "Tap the mic to continue"
 - [x] Partials only in the grey live bar; one final per session; noise gate (max RMS), confidence 0.4, 5 s dedupe with overlap trim
 - [x] N-best by profile name overlap, else confidence; never merged
-- [x] Vocabulary system removed (My words, name matching, learned corrections, chips): the app writes exactly what the phone heard
+- [x] Vocabulary system removed (My words, name matching, chips): the app writes exactly what the phone heard
+- [x] Learned corrections (Mock): a word the mic got wrong (red) that the user then says right is remembered (heard -> answer word, never a common English word), written right next time and sent as a hint; listed and deletable in Profile
 - [x] Demo profile name ("Alex Khan") no longer used for chips, hints or matching
 - [x] Text inserted at the cursor; Open settings button when the mic is blocked
 - [x] Debug voice report per session (language, n-best + confidence, max RMS, drops, replacements, committed text)

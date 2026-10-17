@@ -110,16 +110,6 @@ export function alignToExpected(heardText, expectedText, { partial = false, cfg 
   };
 }
 
-/**
- * Colour of every expected word, like a language app (the whole saved answer is shown):
- *  'ok'  = said (match or fix),
- *  'bad' = said wrong: the user said other words in its place (an extra heard word in the same
- *          gap between two said words; one extra marks one word, in order),
- *  'dim' = not said (missed or not reached yet).
- * Uses the ops of alignToExpected. Time O(n + m).
- */
-export const wordStatus = r => wordDetail(r).st;
-
 // Mock "From memory" is forgiving, like a language app: a word half right counts as said.
 export const LENIENT = { minSim: 0.5, gap: 1 };
 
@@ -167,7 +157,8 @@ export function memoryStatus(heardText, expectedText, sticky = []) {
 }
 
 /**
- * wordStatus plus what was heard for each red word: { st, heard: { [j]: 'words said instead' } }.
+ * Status of every answer word ('ok' said right, 'bad' said wrong, 'dim' not said yet) plus what was
+ * heard for each red word: { st, heard: { [j]: 'words said instead' } }.
  * Extras are given to the red words in order; leftover extras go to the last red word of the gap.
  */
 export function wordDetail(r) {

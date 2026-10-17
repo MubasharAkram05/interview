@@ -1,6 +1,6 @@
 # Privacy Policy for Interview Simulator
 
-**Last updated: October 16, 2026**
+**Last updated: October 17, 2026**
 
 Interview Simulator ("the app") is a free Android app made by Sussal Productions ("we", "us"). The app helps you practice job interview questions. This policy explains what data the app uses and why.
 
@@ -20,7 +20,7 @@ The app saves the following only in the app's private storage on your phone:
 - The details you enter before your first session (full name, target role, education or current role, city, experience level, key skills and voice accent; the app also makes a short word list from these details to recognise your name and city) and any other profile details you type
 - Questions and answers you add or edit
 - Mock interview answers you type or speak, and your scores and history
-- Favorites, Practice scores and settings (theme, shuffle, read aloud, voice accent), and the voice corrections the app learns from your edits
+- Favorites, Practice scores and settings (theme, shuffle, read aloud, voice accent), and the voice corrections the app learns in Mock interviews (a word the microphone got wrong that you then said right; you can delete them in Profile)
 
 These details are stored only on your device. They are used on your phone to personalise questions and answers and to match voice input to your words. This data is not sent to us or to anyone else by the app. You can change or remove it at any time: edit your details or clear history inside the app, or use Android Settings > Apps > Interview Simulator > Storage > Clear data. Uninstalling the app also deletes it.
 

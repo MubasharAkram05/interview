@@ -36,7 +36,7 @@ import {
   openAppSettings,
   notePractice
 } from './services/voice.js';
-import { voiceAccent, setAccentPref, corrections, removeCorrection } from './services/voice-prefs.js';
+import { voiceAccent, setAccentPref, corrections, removeCorrection, applyCorrections, learnCorrection } from './services/voice-prefs.js';
 import { rareWords, norm } from './services/vocab.js';
 import { alignToExpected, introTemplate, isIntroQuestion, memoryStatus, phraseHits, expandDegree, roleText } from './services/expected.js';
 import {
@@ -576,7 +576,16 @@ function markQotd(c, lv, q) {
 function pFinish1() {
   const it = P.list[P.i];
   if (it) markQotd(P.cat, P.lv, it.q);
+  // Read these before home(), which stops the mic.
+  const wasRecording = isListening();
+  const wasTyping = !$('pEdit').classList.contains('hidden') || isTypingNow();
   home();
+  // All questions done: a natural break for an interstitial. admob.js applies every rule (3 minutes
+  // since the last ad, 60 s after launch, never twice in a row, consent, loaded) and skips silently.
+  const name = 'practice_finished';
+  if (wasRecording) return skipInterstitialBreak(name, 'recording');
+  if (wasTyping) return skipInterstitialBreak(name, 'typing');
+  showInterstitialAtBreak(name).then(shown => shown && stopMedia());
 }
 
 function openHistory() {
@@ -1553,7 +1562,8 @@ function answerHints(ref) {
     .split(/\s+/)
     .map(w => w.replace(/[^\w'+#./-]/g, '').replace(/[.]+$/, ''))
     .filter(w => w.length > 1);
-  return [...new Set([...own, ...rareWords(ref, 40), ...words])].slice(0, 60);
+  const learned = corrections().map(m => m.fix); // words the phone got wrong before
+  return [...new Set([...own, ...learned, ...rareWords(ref, 40), ...words])].slice(0, 60);
 }
 
 // ---- Practice: expected-text matching ----
@@ -2073,12 +2083,26 @@ function mockNote(m) {
 // mHeard[i]: heard (or typed) words of question i ({ w }), the source of the box and of answers[i].
 let mHeard = [];
 let mOk = []; // mOk[i]: answer word indices said right at least once (sticky)
+// Heard words, with the learned corrections applied (a word the phone got wrong before and the user
+// then said right is written right from now on).
 const mWords = t =>
-  String(t || '')
+  applyCorrections(t)
     .split(/\s+/)
     .filter(w => norm(w));
 
 // Status of every answer word of question i (with the live words while speaking).
+// A red word the user has now said right: remember "heard -> answer word" (Profile > Learned
+// corrections), so the phone's usual mistake is written right next time.
+function learnFixed(before, st, ref) {
+  const R = String(ref || '')
+    .split(/\s+/)
+    .filter(w => norm(w));
+  Object.entries(before).forEach(([j, heard]) => {
+    const k = Number(j);
+    if (st[k] === 'ok' && R[k]) learnCorrection(heard, R[k], R[k - 1] || '');
+  });
+}
+
 function mStatus(i, live = '') {
   const H = mHeard[i] || [];
   const ref = refText(cur[i]);
@@ -2302,9 +2326,11 @@ async function startMockMic() {
       });
     },
     onFinal: text => {
+      const before = ref ? mStatus(myIdx).heard : {}; // red words and what was heard for them
       H.push(...mWords(text).map(w => ({ w })));
       // Answer words in this phrase stay right for good (a red word said again turns right).
       if (ref) mOk[myIdx] = [...new Set([...(mOk[myIdx] || []), ...phraseHits(text, ref)])];
+      if (ref) learnFixed(before, mStatus(myIdx).st, ref);
       mCommit(myIdx);
     },
     onEnd: ({ reason, message }) => {
@@ -2899,7 +2925,7 @@ function renderVoiceMemory() {
             `<div class="vmrow"><span>"${esc(m.heard)}" becomes "${esc(m.fix)}"</span><button class="pbtn danger" data-i="trash" onclick="delVoiceMemory(${i})" aria-label="Delete correction" title="Delete"></button></div>`
         )
         .join('')
-    : '<small class="vempty">Nothing learned yet. When you fix a word the mic got wrong, the app remembers it here.</small>';
+    : '<small class="vempty">Nothing learned yet. In Mock, when the mic gets a word of your answer wrong (red) and you then say it right, the app remembers it here and writes it right next time.</small>';
   renderIcons();
 }
 

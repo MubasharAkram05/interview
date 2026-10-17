@@ -83,7 +83,7 @@ await p.fill('#sSkillIn', 'Linux,');
 await wait(100);
 const skills = await p.$$eval('#sSkills .tg span', x => x.map(e => e.textContent));
 check(`setup: skills tag input (${skills.join(', ')})`, skills.join() === 'AWS,DevOps,Linux');
-const tagH = await p.$eval('#sSkills .tg button', e => e.getBoundingClientRect().height);
+const tagH = await p.$eval('#sSkills .tg button', e => Math.round(e.getBoundingClientRect().height)); // sub-pixel font rendering differs by runner
 check(`setup: tag remove button is a real tap target (${tagH}px)`, tagH >= 36);
 check('setup: voice accent on the last step, default en-IN', (await p.isVisible('#sAccent')) && (await p.inputValue('#sAccent')) === 'in');
 check('setup: no My words field', (await p.locator('#sWords, #sWordIn').count()) === 0 && !/My words/i.test(await p.textContent('#setup')));

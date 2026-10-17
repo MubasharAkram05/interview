@@ -43,14 +43,14 @@ export function productionIdProblems(ids = PRODUCTION_IDS) {
   return problems;
 }
 
-// Set by vite.config.js. Outside a Vite build (unit tests) both are false: test IDs, debug timing off.
+// Set by vite.config.js. Outside a Vite build (unit tests) it is false: test IDs.
 export const USE_PRODUCTION_ADS = typeof __RELEASE_ADS__ !== 'undefined' && __RELEASE_ADS__ === true;
-const DEBUG_BUILD = typeof __DEBUG_TOOLS__ !== 'undefined' && __DEBUG_TOOLS__ === true;
 
 const IDS = USE_PRODUCTION_ADS ? PRODUCTION_IDS : TEST_IDS;
 
-// Minimum time between two interstitials: 3 minutes; 30 s only in the debug APK (testing).
-export const INTERSTITIAL_COOLDOWN_MS = DEBUG_BUILD ? 30000 : 180000;
+// Minimum time between two interstitials: 3 minutes in every build (release and debug APK).
+// The debug panel's "Force interstitial test" button can still show one at once for testing.
+export const INTERSTITIAL_COOLDOWN_MS = 180000;
 
 // Never show an interstitial in the first 60 seconds after the app opens.
 export const INTERSTITIAL_MIN_AFTER_LAUNCH_MS = 60000;
