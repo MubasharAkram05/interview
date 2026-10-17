@@ -112,7 +112,7 @@ uses is a build flag, not a code edit:
 
 | Build | IDs | Test mode | Interstitial cooldown |
 |---|---|---|---|
-| Debug APK (`npm run build:debug`, `assembleDebug`) | TEST_IDS, always | on | 30 s |
+| Debug APK (`npm run build:debug`, `assembleDebug`) | TEST_IDS, always | on | 180 s |
 | Release, `RELEASE_ADS` not set | TEST_IDS | on | 180 s |
 | Release, `RELEASE_ADS=true` | PRODUCTION_IDS | off | 180 s |
 
@@ -279,7 +279,7 @@ Use the `app-debug.apk` from the workflow first, then the release build from the
 6. EEA/UK test (optional): the consent form shows once, with no banner on top of it. Profile > Privacy Policy shows "Ad privacy choices"; the banner hides while that form is open.
 
 ### Interstitial (full-screen ad)
-Rules: Interstitial only at natural breaks: after a mock interview is finished (just before the results screen) and after every 4th Practice question the user moves forward to. Never on app launch, never within 60 s of opening the app, never while the mic records or the user types, never on the back button or exit, never at two breaks in a row, and at least `INTERSTITIAL_COOLDOWN_MS` apart (30 s in the debug APK, 180 s in the release build). If no ad is loaded when a break comes, it is skipped silently; the app never waits. The banner hides while the interstitial is open.
+Rules: Interstitial only at natural breaks: after a mock interview is finished (just before the results screen) and after every 4th Practice question the user moves forward to. Never on app launch, never within 60 s of opening the app, never while the mic records or the user types, never on the back button or exit, never at two breaks in a row, and at least `INTERSTITIAL_COOLDOWN_MS` apart (3 minutes in every build). If no ad is loaded when a break comes, it is skipped silently; the app never waits. The banner hides while the interstitial is open.
 
 Use the **debug APK** for this test (it prints `ADS:` lines; the release build never does). With the phone connected by USB and USB debugging on, run on your PC:
 
@@ -293,7 +293,7 @@ adb logcat | findstr "ADS:"
 3. Wait until at least 60 s after opening the app, then finish a mock interview. A full-screen "Test Ad" opens; the results screen is underneath. The top banner is hidden while the ad is open.
 4. Close the ad. Log: `ADS: dismissed`, then `ADS: prepare` and `ADS: loaded` (next ad loads). The banner comes back.
 5. Go to Practice and swipe forward 4 questions. Log: `skipped ... reason=ad shown at previous break` (never twice in a row) or `cooldown Ns left`.
-6. Wait 30 s, swipe forward 4 more questions: a test ad opens.
+6. Wait until 3 minutes have passed since the last ad, then swipe forward 4 more questions: a test ad opens. (To test sooner, use **Force interstitial test** in the debug panel.)
 7. Start the mic in Practice, then swipe forward so you land on a 4th question while recording: log shows `reason=recording`, no ad.
 8. Airplane mode on, restart the app, finish a mock interview: no ad, no freeze. Log shows `prepare skipped: offline` and `retry in 15s`, `30s`, `60s`. Turn airplane mode off: within a minute `ADS: loaded`.
 9. Press back or exit on Home: never an ad.
@@ -332,7 +332,7 @@ The **debug APK** has a hidden **Ads status** panel. You do not need a PC or adb
 | `Interstitial: ready=true` | A full-screen ad is loaded and can show at the next break. |
 | `prepared / loaded / failed / shown / lastError` | Counters. Error codes: `0` internal, `1` invalid request, `2` network, `3` no fill, `timeout` = no answer in 45 s. |
 | `nextRetryIn` | When the next load attempt happens after a failure (15 s, 30 s, then 60 s). |
-| `cooldownLeft / sinceLaunch` | Time rules: no ad in the first 60 s, and 30 s between ads in the debug APK (180 s in release). |
+| `cooldownLeft / sinceLaunch` | Time rules: no ad in the first 60 s, and 3 minutes between ads. |
 | `lastBreak / lastSkip` | The last natural break (`interview_finished` or `practice_question_N`) and why no ad was shown (`too soon after app start`, `cooldown`, `never twice in a row`, `still loading`, `recording`, `typing`, `screen covered: …`). |
 | `last 20 ADS: lines` | The step-by-step log. |
 
