@@ -176,7 +176,11 @@ function finish(s, reason, code = 0, message = '') {
   clearTimeout(s.timer);
   clearTimeout(s.stopTimer);
   clearTimeout(s.safety);
-  s.handles.forEach(h => Promise.resolve(h).then(x => x && x.remove()).catch(() => {}));
+  s.handles.forEach(h =>
+    Promise.resolve(h)
+      .then(x => x && x.remove())
+      .catch(() => {})
+  );
   let msg = message;
   if (!msg && reason === 'error') msg = voiceErrorText(code);
   if (!msg && reason === 'empty') msg = s.committed ? TAP_TO_CONTINUE : NOT_CAUGHT;
@@ -204,7 +208,19 @@ async function begin(s) {
   s.timer = null;
   if (session !== s || s.stopping) return;
   s.runs++;
-  s.run = { n: s.runs, at: new Date().toISOString().slice(11, 19), language: voiceLanguage(), hints: 0, nbest: [], maxRms: null, dropped: [], changes: [], picked: '', committed: '', end: '' };
+  s.run = {
+    n: s.runs,
+    at: new Date().toISOString().slice(11, 19),
+    language: voiceLanguage(),
+    hints: 0,
+    nbest: [],
+    maxRms: null,
+    dropped: [],
+    changes: [],
+    picked: '',
+    committed: '',
+    end: ''
+  };
   record(s.run);
   setState(s, 'starting');
   const opts = {
@@ -280,7 +296,13 @@ function onFinal(s, d) {
   s.recent.push({ text: c.text, at: Date.now() });
   s.committed++;
   run.committed = dd.text;
-  voiceLog('final', { nbest: run.nbest, maxRms: run.maxRms, picked: run.picked, changes: run.changes.map(x => `${x.from}>${x.to} (${x.why})`), committed: dd.text });
+  voiceLog('final', {
+    nbest: run.nbest,
+    maxRms: run.maxRms,
+    picked: run.picked,
+    changes: run.changes.map(x => `${x.from}>${x.to} (${x.why})`),
+    committed: dd.text
+  });
   try {
     s.o.onFinal && s.o.onFinal(dd.text, { index: c.index, changes: c.changes || [], raw: matches[c.index] });
   } catch {
@@ -337,7 +359,7 @@ function onEnd(s, d) {
 function silent(s) {
   s.silent = (s.silent || 0) + 1;
   const opt = s.o.silentRestarts;
-  const max = typeof opt === 'function' ? opt() : opt ?? VOICE_TIMING.silentRestarts;
+  const max = typeof opt === 'function' ? opt() : (opt ?? VOICE_TIMING.silentRestarts);
   if (s.committed > 0 && s.silent <= max) return next(s, VOICE_TIMING.nextSessionMs);
   return finish(s, 'empty');
 }
@@ -383,25 +405,46 @@ export async function startListening(o = {}) {
   voiceLog('mic on', { accent, locale: voiceLanguage(), hints: s.o.bias.length });
 
   s.handles.push(
-    Voice.addListener('ready', mine(() => setState(s, 'ready'))),
-    Voice.addListener('speech', mine(() => setState(s, 'listening'))),
-    Voice.addListener('speechEnd', mine(d => voiceLog('speech end', { ms: d.ms }))),
-    Voice.addListener('level', mine(d => {
-      if (typeof d.db === 'number' && (s.levelMax === null || d.db > s.levelMax)) s.levelMax = d.db;
-      s.o.onLevel && s.o.onLevel(d.db);
-    })),
-    Voice.addListener('partial', mine(d => {
-      const t = (d.matches || []).filter(Boolean)[0];
-      if (!t) return;
-      if (s.run) s.run.partial = t;
-      if (s.state !== 'listening' && s.state !== 'stopping') setState(s, 'listening');
-      s.o.onPartial && s.o.onPartial(t); // live bar only, never the answer box
-    })),
-    Voice.addListener('final', mine(d => onFinal(s, d))),
-    Voice.addListener('end', mine(d => {
-      s.levelMax = null;
-      onEnd(s, d);
-    }))
+    Voice.addListener(
+      'ready',
+      mine(() => setState(s, 'ready'))
+    ),
+    Voice.addListener(
+      'speech',
+      mine(() => setState(s, 'listening'))
+    ),
+    Voice.addListener(
+      'speechEnd',
+      mine(d => voiceLog('speech end', { ms: d.ms }))
+    ),
+    Voice.addListener(
+      'level',
+      mine(d => {
+        if (typeof d.db === 'number' && (s.levelMax === null || d.db > s.levelMax)) s.levelMax = d.db;
+        s.o.onLevel && s.o.onLevel(d.db);
+      })
+    ),
+    Voice.addListener(
+      'partial',
+      mine(d => {
+        const t = (d.matches || []).filter(Boolean)[0];
+        if (!t) return;
+        if (s.run) s.run.partial = t;
+        if (s.state !== 'listening' && s.state !== 'stopping') setState(s, 'listening');
+        s.o.onPartial && s.o.onPartial(t); // live bar only, never the answer box
+      })
+    ),
+    Voice.addListener(
+      'final',
+      mine(d => onFinal(s, d))
+    ),
+    Voice.addListener(
+      'end',
+      mine(d => {
+        s.levelMax = null;
+        onEnd(s, d);
+      })
+    )
   );
   s.safety = setTimeout(() => session === s && stopListening(), VOICE_TIMING.maxSessionMs);
   await begin(s);

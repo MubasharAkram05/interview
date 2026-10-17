@@ -8,11 +8,23 @@ const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 375, height: 740 } });
 const errors = [];
 p.on('pageerror', e => errors.push(e.message));
-await p.goto('http://localhost:4173/');
+await p.goto(process.env.UI_URL || 'http://localhost:4173/');
 await p.evaluate(() => {
   localStorage.setItem('is_hist', JSON.stringify([{ c: 'Software Developer', d: '10/14/2026', s: 7, ts: Date.now() - 864e5 }]));
   // A user who finished setup (the app has no demo profile any more).
-  const me = { name: 'Test User', role: 'Software Engineer', roleKey: 'Software Engineer', edu: 'BS IT student', degree: 'BS IT student', city: 'Testcity', exp: 'fresher', skillTags: ['JavaScript'], skills: 'JavaScript', words: ['Test', 'User', 'Testcity'], setup: 1 };
+  const me = {
+    name: 'Test User',
+    role: 'Software Engineer',
+    roleKey: 'Software Engineer',
+    edu: 'BS IT student',
+    degree: 'BS IT student',
+    city: 'Testcity',
+    exp: 'fresher',
+    skillTags: ['JavaScript'],
+    skills: 'JavaScript',
+    words: ['Test', 'User', 'Testcity'],
+    setup: 1
+  };
   localStorage.setItem('is_profiles', JSON.stringify({ 'Test User': me, 'Other Person': { ...me, name: 'Other Person' } }));
   localStorage.setItem('is_active', JSON.stringify('Test User'));
 });
@@ -21,13 +33,23 @@ await p.reload();
 check('welcome screen shows at start', await p.isVisible('#intro'));
 await p.waitForSelector('#iGo:not(.hidden)', { timeout: 5000 });
 check('welcome: Get Started appears once loaded, loader hidden', (await p.isVisible('#iGo')) && !(await p.isVisible('#iLoad')));
-check('welcome: title, tagline and 4 features', /Interview\s*Simulator/.test(await p.textContent('.ititle')) && (await p.textContent('.itag')) === 'Practice. Improve. Get Hired.' && (await p.locator('.ifeat > div').count()) === 4);
+check(
+  'welcome: title, tagline and 4 features',
+  /Interview\s*Simulator/.test(await p.textContent('.ititle')) &&
+    (await p.textContent('.itag')) === 'Practice. Improve. Get Hired.' &&
+    (await p.locator('.ifeat > div').count()) === 4
+);
 await p.click('#iGo');
 await p.waitForTimeout(600);
 check('welcome: Get Started with saved details goes to Home', !(await p.isVisible('#intro')) && (await p.isVisible('#home')) && !(await p.isVisible('#setup')));
-await p.addInitScript(() => { window.__skipIntro = true; });
+await p.addInitScript(() => {
+  window.__skipIntro = true;
+});
 
-check('older phones with several profiles keep only the active one', await p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('is_profiles'))).join() === 'Test User'));
+check(
+  'older phones with several profiles keep only the active one',
+  await p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('is_profiles'))).join() === 'Test User')
+);
 const homeText = await p.textContent('#home');
 check('home has no "Last session" card (history exists)', !/Last session/i.test(homeText) && (await p.locator('#retryLastBtn').count()) === 0);
 check('header has no theme button', (await p.locator('header.bar [data-i="moon"], header.bar [onclick*="Theme"]').count()) === 0);
@@ -37,11 +59,28 @@ const hero = await p.$eval('.hhero', e => {
   const btn = e.querySelector('.hcta').getBoundingClientRect();
   return { h: r.height, btnH: btn.height, stats: e.querySelectorAll('.hstats > div').length, poster: !!e.querySelector('.htitle, .hfeat') };
 });
-check(`home hero: friendly card, greeting, 3 stats, two actions (${Math.round(hero.h)}px)`, !hero.poster && hero.h <= 330 && hero.stats === 3 && (await p.textContent('#hi')) === 'Test' && (await p.textContent('#hsDone')) === '1' && (await p.textContent('#hsBest')) === '7/10' && hero.btnH >= 44);
-check('home hero: main button says Start practice (details saved)', (await p.textContent('#hGo')).includes('Start practice') && (await p.textContent('.hcta2')).includes('Mock interview'));
+check(
+  `home hero: friendly card, greeting, 3 stats, two actions (${Math.round(hero.h)}px)`,
+  !hero.poster &&
+    hero.h <= 330 &&
+    hero.stats === 3 &&
+    (await p.textContent('#hi')) === 'Test' &&
+    (await p.textContent('#hsDone')) === '1' &&
+    (await p.textContent('#hsBest')) === '7/10' &&
+    hero.btnH >= 44
+);
+check(
+  'home hero: main button says Start practice (details saved)',
+  (await p.textContent('#hGo')).includes('Start practice') && (await p.textContent('.hcta2')).includes('Mock interview')
+);
 const cards = await p.$$eval('#hCards .hcard', cs => cs.map(c => c.querySelector('h4').textContent));
-check(`home: only one card under the hero, Question of the day (${cards.join(', ')})`, cards.join() === 'Question of the day' && (await p.locator('#hDots').count()) === 0);
-const heroGap = await p.evaluate(() => document.querySelector('.hhero').getBoundingClientRect().top - document.querySelector('header.bar').getBoundingClientRect().bottom);
+check(
+  `home: only one card under the hero, Question of the day (${cards.join(', ')})`,
+  cards.join() === 'Question of the day' && (await p.locator('#hDots').count()) === 0
+);
+const heroGap = await p.evaluate(
+  () => document.querySelector('.hhero').getBoundingClientRect().top - document.querySelector('header.bar').getBoundingClientRect().bottom
+);
 check(`home: no empty gap above the hero (${Math.round(heroGap)}px)`, heroGap <= 20);
 check('no Alex or Khan anywhere on Home', !/\bAlex\b|\bKhan\b/.test(await p.textContent('body')));
 await p.click('.hcta');
@@ -90,14 +129,25 @@ await p.waitForTimeout(200);
 check('favorite star works on one tap', await p.evaluate(() => document.getElementById('pFav').classList.contains('on')));
 await p.click('#pDone');
 await p.waitForTimeout(500);
-check('Question of the day marked done after practice', (await p.locator('#hCards .hcard.done').count()) === 1 && /Done today/.test(await p.textContent('#hCards')) && /Practice again/.test(await p.textContent('#qotdBtn')));
+check(
+  'Question of the day marked done after practice',
+  (await p.locator('#hCards .hcard.done').count()) === 1 &&
+    /Done today/.test(await p.textContent('#hCards')) &&
+    /Practice again/.test(await p.textContent('#qotdBtn'))
+);
 await p.reload();
 await p.waitForTimeout(800);
 check('done mark is kept after restart', (await p.locator('#hCards .hcard.done').count()) === 1);
 
 await p.evaluate(() => window.showProfile());
 await p.waitForTimeout(400);
-check('Profile hero has one fixed color (no gradient, no animation)', await p.evaluate(() => { const c = getComputedStyle(document.querySelector('.pcard')); return c.backgroundImage === 'none' && c.animationName === 'none'; }));
+check(
+  'Profile hero has one fixed color (no gradient, no animation)',
+  await p.evaluate(() => {
+    const c = getComputedStyle(document.querySelector('.pcard'));
+    return c.backgroundImage === 'none' && c.animationName === 'none';
+  })
+);
 check('bottom nav visible on Profile', await p.isVisible('#nav'));
 check('no Switch profile / New profile (one profile at a time)', (await p.locator('#prof, #pProfBox').count()) === 0);
 check('About you card removed', !/About you/i.test(await p.textContent('#form')) || (await p.locator('#form .sec h4', { hasText: 'About you' }).count()) === 0);
@@ -122,7 +172,13 @@ check('theme icon changes theme', before !== after && (await p.getAttribute('#pT
 await p.reload();
 await p.waitForTimeout(700);
 check('theme is remembered', (await p.evaluate(() => document.documentElement.dataset.theme)) === after);
-check('header back button hides logo', await p.evaluate(() => { window.showProfile(); return true; }) && !(await p.isVisible('#hLogo')));
+check(
+  'header back button hides logo',
+  (await p.evaluate(() => {
+    window.showProfile();
+    return true;
+  })) && !(await p.isVisible('#hLogo'))
+);
 
 await p.evaluate(() => window.startMock());
 await p.waitForTimeout(400);
@@ -130,14 +186,27 @@ check('mock page has level tabs and category tiles', (await p.locator('#mSeg but
 check('no Start button on the Mock page', (await p.locator('#mStart').count()) === 0);
 check('no interview type is pre-selected', (await p.locator('#mGrid .mt.on').count()) === 0);
 const tiles = await p.$$eval('#mGrid .mt', bs => bs.map(b => b.getBoundingClientRect().height));
-check('tiles are big enough to tap (>= 44px)', tiles.every(h => h >= 44));
+check(
+  'tiles are big enough to tap (>= 44px)',
+  tiles.every(h => h >= 44)
+);
 await p.click('#mSeg button:nth-child(2)');
 await p.waitForTimeout(300);
 const pickedC = await p.getAttribute('#mGrid .mt:nth-child(2)', 'data-c');
 await p.click('#mGrid .mt:nth-child(2)');
 await p.waitForTimeout(1200);
-if (await p.isVisible('#dlg')) { await p.click('#dYes'); await p.waitForTimeout(1000); }
-check('tapping a tile starts the interview with that type and level', (await p.isVisible('#interview')) && await p.evaluate(c => { const o = JSON.parse(localStorage.getItem('is_scr') || '{}'); return o.lv === 'junior' && o.cat === c; }, pickedC));
+if (await p.isVisible('#dlg')) {
+  await p.click('#dYes');
+  await p.waitForTimeout(1000);
+}
+check(
+  'tapping a tile starts the interview with that type and level',
+  (await p.isVisible('#interview')) &&
+    (await p.evaluate(c => {
+      const o = JSON.parse(localStorage.getItem('is_scr') || '{}');
+      return o.lv === 'junior' && o.cat === c;
+    }, pickedC))
+);
 const gap = await p.evaluate(() => {
   const q = document.querySelector('#interview .qbody').getBoundingClientRect();
   const t = document.getElementById('qText').getBoundingClientRect();
@@ -150,14 +219,30 @@ await p.waitForTimeout(700);
 check(`mock: Next moves exactly 1 question (${c0} -> ${await p.textContent('#qCount')})`, (await p.textContent('#qCount')).startsWith('2/'));
 await p.click('[onclick="step(-1)"]');
 await p.waitForTimeout(700);
-check(`mock: no empty space between question and answer box (${Math.round(gap.emptyBelowText)}px + ${Math.round(gap.gapToBox)}px)`, gap.emptyBelowText <= 2 && gap.gapToBox <= 12);
-const pad = await p.evaluate(() => { document.documentElement.classList.add('wv-below-bars'); const v = getComputedStyle(document.querySelector('header.bar')).paddingTop; document.documentElement.classList.remove('wv-below-bars'); return v; });
+check(
+  `mock: no empty space between question and answer box (${Math.round(gap.emptyBelowText)}px + ${Math.round(gap.gapToBox)}px)`,
+  gap.emptyBelowText <= 2 && gap.gapToBox <= 12
+);
+const pad = await p.evaluate(() => {
+  document.documentElement.classList.add('wv-below-bars');
+  const v = getComputedStyle(document.querySelector('header.bar')).paddingTop;
+  document.documentElement.classList.remove('wv-below-bars');
+  return v;
+});
 check(`header: no status bar padding when WebView starts below it (${pad})`, pad === '6px');
 check('no horizontal scroll', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 check('no page errors', errors.length === 0);
 // Back from another screen after a fresh start lands on Home, not on "Press back again to exit"
-await p.evaluate(() => { localStorage.removeItem('is_scr'); });
-await p.evaluate(() => new Promise(r => { const q = indexedDB.deleteDatabase('InterviewSimulator'); q.onsuccess = q.onerror = q.onblocked = () => r(); }));
+await p.evaluate(() => {
+  localStorage.removeItem('is_scr');
+});
+await p.evaluate(
+  () =>
+    new Promise(r => {
+      const q = indexedDB.deleteDatabase('InterviewSimulator');
+      q.onsuccess = q.onerror = q.onblocked = () => r();
+    })
+);
 await p.reload();
 await p.waitForTimeout(900);
 await p.evaluate(() => window.startMock());
@@ -167,9 +252,15 @@ await p.waitForTimeout(600);
 check('Back from Mock after a fresh start: Home, no exit warning', (await p.isVisible('#home')) && !/back again/i.test(await p.textContent('#toast')));
 // New user: Get Started on the welcome screen opens Home (no form)
 const p2 = await b.newPage({ viewport: { width: 375, height: 740 } });
-await p2.goto('http://localhost:4173/');
+await p2.goto(process.env.UI_URL || 'http://localhost:4173/');
 await p2.evaluate(() => localStorage.clear());
-await p2.evaluate(() => new Promise(r => { const q = indexedDB.deleteDatabase('InterviewSimulator'); q.onsuccess = q.onerror = q.onblocked = () => r(); }));
+await p2.evaluate(
+  () =>
+    new Promise(r => {
+      const q = indexedDB.deleteDatabase('InterviewSimulator');
+      q.onsuccess = q.onerror = q.onblocked = () => r();
+    })
+);
 await p2.reload();
 await p2.waitForSelector('#iGo:not(.hidden)', { timeout: 5000 });
 await p2.click('#iGo');

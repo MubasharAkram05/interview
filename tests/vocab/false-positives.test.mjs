@@ -12,10 +12,24 @@ const walk = v => {
 };
 Object.values(Q).forEach(walk);
 // Fill placeholders the way the app does, with a real-looking profile.
-const profile = { name: 'Mubashar Akram', city: 'Pakpattan', degree: 'BS Computer Science', uni: 'University of Okara', skills: 'JavaScript, React, AWS', certs: 'AWS Cloud Practitioner', project: 'an attendance app', role: 'Software Engineer' };
+const profile = {
+  name: 'Mubashar Akram',
+  city: 'Pakpattan',
+  degree: 'BS Computer Science',
+  uni: 'University of Okara',
+  skills: 'JavaScript, React, AWS',
+  certs: 'AWS Cloud Practitioner',
+  project: 'an attendance app',
+  role: 'Software Engineer'
+};
 const filled = [...texts].map(t => t.replace(/\{(\w+)\}/g, (_, k) => profile[k] || Q.DEF?.[k] || k));
 const all = [...texts, ...filled];
-const vocab = buildVocab({ myWords: parseMyWords('Mubashar\nPakpattan\nDevOps\nKubernetes'), name: profile.name, city: profile.city, skills: ['JavaScript', 'React', 'AWS'] });
+const vocab = buildVocab({
+  myWords: parseMyWords('Mubashar\nPakpattan\nDevOps\nKubernetes'),
+  name: profile.name,
+  city: profile.city,
+  skills: ['JavaScript', 'React', 'AWS']
+});
 
 const changed = [];
 all.forEach(t => {
@@ -23,6 +37,6 @@ all.forEach(t => {
   if (r.text !== t) changed.push({ t, out: r.text, changes: r.changes });
 });
 console.log(`texts checked: ${all.length}, candidates: ${vocab.targets.size}`);
-changed.slice(0, 20).forEach(c => console.log("CHANGED:", JSON.stringify(c.changes)));
+changed.slice(0, 20).forEach(c => console.log('CHANGED:', JSON.stringify(c.changes)));
 console.log(changed.length ? `FAIL  ${changed.length} text(s) changed` : 'PASS  no question or answer was changed');
 if (changed.length) process.exit(1);

@@ -7,6 +7,14 @@ import { nativeIsDebug } from './native-info.js';
  * Never pass secrets, real ad unit IDs or user data to these functions.
  */
 
+// Console output exists only outside the release bundle: Vite replaces __DEBUG_TOOLS__ with false
+// in `vite build`, so the minifier drops every console line below. (Unit tests run without Vite.)
+const CONSOLE_ALLOWED = typeof __DEBUG_TOOLS__ === 'undefined' || __DEBUG_TOOLS__ === true;
+function out(...args) {
+  // eslint-disable-next-line no-console -- debug builds only (see CONSOLE_ALLOWED)
+  if (CONSOLE_ALLOWED) console.log(...args);
+}
+
 let enabled = false;
 let known = false; // true once we know if this is a debug build
 const queue = []; // console lines made before that (startup only)
@@ -21,7 +29,7 @@ export const debugReady = (async () => {
   }
   enabled = !!dbg;
   known = true;
-  if (enabled) queue.forEach(args => console.log(...args));
+  if (enabled) queue.forEach(args => out(...args));
   queue.length = 0;
   return enabled;
 })();
@@ -37,7 +45,7 @@ export function adsLog(...parts) {
   const stamp = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`;
   recent.push(`${stamp} ${args.join(' ')}`);
   if (recent.length > 40) recent.shift();
-  if (enabled) console.log(...args);
+  if (enabled) out(...args);
   else if (!known && queue.length < 50) queue.push(args);
 }
 
@@ -62,7 +70,7 @@ export function voiceLog(...parts) {
   if (voiceEarly.length) voiceRecent.push(...voiceEarly.splice(0));
   voiceRecent.push(line);
   while (voiceRecent.length > 50) voiceRecent.shift();
-  console.log(line);
+  out(line);
 }
 
 export function recentVoiceLog(n = 50) {
@@ -74,3 +82,21 @@ export function _enableVoiceLogForTests() {
   enabled = true;
   known = true;
 }
+
+/** Errors the app caught (start-up, unhandled promise rejections): kept for the debug panel only. */
+export function errorLog(where, err) {
+  const msg = err && err.message ? err.message : String(err);
+  recent.push(`ERR ${where}: ${msg}`.slice(0, 300));
+  if (recent.length > 40) recent.shift();
+  if (enabled) out('APP ERROR', where, msg);
+}
+
+// Global handlers: an unexpected error or rejected promise is logged (debug builds) and never
+// shown to the user as a crash.
+try {
+  window.addEventListener('error', e => errorLog('error', e.error || e.message));
+  window.addEventListener('unhandledrejection', e => {
+    errorLog('promise', e.reason);
+    e.preventDefault();
+  });
+} catch {}

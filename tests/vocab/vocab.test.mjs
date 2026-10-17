@@ -1,5 +1,15 @@
 // vocab.js: safe name matching. Run: node tests/vocab/vocab.test.mjs
-import { buildVocab, correctText, parseMyWords, snapToReference, hintWords, rareWords, learnFromEdit, similarity, VOCAB_CONFIG } from '../../src/services/vocab.js';
+import {
+  buildVocab,
+  correctText,
+  parseMyWords,
+  snapToReference,
+  hintWords,
+  rareWords,
+  learnFromEdit,
+  similarity,
+  VOCAB_CONFIG
+} from '../../src/services/vocab.js';
 
 const out = [];
 const check = (name, ok, extra = '') => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : '   ' + extra}`);
@@ -37,7 +47,11 @@ becomes('"I am" + capitalized misspelling is a name slot', 'I am Mobashar', 'I a
 same('"my name is" + unrelated word stays (no forced replacement)', 'my name is official');
 same('"my name is" + a different real name stays', 'my name is Ahmed');
 const vb = buildVocab({ name: 'Rose Akram' });
-check('name slot lets a common word match the name ("my name is Rows")', correctText('my name is Rows', vb).text === 'my name is Rose', correctText('my name is Rows', vb).text);
+check(
+  'name slot lets a common word match the name ("my name is Rows")',
+  correctText('my name is Rows', vb).text === 'my name is Rose',
+  correctText('my name is Rows', vb).text
+);
 check('same common word outside a name slot stays', correctText('rows of data', vb).text === 'rows of data');
 
 // Never a more common word, cap per sentence
@@ -52,27 +66,56 @@ check('the cap is per sentence', r2.changes.length === 4, JSON.stringify(r2));
 // Smart off, learned corrections
 check('smart off: no fuzzy change', correctText('I am Mubashir Akram', v, { smart: false }).text === 'I am Mubashir Akram');
 check('smart off: alias still applies', correctText('dev ops', v, { smart: false }).text === 'DevOps');
-const vm = buildVocab({ name: 'Mubashar Akram', memory: [{ prev: 'am', heard: 'officer', fix: 'Mubashar' }, { prev: 'from', heard: 'pakistan', fix: 'Pakpattan' }] });
+const vm = buildVocab({
+  name: 'Mubashar Akram',
+  memory: [
+    { prev: 'am', heard: 'officer', fix: 'Mubashar' },
+    { prev: 'from', heard: 'pakistan', fix: 'Pakpattan' }
+  ]
+});
 check('learned correction applies', correctText('I am officer', vm).text === 'I am Mubashar');
-check('learned correction for a place needs the same previous word', correctText('I am from Pakistan', vm).text === 'I am from Pakpattan' && correctText('Pakistan is big', vm).text === 'Pakistan is big');
-check('changes say why', correctText('I am Mubashir', v).changes[0].why.includes('My word') || correctText('I am Mubashir', v).changes[0].why.includes('profile name'));
+check(
+  'learned correction for a place needs the same previous word',
+  correctText('I am from Pakistan', vm).text === 'I am from Pakpattan' && correctText('Pakistan is big', vm).text === 'Pakistan is big'
+);
+check(
+  'changes say why',
+  correctText('I am Mubashir', v).changes[0].why.includes('My word') || correctText('I am Mubashir', v).changes[0].why.includes('profile name')
+);
 
 // Hints, learning, Practice
 const vh = buildVocab({ myWords: parseMyWords('Mubashar\nPakpattan'), name: 'Mubashar Akram', city: 'Pakpattan', skills: ['AWS'] });
 const h = hintWords(vh, { context: 'Tell me about a time you worked in a team' });
 check('hints: My words, name, city and skills first', h.slice(0, 4).join() === 'Mubashar,Pakpattan,Akram,AWS', h.slice(0, 6).join());
-check('hints: interview phrases from the question come next', h.indexOf('tell me about a time') > 3 && h.indexOf('tell me about a time') < h.indexOf('introduce'), h.slice(0, 8).join());
-check('hints: at most 100, no duplicates, short strings', h.length <= 100 && new Set(h.map(x => x.toLowerCase())).size === h.length && h.every(x => x.length <= 40));
+check(
+  'hints: interview phrases from the question come next',
+  h.indexOf('tell me about a time') > 3 && h.indexOf('tell me about a time') < h.indexOf('introduce'),
+  h.slice(0, 8).join()
+);
+check(
+  'hints: at most 100, no duplicates, short strings',
+  h.length <= 100 && new Set(h.map(x => x.toLowerCase())).size === h.length && h.every(x => x.length <= 40)
+);
 const hp = hintWords(vh, { first: ['Kubernetes', 'deployed'] });
-check('hints: Practice answer words right after the user\'s own words', hp.indexOf('Kubernetes') === 4, hp.slice(0, 6).join());
-check('rareWords keeps rare words only', rareWords('I deployed Kubernetes on Pakistan servers').join() === 'deployed,Kubernetes', rareWords('I deployed Kubernetes on Pakistan servers').join());
-check('learnFromEdit finds one changed word', JSON.stringify(learnFromEdit('I am officer', 'I am Mubashar')) === JSON.stringify({ prev: 'am', heard: 'officer', fix: 'Mubashar' }));
+check("hints: Practice answer words right after the user's own words", hp.indexOf('Kubernetes') === 4, hp.slice(0, 6).join());
+check(
+  'rareWords keeps rare words only',
+  rareWords('I deployed Kubernetes on Pakistan servers').join() === 'deployed,Kubernetes',
+  rareWords('I deployed Kubernetes on Pakistan servers').join()
+);
+check(
+  'learnFromEdit finds one changed word',
+  JSON.stringify(learnFromEdit('I am officer', 'I am Mubashar')) === JSON.stringify({ prev: 'am', heard: 'officer', fix: 'Mubashar' })
+);
 check('learnFromEdit ignores bigger edits', learnFromEdit('I am officer', 'Hello I am Mubashar') === null);
 check('Practice snap never adds words', snapToReference('I deploy on kubernates', 'I deploy on Kubernetes').text === 'I deploy on Kubernetes');
 check('similarity 0..1', similarity('abc', 'abc') === 1 && similarity('abc', 'xyz') === 0);
 
 // Speed: phonetic and length buckets keep a long sentence fast
-const big = buildVocab({ myWords: parseMyWords(Array.from({ length: 300 }, (_, i) => `Word${String.fromCharCode(97 + (i % 26))}${i}`).join('\n')), name: 'Mubashar Akram' });
+const big = buildVocab({
+  myWords: parseMyWords(Array.from({ length: 300 }, (_, i) => `Word${String.fromCharCode(97 + (i % 26))}${i}`).join('\n')),
+  name: 'Mubashar Akram'
+});
 const t0 = performance.now();
 for (let i = 0; i < 200; i++) correctText('I am Mubashir Akram and I am from Pakpattan and I know AWS and DevOps very well', big);
 const ms = (performance.now() - t0) / 200;

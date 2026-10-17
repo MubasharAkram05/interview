@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12+ backup rules. No custom rules: Android's default backup behavior applies.
-     See PRIVACY_POLICY.md (section "Data saved on your phone"). -->
+<!-- Android 12+ backup (decision: backup ON, documented in PRIVACY_POLICY.md "Data saved on your
+     phone"). Only the app's own on-device data (profile, saved answers, history) is in it; nothing
+     is sent to us. The WebView cache is left out (it is rebuilt on every start). -->
 <data-extraction-rules>
-    <cloud-backup />
-    <device-transfer />
+    <cloud-backup>
+        <exclude domain="root" path="cache" />
+        <exclude domain="root" path="app_webview/Default/Cache" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="cache" />
+        <exclude domain="root" path="app_webview/Default/Cache" />
+    </device-transfer>
 </data-extraction-rules>

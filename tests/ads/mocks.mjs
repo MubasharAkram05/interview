@@ -6,12 +6,14 @@ export const state = {
   prepareHangs: false, // prepare never answers
   prepareSilentLoad: false, // prepare resolves but no Loaded event (event lost)
   online: true,
-  adLayout: null // what BuildInfo.getAdLayout returns
+  adLayout: null, // what BuildInfo.getAdLayout returns
+  consent: null, // requestConsentInfo result (null = not required); 'throw' = offline / UMP error
+  formResult: null // showConsentForm result
 };
 export function reset() {
   calls.length = 0;
   listeners = {};
-  Object.assign(state, { prepareFails: 0, prepareHangs: false, prepareSilentLoad: false, online: true, adLayout: null });
+  Object.assign(state, { prepareFails: 0, prepareHangs: false, prepareSilentLoad: false, online: true, adLayout: null, consent: null, formResult: null });
 }
 export const Capacitor = { isNativePlatform: () => true };
 export const registerPlugin = () => ({
@@ -31,8 +33,18 @@ export const AdMob = {
     (listeners[e] ||= []).push(f);
     return Promise.resolve({ remove() {} });
   },
-  requestConsentInfo: async () => ({ status: 'NOT_REQUIRED', canRequestAds: true }),
-  initialize: async () => {},
+  requestConsentInfo: async opts => {
+    calls.push('consent:' + JSON.stringify(opts || {}));
+    if (state.consent === 'throw') throw new Error('offline');
+    return state.consent || { status: 'NOT_REQUIRED', canRequestAds: true };
+  },
+  showConsentForm: async () => {
+    calls.push('consentForm');
+    return state.formResult || { status: 'OBTAINED', canRequestAds: true };
+  },
+  initialize: async opts => {
+    calls.push('init:' + JSON.stringify(opts || {}));
+  },
   showBanner: async opts => {
     calls.push('showBanner:' + opts.margin);
     calls.push('pos:' + opts.position);

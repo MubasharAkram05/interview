@@ -10,10 +10,17 @@ const config: CapacitorConfig = {
     path: '.',
     // Transparent WebView until the page paints, so the window background (logo on the brand
     // gradient, res/drawable/launch_screen.xml) shows instead of a blank colour.
-    backgroundColor: '#00000000'
+    backgroundColor: '#00000000',
+    // No http content inside the https app.
+    allowMixedContent: false
+    // webContentsDebuggingEnabled is left unset on purpose: Capacitor then enables WebView
+    // debugging only in debuggable (debug) builds, never in the release AAB.
   },
+  // No server.url (the app always loads its own bundled files) and no allowNavigation: the
+  // WebView can never navigate to another site. Links open in the browser (app-launcher, https only).
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    cleartext: false
   },
   plugins: {
     // index.html uses viewport-fit=cover. Telling Capacitor up front avoids a layout jump after

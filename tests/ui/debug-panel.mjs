@@ -11,8 +11,10 @@ const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 375, height: 740 }, hasTouch: true });
 const errors = [];
 p.on('pageerror', e => errors.push(e.message));
-await p.addInitScript(() => { window.__skipIntro = true; });
-await p.goto('http://localhost:4173/');
+await p.addInitScript(() => {
+  window.__skipIntro = true;
+});
+await p.goto(process.env.UI_URL || 'http://localhost:4173/');
 await p.waitForTimeout(800);
 
 const box = await p.locator('#ttl').boundingBox();
@@ -31,11 +33,17 @@ if (mode === 'debug') {
   check('hold title 1 s opens panel', await p.isVisible('#dbgPanel'));
   await p.waitForTimeout(1200);
   const text = await p.textContent('#dbgText');
-  check('panel shows build, consent, banner, interstitial, log', ['Build:', 'Consent:', 'Banner:', 'Interstitial:', 'last 20 ADS: lines'].every(t => text.includes(t)));
+  check(
+    'panel shows build, consent, banner, interstitial, log',
+    ['Build:', 'Consent:', 'Banner:', 'Interstitial:', 'last 20 ADS: lines'].every(t => text.includes(t))
+  );
   check('panel shows git SHA', /git [0-9a-f]{7}/.test(text));
   check('no real ad IDs in panel', !/ca-app-pub-(?!3940256099942544)/.test(text));
   const btns = await p.$$eval('#dbgPanel button', bs => bs.map(x => ({ t: x.textContent.trim(), h: x.getBoundingClientRect().height })));
-  check('Copy and Force buttons present, >= 44px', btns.some(x => x.t === 'Copy report' && x.h >= 44) && btns.some(x => x.t === 'Force interstitial test' && x.h >= 44));
+  check(
+    'Copy and Force buttons present, >= 44px',
+    btns.some(x => x.t === 'Copy report' && x.h >= 44) && btns.some(x => x.t === 'Force interstitial test' && x.h >= 44)
+  );
   check('panel fits 375px, no horizontal scroll', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await p.click('#dbgForce');
   await p.waitForTimeout(300);

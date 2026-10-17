@@ -4,29 +4,103 @@
 // Tuned for Indian and Pakistani English (v/w, th/t/d, z/j, short vowels, dropped articles).
 // Pure functions only, so they can be unit tested in Node.
 
-const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
-  'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const ONES = [
+  'zero',
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten',
+  'eleven',
+  'twelve',
+  'thirteen',
+  'fourteen',
+  'fifteen',
+  'sixteen',
+  'seventeen',
+  'eighteen',
+  'nineteen'
+];
 const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
 
 // Small words the recognizer often drops or mishears. They may be skipped freely, but they
 // are never used to jump far ahead (a stray "the" must not skip half a sentence).
-const SMALL = new Set(['a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'and', 'or', 'is', 'am', 'are',
-  'was', 'i', 'my', 'it', 'for', 'as', 'be', 'by', 'so', 'we', 'me', 'do', 'if', 'up', 'with', 'that', 'this']);
+const SMALL = new Set([
+  'a',
+  'an',
+  'the',
+  'to',
+  'of',
+  'in',
+  'on',
+  'at',
+  'and',
+  'or',
+  'is',
+  'am',
+  'are',
+  'was',
+  'i',
+  'my',
+  'it',
+  'for',
+  'as',
+  'be',
+  'by',
+  'so',
+  'we',
+  'me',
+  'do',
+  'if',
+  'up',
+  'with',
+  'that',
+  'this'
+]);
 
 // Sounds people say instead of words. Ignored.
 const FILLER = new Set(['um', 'umm', 'uh', 'uhh', 'hmm', 'hm', 'er', 'erm', 'ah', 'aa', 'mm', 'haan', 'ji', 'acha', 'achha']);
 
 // Contractions written one way and heard the other ("I'm" vs "I am"), joined without spaces.
 const CONTRACT = {
-  im: 'iam', ive: 'ihave', ill: 'iwill', id: 'iwould', youre: 'youare', youve: 'youhave', weve: 'wehave',
-  theyre: 'theyare', dont: 'donot', doesnt: 'doesnot', didnt: 'didnot', cant: 'cannot', wont: 'willnot',
-  isnt: 'isnot', wasnt: 'wasnot', arent: 'arenot', havent: 'havenot', its: 'itis', thats: 'thatis',
-  whats: 'whatis', lets: 'letus', theres: 'thereis', couldnt: 'couldnot', wouldnt: 'wouldnot', shouldnt: 'shouldnot'
+  im: 'iam',
+  ive: 'ihave',
+  ill: 'iwill',
+  id: 'iwould',
+  youre: 'youare',
+  youve: 'youhave',
+  weve: 'wehave',
+  theyre: 'theyare',
+  dont: 'donot',
+  doesnt: 'doesnot',
+  didnt: 'didnot',
+  cant: 'cannot',
+  wont: 'willnot',
+  isnt: 'isnot',
+  wasnt: 'wasnot',
+  arent: 'arenot',
+  havent: 'havenot',
+  its: 'itis',
+  thats: 'thatis',
+  whats: 'whatis',
+  lets: 'letus',
+  theres: 'thereis',
+  couldnt: 'couldnot',
+  wouldnt: 'wouldnot',
+  shouldnt: 'shouldnot'
 };
 
 /** "I'm" -> "im", "Node.js," -> "nodejs", "2" stays "2". */
 export function normWord(w) {
-  return String(w).toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]/g, '');
+  return String(w)
+    .toLowerCase()
+    .replace(/[’']/g, '')
+    .replace(/[^a-z0-9]/g, '');
 }
 
 function numberWords(n) {

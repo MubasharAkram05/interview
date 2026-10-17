@@ -30,6 +30,10 @@ jobs:
       # A new versionCode for every build (Play Console needs it growing; the phone also refreshes
       # the cached launcher icon only when the version changes): the workflow run number.
       VERSION_CODE: ${{ github.run_number }}
+      # Real ads only when the repository variable RELEASE_ADS is "true" (Settings > Secrets and
+      # variables > Actions > Variables). Then src/config/ads.js PRODUCTION_IDS must hold real IDs,
+      # or the release build stops with a clear message. Debug builds always use test IDs.
+      RELEASE_ADS: ${{ vars.RELEASE_ADS || 'false' }}
 
     steps:
       - name: Check out code
@@ -63,23 +67,35 @@ jobs:
       - name: Install npm packages
         run: npm ci
 
-      - name: Test ad rules (mocked AdMob)
-        run: npm run test:ads
+      - name: Lint (ESLint) and format check (Prettier)
+        run: |
+          npm run lint
+          npm run format:check
 
-      - name: Test question of the day
-        run: npm run test:home
-
-      - name: Test voice (read-along matching, session manager)
-        run: npm run test:voice
-
-      - name: Test voice vocabulary (name matching, interview list, false-positive sweep)
-        run: npm run test:vocab
-
-      - name: Test Practice matching and setup (alignment, template answer, setup rules)
-        run: npm run test:practice
+      - name: Unit tests with coverage (ads, consent, voice, vocab, Practice matching, setup, storage)
+        run: npm run test:coverage
 
       - name: Check app icons (512 Play icon, all launcher sizes, themed icon)
         run: npm run icon:check
+
+      - name: Smoke test of the release web build (no source maps, no console.log, ad IDs)
+        run: npm run test:smoke
+
+      - name: Cache Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: UI tests in Chromium (home, setup, Mock, Practice, regressions)
+        run: |
+          npx playwright install --with-deps chromium
+          npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && break; sleep 1; done
+          npm run test:ui
+
+      - name: Privacy policy is identical in the .md, website and app (uses the same preview)
+        run: npm run policy:check
 
       - name: Build web app (release, no debug tools)
         run: npm run build
@@ -193,20 +209,29 @@ jobs:
             if "$BT/zipalign" -c -P 16 -v 4 "$APK" > zipalign.txt 2>&1; then echo "zipalign -P 16 on debug APK: PASS"; else echo "zipalign -P 16 on debug APK: FAIL"; BAD=1; fi
             [ "$BAD" = "0" ] && echo "16 KB page size: PASS" || echo "16 KB page size: FAIL"
             echo
+            echo "== Security and ads in the release manifest =="
+            grep -q 'android:debuggable="true"' "$M" && echo "debuggable: YES-BAD" || echo "debuggable: no"
+            grep -q 'android:usesCleartextTraffic="false"' "$M" && echo "usesCleartextTraffic: false" || echo "usesCleartextTraffic: NOT-FALSE-BAD"
+            ADS_APP_ID=$(grep -A1 'com.google.android.gms.ads.APPLICATION_ID' "$M" | grep -o 'ca-app-pub-[0-9~]*' | head -1)
+            echo "AdMob App ID in manifest: ${ADS_APP_ID:-MISSING-BAD} (RELEASE_ADS=$RELEASE_ADS)"
+            if [ "$RELEASE_ADS" = "true" ] && echo "$ADS_APP_ID" | grep -q '3940256099942544'; then echo "release uses TEST App ID: YES-BAD"; fi
+            echo
             echo "== Signing =="
             if [ "$SIGNED" = "true" ]; then
-              jarsigner -verify "$AAB" >/dev/null && echo "AAB signature: VERIFIED" || echo "AAB signature: FAILED"
+              jarsigner -verify "$AAB" >/dev/null && echo "AAB signature: VERIFIED" || echo "AAB signature: FAILED-BAD"
             else
               echo "AAB is UNSIGNED (no secrets). Add the 4 secrets to get an upload-ready AAB."
             fi
             echo
             echo "== Leftovers in web bundle =="
             echo "console.log calls in app/src/main/assets/public: $(grep -o 'console\.log' -r app/src/main/assets/public | wc -l)"
-            echo "test ad IDs present (expected until you switch to real IDs): $(grep -o 'ca-app-pub-3940256099942544' -r app/src/main/assets/public | wc -l)"
+            echo "test ad IDs in the web bundle: $(grep -o 'ca-app-pub-3940256099942544' -r app/src/main/assets/public | wc -l) (0 expected only with RELEASE_ADS=true)"
           } | tee $R
           cat $R >> "$GITHUB_STEP_SUMMARY"
           grep -q "16 KB page size: PASS" $R
           grep -qE "targetSdkVersion(=\"|:')36" $R
+          grep -q 'package="com.sussalproductions.interviewsimulator"' $R
+          ! grep -qE "BAD" $R
 
       - name: Upload release AAB
         uses: actions/upload-artifact@v4

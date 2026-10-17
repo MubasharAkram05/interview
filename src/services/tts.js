@@ -56,8 +56,9 @@ async function hasLanguage() {
       break;
     }
   }
-  langChecked = !!lang;
-  return langChecked;
+  // Remember only a success: after the user installs a voice, the next tap finds it (no restart).
+  langChecked = lang ? true : null;
+  return !!lang;
 }
 
 function clearRange() {

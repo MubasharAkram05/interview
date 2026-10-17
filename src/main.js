@@ -1,24 +1,4 @@
-import {
-  CATS,
-  LEVELS,
-  ROLE,
-  DEF,
-  HEAD,
-  TAIL,
-  MID,
-  OV,
-  MYH,
-  MYT,
-  MYM,
-  MYOV,
-  MYEX,
-  LK,
-  LVH,
-  LVT,
-  LVX,
-  TIPS,
-  PCI
-} from './data/questions.js';
+import { CATS, LEVELS, ROLE, DEF, HEAD, TAIL, MID, OV, MYEX, LK, LVH, LVT, LVX, TIPS, PCI } from './data/questions.js';
 
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
@@ -33,6 +13,7 @@ import { PRIVACY_POLICY_URL, VOICE_ACCENTS } from './config/app.js';
 import {
   initializeAdMob,
   showInterstitialAtBreak,
+  setInterstitialBlocker,
   skipInterstitialBreak,
   setBannerSuppressed,
   setBannerPlacement,
@@ -58,11 +39,24 @@ import {
 import { voiceAccent, setAccentPref, corrections, removeCorrection } from './services/voice-prefs.js';
 import { rareWords, norm } from './services/vocab.js';
 import { alignToExpected, introTemplate, isIntroQuestion, memoryStatus, phraseHits, expandDegree, roleText } from './services/expected.js';
-import { ROLES, EXPERIENCE, MAX_SKILLS, ROLE_SKILLS, nameError, cleanTags, buildProfile, setupDone, catToRole, autoWords, LEGACY_DEMO_NAMES } from './services/setup.js';
+import {
+  ROLES,
+  EXPERIENCE,
+  MAX_SKILLS,
+  ROLE_SKILLS,
+  nameError,
+  cleanTags,
+  buildProfile,
+  setupDone,
+  catToRole,
+  autoWords,
+  LEGACY_DEMO_NAMES
+} from './services/setup.js';
 import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
 
 import { speak, stopSpeaking, isSpeaking, onSpeakingChange, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
+import { errorLog } from './services/debug.js';
 import { questionOfDay, bumpStreak, streakNow } from './services/qotd.js';
 import { nativeAdLayout } from './services/native-info.js';
 import { formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
@@ -72,10 +66,18 @@ import { fireConfetti, fireGrandCelebration } from './services/celebration.js';
 const $ = id => document.getElementById(id);
 
 // Safe HTML escaping
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const clean = v => String(v).trim().replace(/[.\s]+$/, '');
-const nrm = x => String(x).toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]/g, '');
-const ini = n => n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const clean = v =>
+  String(v)
+    .trim()
+    .replace(/[.\s]+$/, '');
+const ini = n =>
+  n
+    .split(' ')
+    .map(w => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
 // SVG Icons mapping
 const IC = {
@@ -83,7 +85,8 @@ const IC = {
   user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
   star: 'M12 2l3 6.9 7.4.6-5.6 4.8 1.7 7.2L12 17.8 5.5 21.5l1.7-7.2L1.6 9.5 9 8.9z',
   eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
-  eyeoff: 'M17.9 17.9A10.1 10.1 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22',
+  eyeoff:
+    'M17.9 17.9A10.1 10.1 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22',
   edit: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
   speaker: 'M11 5L6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13',
   undo: 'M3 7v6h6M3 13a9 9 0 1 0 3-7',
@@ -118,7 +121,6 @@ let E = {};
 let QE = {};
 let H = {};
 let C = {};
-let editing = null;
 let cur = [];
 let idx = 0;
 let answers = [];
@@ -162,9 +164,7 @@ const FKEEP = (n, m) => {
 const bank = (c, level = 'fresher') => {
   const k0 = CK(c, level);
   const fr = level === 'fresher';
-  const L = fr
-    ? [...HEAD, ...MID[c], ...TAIL]
-    : [...LVH[level], ...MID[c], ...(LVX[level]?.[c] || []), ...LVT[level]];
+  const L = fr ? [...HEAD, ...MID[c], ...TAIL] : [...LVH[level], ...MID[c], ...(LVX[level]?.[c] || []), ...LVT[level]];
   const seen = new Set();
   const items = L.map(([q, a], i) => {
     const k = LK[c]?.[q];
@@ -286,7 +286,9 @@ async function checkHeaderInset() {
   const below = l.webViewTop > 1;
   // Same at the bottom: a WebView that ends above the navigation bar needs no bottom inset.
   const above =
-    typeof l.windowHeight === 'number' && l.windowHeight > 0 && (l.insetBottom || 0) > 0 &&
+    typeof l.windowHeight === 'number' &&
+    l.windowHeight > 0 &&
+    (l.insetBottom || 0) > 0 &&
     l.webViewTop + l.webViewHeight <= l.windowHeight - l.insetBottom + 1;
   if (below !== root.contains('wv-below-bars') || above !== root.contains('wv-above-navbar')) {
     root.toggle('wv-below-bars', below);
@@ -471,7 +473,11 @@ function stats() {
   $('hsDone').textContent = h.length;
   $('hsBest').textContent = h.length ? `${Math.max(...h.map(x => x.s))}/10` : '-';
   const done = setupDone(p);
-  $('hSub').textContent = !done ? "Let's set up your details and start practising." : h.length ? 'Keep going. Practise a few answers today.' : 'Ready to practise your first answers?';
+  $('hSub').textContent = !done
+    ? "Let's set up your details and start practising."
+    : h.length
+      ? 'Keep going. Practise a few answers today.'
+      : 'Ready to practise your first answers?';
   $('hGoT').textContent = done ? 'Start practice' : 'Get Started';
 }
 
@@ -518,17 +524,37 @@ function fillHx() {
   const card = (cls, icon, title, body, btn, extra = '') =>
     `<article class="hcard ${cls}"><div class="hct"><span class="hci" aria-hidden="true">${icon}</span><h4>${title}</h4></div>${body}<div class="hcb">${extra}${btn}</div></article>`;
   let o = '';
-  const res = questionOfDay({ saved: getItem('is_qotd', null), cats: Object.keys(CATS), lv: LEVELS[pcLv] ? pcLv : 'fresher', list: bank });
+  const res = questionOfDay({ saved: getItem('is_qotd', {}), cats: Object.keys(CATS), lv: LEVELS[pcLv] ? pcLv : 'fresher', list: bank });
   if (res) {
     const { pick, changed } = res;
     if (changed) setItem('is_qotd', pick);
-    const qs = streakNow(getItem('is_qstreak', null));
+    const qs = streakNow(getItem('is_qstreak', {}));
     const fire = qs ? `<span class="qstreak${pick.done ? ' on' : ''}" title="Days in a row">🔥 ${qs} day${qs === 1 ? '' : 's'}</span>` : '';
     o += pick.done
-      ? card('qotd done', '✅', `Question of the day${fire}`, `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="sm" id="qotdBtn">Practice again</button>', '<small class="qdone">Done today</small>')
-      : card('qotd', '💡', `Question of the day${fire}`, `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="pri sm" id="qotdBtn">Practice it</button>', `<small>${esc(qs ? 'Practise today to keep your streak' : CL(pick.c, pick.lv))}</small>`);
+      ? card(
+          'qotd done',
+          '✅',
+          `Question of the day${fire}`,
+          `<p class="qotdq">${esc(pick.q)}</p>`,
+          '<button class="sm" id="qotdBtn">Practice again</button>',
+          '<small class="qdone">Done today</small>'
+        )
+      : card(
+          'qotd',
+          '💡',
+          `Question of the day${fire}`,
+          `<p class="qotdq">${esc(pick.q)}</p>`,
+          '<button class="pri sm" id="qotdBtn">Practice it</button>',
+          `<small>${esc(qs ? 'Practise today to keep your streak' : CL(pick.c, pick.lv))}</small>`
+        );
   } else {
-    o += card('qotd', '💡', 'Question of the day', '<p class="hce">No question today. Add your own in Practice.</p>', '<button class="sm" onclick="startPractice()">Open Practice</button>');
+    o += card(
+      'qotd',
+      '💡',
+      'Question of the day',
+      '<p class="hce">No question today. Add your own in Practice.</p>',
+      '<button class="sm" onclick="startPractice()">Open Practice</button>'
+    );
   }
   $('hCards').innerHTML = o;
 
@@ -541,10 +567,10 @@ function fillHx() {
 
 // Question of the day: practised once (spoken in Practice, or Finish tapped on it) = done for today.
 function markQotd(c, lv, q) {
-  const s = getItem('is_qotd', null);
+  const s = getItem('is_qotd', {});
   if (!s || s.done || s.c !== c || s.lv !== lv || s.q !== q) return;
   setItem('is_qotd', { ...s, done: 1 });
-  setItem('is_qstreak', bumpStreak(getItem('is_qstreak', null), s.d));
+  setItem('is_qstreak', bumpStreak(getItem('is_qstreak', {}), s.d));
 }
 
 function pFinish1() {
@@ -592,34 +618,48 @@ function openFav(c, l, i) {
   playTapSound();
   pcLv = l;
   setItem('is_pclv', l);
-  pcGo(c, Math.max(0, bank(c, l).findIndex(x => x.i === i)));
+  pcGo(
+    c,
+    Math.max(
+      0,
+      bank(c, l).findIndex(x => x.i === i)
+    )
+  );
 }
-
 
 function fillHomeGrid() {
   if (!LEVELS[pcLv]) pcLv = 'fresher';
-  $('hSeg').innerHTML = Object.entries(LEVELS).map(([k, v]) =>
-    `<button class="${k === pcLv ? 'on' : ''}" data-lvl="${k}">${esc(v)}</button>`
-  ).join('');
+  $('hSeg').innerHTML = Object.entries(LEVELS)
+    .map(([k, v]) => `<button class="${k === pcLv ? 'on' : ''}" data-lvl="${k}">${esc(v)}</button>`)
+    .join('');
 
-  $('hSeg').querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      playTapSound();
-      homeLevel(btn.dataset.lvl);
+  $('hSeg')
+    .querySelectorAll('button')
+    .forEach(btn => {
+      btn.addEventListener('click', () => {
+        playTapSound();
+        homeLevel(btn.dataset.lvl);
+      });
     });
-  });
 
-  $('hPath').innerHTML = '<div class="pgrid">' + Object.keys(CATS).map(c => {
-    const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
-    return `<button class="pt" data-c="${c}"><span class="pc" style="background:${col}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg></span><span class="pl">${esc(CATS[c])}</span></button>`;
-  }).join('') + `<button class="pt" id="favT" aria-label="Favorite Question"><span class="pc" style="background:#f59e0b"><svg viewBox="0 0 24 24" style="fill:#fff"><path d="${IC.star}"/></svg></span><span class="pl">Favorite Question</span></button></div>`;
+  $('hPath').innerHTML =
+    '<div class="pgrid">' +
+    Object.keys(CATS)
+      .map(c => {
+        const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
+        return `<button class="pt" data-c="${c}"><span class="pc" style="background:${col}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg></span><span class="pl">${esc(CATS[c])}</span></button>`;
+      })
+      .join('') +
+    `<button class="pt" id="favT" aria-label="Favorite Question"><span class="pc" style="background:#f59e0b"><svg viewBox="0 0 24 24" style="fill:#fff"><path d="${IC.star}"/></svg></span><span class="pl">Favorite Question</span></button></div>`;
 
-  $('hPath').querySelectorAll('.pt[data-c]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      playTapSound();
-      openCS(btn.dataset.c);
+  $('hPath')
+    .querySelectorAll('.pt[data-c]')
+    .forEach(btn => {
+      btn.addEventListener('click', () => {
+        playTapSound();
+        openCS(btn.dataset.c);
+      });
     });
-  });
 
   $('favT')?.addEventListener('click', () => {
     playTapSound();
@@ -671,16 +711,18 @@ function fillFavList() {
   if (!fv.length) favOpen = false;
   $('favT')?.classList.toggle('on', favOpen);
   $('favList').innerHTML = favOpen
-    ? fv.map(({ f, it }) =>
-        `<button class="favr" data-c="${f.c}" data-l="${f.l}" data-i="${f.i}">${esc(it.q)}<small>${esc(CL(f.c, f.l))}</small></button>`
-      ).join('')
+    ? fv
+        .map(({ f, it }) => `<button class="favr" data-c="${f.c}" data-l="${f.l}" data-i="${f.i}">${esc(it.q)}<small>${esc(CL(f.c, f.l))}</small></button>`)
+        .join('')
     : '';
 
-  $('favList').querySelectorAll('.favr').forEach(btn => {
-    btn.addEventListener('click', () => {
-      openFav(btn.dataset.c, btn.dataset.l, parseInt(btn.dataset.i, 10));
+  $('favList')
+    .querySelectorAll('.favr')
+    .forEach(btn => {
+      btn.addEventListener('click', () => {
+        openFav(btn.dataset.c, btn.dataset.l, parseInt(btn.dataset.i, 10));
+      });
     });
-  });
 }
 
 function toggleFavList() {
@@ -712,10 +754,14 @@ function retryLast() {
 function fillHome() {
   stats();
   if (!$('lvl').options.length) {
-    $('lvl').innerHTML = Object.entries(LEVELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+    $('lvl').innerHTML = Object.entries(LEVELS)
+      .map(([k, v]) => `<option value="${k}">${v}</option>`)
+      .join('');
   }
   if (!$('cat').options.length) {
-    $('cat').innerHTML = Object.entries(CATS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+    $('cat').innerHTML = Object.entries(CATS)
+      .map(([k, v]) => `<option value="${k}">${v}</option>`)
+      .join('');
   }
 
   fillHx();
@@ -821,7 +867,15 @@ function openSetup(then = null, { fresh = false, step = 0, cat = '' } = {}) {
     role: custom ? 'Other' : p.roleKey || p.role || catToRole(cat),
     roleOther: custom ? p.role : '',
     exp: EXPERIENCE[p.exp] ? p.exp : 'fresher',
-    skills: p.skillTags || (p.skills ? String(p.skills).split(/,\s*|\s+and\s+/).map(x => x.trim()).filter(Boolean).slice(0, MAX_SKILLS) : []),
+    skills:
+      p.skillTags ||
+      (p.skills
+        ? String(p.skills)
+            .split(/,\s*|\s+and\s+/)
+            .map(x => x.trim())
+            .filter(Boolean)
+            .slice(0, MAX_SKILLS)
+        : []),
     accent: voiceAccent(),
     before: { name: p.name || '', city: p.city || '' }
   };
@@ -850,13 +904,19 @@ function renderSetup() {
   $('sName').value = sData.name;
   $('sEdu').value = sData.edu;
   $('sCity').value = sData.city;
-  $('sRole').innerHTML = '<option value="">Choose your target role</option>' + ROLES.map(r => `<option${r === sData.role ? ' selected' : ''}>${esc(r)}</option>`).join('');
+  $('sRole').innerHTML =
+    '<option value="">Choose your target role</option>' + ROLES.map(r => `<option${r === sData.role ? ' selected' : ''}>${esc(r)}</option>`).join('');
   $('sRoleOther').value = sData.roleOther;
   $('sRoleOther').classList.toggle('hidden', sData.role !== 'Other');
   $('sExp').innerHTML = Object.entries(EXPERIENCE)
-    .map(([k, v]) => `<button type="button" role="radio" aria-checked="${k === sData.exp}" class="${k === sData.exp ? 'on' : ''}" data-exp="${k}">${esc(v)}</button>`)
+    .map(
+      ([k, v]) =>
+        `<button type="button" role="radio" aria-checked="${k === sData.exp}" class="${k === sData.exp ? 'on' : ''}" data-exp="${k}">${esc(v)}</button>`
+    )
     .join('');
-  $('sAccent').innerHTML = Object.entries(VOICE_ACCENTS).map(([k, v]) => `<option value="${k}"${k === sData.accent ? ' selected' : ''}>${esc(v.label)}</option>`).join('');
+  $('sAccent').innerHTML = Object.entries(VOICE_ACCENTS)
+    .map(([k, v]) => `<option value="${k}"${k === sData.accent ? ' selected' : ''}>${esc(v.label)}</option>`)
+    .join('');
   renderTags('sSkills', sData.skills, MAX_SKILLS);
   renderSuggestions();
   showSetupStep();
@@ -920,7 +980,10 @@ function saveSetup() {
     setItem('is_qedits', QE);
     // Favourites and Practice best scores are keyed by the name too: move them with it.
     const re = k => (String(k).startsWith(oldName + '|') ? p.name + String(k).slice(oldName.length) : k);
-    setItem('is_fav', favs().map(f => (f.n === oldName ? { ...f, n: p.name, k: re(f.k) } : f)));
+    setItem(
+      'is_fav',
+      favs().map(f => (f.n === oldName ? { ...f, n: p.name, k: re(f.k) } : f))
+    );
     const pb = pBest();
     setItem('is_pbest', Object.fromEntries(Object.entries(pb).map(([k, v]) => [re(k), v])));
   }
@@ -957,7 +1020,10 @@ function renderTags(id, list, max) {
 function addTag(kind, value) {
   if (!sData) return;
   const max = MAX_SKILLS;
-  const parts = String(value || '').split(',').map(x => x.trim()).filter(Boolean);
+  const parts = String(value || '')
+    .split(',')
+    .map(x => x.trim())
+    .filter(Boolean);
   if (!parts.length) return;
   sData[kind] = cleanTags([...sData[kind], ...parts], max);
   renderTags('sSkills', sData[kind], max);
@@ -970,7 +1036,8 @@ function renderSuggestions() {
   // Suggestions for the chosen target role first, then the general interview list.
   const pool = [...new Set([...(ROLE_SKILLS[$('sRole').value] || []), ...(q ? SKILL_SUGGESTIONS : [])])];
   const list = (pool.length ? pool : SKILL_SUGGESTIONS).filter(x => !have.has(x.toLowerCase()) && (!q || x.toLowerCase().includes(q))).slice(0, 8);
-  $('sSugg').innerHTML = sData.skills.length >= MAX_SKILLS ? '' : list.map(x => `<button type="button" class="sg" data-s="${esc(x)}">+ ${esc(x)}</button>`).join('');
+  $('sSugg').innerHTML =
+    sData.skills.length >= MAX_SKILLS ? '' : list.map(x => `<button type="button" class="sg" data-s="${esc(x)}">+ ${esc(x)}</button>`).join('');
 }
 
 function initSetup() {
@@ -985,10 +1052,12 @@ function initSetup() {
     if (!b || !sData) return;
     playTapSound();
     sData.exp = b.dataset.exp;
-    $('sExp').querySelectorAll('button').forEach(x => {
-      x.classList.toggle('on', x === b);
-      x.setAttribute('aria-checked', String(x === b));
-    });
+    $('sExp')
+      .querySelectorAll('button')
+      .forEach(x => {
+        x.classList.toggle('on', x === b);
+        x.setAttribute('aria-checked', String(x === b));
+      });
   });
   [['sSkills', 'skills']].forEach(([id, kind]) => {
     const box = $(id);
@@ -1063,24 +1132,30 @@ function fillMock() {
 function renderMockPicker() {
   const c0 = $('mcat').value;
   const l0 = $('mlvl').value;
-  $('mSeg').innerHTML = Object.entries(LEVELS).map(([k, v]) =>
-    `<button class="${k === l0 ? 'on' : ''}" data-lvl="${k}" role="tab" aria-selected="${k === l0}">${esc(v)}</button>`
-  ).join('');
-  $('mSeg').querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => mPick(c0, btn.dataset.lvl));
-  });
-
-  $('mGrid').innerHTML = Object.keys(CATS).map(c => {
-    const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
-    // No tile is pre-selected: tapping one starts the interview.
-    return `<button class="mt" data-c="${c}" style="--c:${col}"><span class="mc"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><i class="mck" aria-hidden="true"></i></span><span class="pl">${esc(CATS[c])}</span></button>`;
-  }).join('');
-  $('mGrid').querySelectorAll('.mt').forEach(btn => {
-    btn.addEventListener('click', () => {
-      mPick(btn.dataset.c, $('mlvl').value);
-      startInterview();
+  $('mSeg').innerHTML = Object.entries(LEVELS)
+    .map(([k, v]) => `<button class="${k === l0 ? 'on' : ''}" data-lvl="${k}" role="tab" aria-selected="${k === l0}">${esc(v)}</button>`)
+    .join('');
+  $('mSeg')
+    .querySelectorAll('button')
+    .forEach(btn => {
+      btn.addEventListener('click', () => mPick(c0, btn.dataset.lvl));
     });
-  });
+
+  $('mGrid').innerHTML = Object.keys(CATS)
+    .map(c => {
+      const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
+      // No tile is pre-selected: tapping one starts the interview.
+      return `<button class="mt" data-c="${c}" style="--c:${col}"><span class="mc"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><i class="mck" aria-hidden="true"></i></span><span class="pl">${esc(CATS[c])}</span></button>`;
+    })
+    .join('');
+  $('mGrid')
+    .querySelectorAll('.mt')
+    .forEach(btn => {
+      btn.addEventListener('click', () => {
+        mPick(btn.dataset.c, $('mlvl').value);
+        startInterview();
+      });
+    });
 }
 
 function mPick(c, l) {
@@ -1125,22 +1200,31 @@ function pcGo(c, i, lv, one = null) {
 
 function fillPcat() {
   if (!LEVELS[pcLv]) pcLv = 'fresher';
-  $('pSeg').innerHTML = Object.entries(LEVELS).map(([k, v]) =>
-    `<button class="${k === pcLv ? 'on' : ''}" data-lvl="${k}">${esc(v)}</button>`
-  ).join('');
+  $('pSeg').innerHTML = Object.entries(LEVELS)
+    .map(([k, v]) => `<button class="${k === pcLv ? 'on' : ''}" data-lvl="${k}">${esc(v)}</button>`)
+    .join('');
 
-  $('pSeg').querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => pcLevel(btn.dataset.lvl));
-  });
+  $('pSeg')
+    .querySelectorAll('button')
+    .forEach(btn => {
+      btn.addEventListener('click', () => pcLevel(btn.dataset.lvl));
+    });
 
-  $('pPath').innerHTML = '<div class="pgrid">' + Object.keys(CATS).map(c => {
-    const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
-    return `<button class="pt" data-c="${c}"><span class="pc" style="background:${col}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg></span><span class="pl">${esc(CATS[c])}</span></button>`;
-  }).join('') + '</div>';
+  $('pPath').innerHTML =
+    '<div class="pgrid">' +
+    Object.keys(CATS)
+      .map(c => {
+        const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
+        return `<button class="pt" data-c="${c}"><span class="pc" style="background:${col}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg></span><span class="pl">${esc(CATS[c])}</span></button>`;
+      })
+      .join('') +
+    '</div>';
 
-  $('pPath').querySelectorAll('.pt').forEach(btn => {
-    btn.addEventListener('click', () => pcGo(btn.dataset.c, 0));
-  });
+  $('pPath')
+    .querySelectorAll('.pt')
+    .forEach(btn => {
+      btn.addEventListener('click', () => pcGo(btn.dataset.c, 0));
+    });
 }
 
 function saveA() {
@@ -1179,7 +1263,10 @@ function bank0(it) {
 const ch = x => [...x].map(c => `<span class="c">${esc(c)}</span>`).join('');
 
 function pWords(t) {
-  $('pA').innerHTML = t.split(/(\s+)/).map(x => (/\S/.test(x) ? `<span class="pw">${ch(x)}</span>` : esc(x))).join('');
+  $('pA').innerHTML = t
+    .split(/(\s+)/)
+    .map(x => (/\S/.test(x) ? `<span class="pw">${ch(x)}</span>` : esc(x)))
+    .join('');
   PW = [...$('pA').querySelectorAll('.pw')];
   $('pA').scrollTop = 0;
 }
@@ -1188,7 +1275,10 @@ function pReveal(q) {
   clearTimeout(pRv);
   $('pMic').classList.add('mwait');
   const qe = $('pQt');
-  qe.innerHTML = q.split(' ').map(x => `<span class="qw">${ch(x)}</span>`).join(' ');
+  qe.innerHTML = q
+    .split(' ')
+    .map(x => `<span class="qw">${ch(x)}</span>`)
+    .join(' ');
   const L = [...qe.querySelectorAll('.c'), ...$('pA').querySelectorAll('.c')];
   const ql = qe.querySelectorAll('.c').length;
   let n = 0;
@@ -1237,6 +1327,12 @@ function stopMedia() {
   clearInterval(rv);
   clearTimeout(rv);
   clearTimeout(pRv);
+  // Show any text that was still appearing letter by letter, so it never stays invisible after
+  // the app comes back from the background or an interstitial.
+  try {
+    pFinish();
+    document.querySelectorAll('#qText .w').forEach(x => x.classList.add('in'));
+  } catch {}
 }
 
 function stopMic() {
@@ -1256,7 +1352,7 @@ function pr() {
   }
   if (P.i >= n) P.i = n - 1;
   const it = P.list[P.i];
-  const ed = (ekey(it) in E) || (ekey(it) in QE);
+  const ed = ekey(it) in E || ekey(it) in QE;
   $('pCount').textContent = `${CL(P.cat, P.lv)} · ${P.i + 1} / ${n}`;
   pWords(ansText(it) || 'No answer yet. Tap the pencil to write one.');
   pReveal(it.q);
@@ -1307,9 +1403,11 @@ function dots() {
     h += `<button class="dot${k === P.i ? ' on' : ''}${sm ? ' sm' : ''}" data-k="${k}" aria-label="Question ${k + 1}"></button>`;
   }
   $('pDots').innerHTML = h;
-  $('pDots').querySelectorAll('.dot').forEach(d => {
-    d.addEventListener('click', () => pGo(parseInt(d.dataset.k, 10)));
-  });
+  $('pDots')
+    .querySelectorAll('.dot')
+    .forEach(d => {
+      d.addEventListener('click', () => pGo(parseInt(d.dataset.k, 10)));
+    });
 }
 
 function slide(d) {
@@ -1431,20 +1529,6 @@ function updateMicButtons() {
   $('mic').classList.toggle('hidden', !voiceOK);
   if (!voiceOK) $('micSt').textContent = 'Voice input is not available on this phone. Type your answer.';
 }
-
-// Read-along: paint said words (green) and skipped words (orange), scroll to the last one.
-function pPaint(state, pos) {
-  PW.forEach((x, i) => {
-    x.classList.toggle('hl', state[i] === 'ok');
-    x.classList.toggle('miss', state[i] === 'miss');
-  });
-  const a = $('pA');
-  const x = PW[Math.min(pos, PW.length) - 1];
-  if (x && (x.offsetTop + x.offsetHeight > a.scrollTop + a.clientHeight - 10 || x.offsetTop < a.scrollTop)) {
-    a.scrollTop = Math.max(0, x.offsetTop - a.clientHeight / 3);
-  }
-}
-
 
 // Mic button grows a little with your voice, so you can see it is hearing you.
 function micLevel(el, db) {
@@ -1580,14 +1664,22 @@ async function togglePMic() {
       total: r.total,
       extra: r.extra,
       missed: r.missed,
-      alignment: r.ops.map(o => (o.type === 'extra' ? `+${o.heard}` : o.type === 'missed' ? `-${o.expected}` : o.type === 'fix' ? `${o.heard}>${o.expected}` : o.expected)).join(' ')
+      alignment: r.ops
+        .map(o => (o.type === 'extra' ? `+${o.heard}` : o.type === 'missed' ? `-${o.expected}` : o.type === 'fix' ? `${o.heard}>${o.expected}` : o.expected))
+        .join(' ')
     });
     if (r.score >= 80) {
       fireConfetti();
       // Sound is muted while the mic is on (no beeps); play the chime once it is back.
       setTimeout(playSuccessChime, 900);
     }
-    toast(r.missed ? `${r.score}% matched. ${r.missed} word${r.missed === 1 ? '' : 's'} missed (red).` : r.extra ? `${r.score}% matched. Extra words are amber.` : 'Perfect! You said it all 🎉');
+    toast(
+      r.missed
+        ? `${r.score}% matched. ${r.missed} word${r.missed === 1 ? '' : 's'} missed (red).`
+        : r.extra
+          ? `${r.score}% matched. Extra words are amber.`
+          : 'Perfect! You said it all 🎉'
+    );
   };
   let doneT = null;
   // The last word was said: wait 2 s (the user may still be finishing), then end the attempt.
@@ -1631,7 +1723,15 @@ async function togglePMic() {
     onState: st => {
       if (!here() || finished) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
-      pMicNote(st === 'ready' || st === 'listening' ? 'Speak now. Read at your own pace.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : '');
+      pMicNote(
+        st === 'ready' || st === 'listening'
+          ? 'Speak now. Read at your own pace.'
+          : st === 'starting'
+            ? readyOnce
+              ? 'Listening...'
+              : 'Getting the mic ready...'
+            : ''
+      );
     },
     onLevel: db => micLevel($('pMic'), db),
     onPartial: text => {
@@ -1755,9 +1855,14 @@ function saveQ() {
 function delQ() {
   if (!P.list[P.i]) return;
   playTapSound();
-  ask('Delete this question?', 'It will be removed from this interview type. Default questions can be restored from Profile.', 'Delete', 'Keep', '🗑️', true).then(
-    y => y && _delQ()
-  );
+  ask(
+    'Delete this question?',
+    'It will be removed from this interview type. Default questions can be restored from Profile.',
+    'Delete',
+    'Keep',
+    '🗑️',
+    true
+  ).then(y => y && _delQ());
 }
 
 function _delQ() {
@@ -1871,9 +1976,11 @@ function mDots() {
     h += `<button class="dot${k === idx ? ' on' : ''}${sm ? ' sm' : ''}" data-k="${k}" aria-label="Question ${k + 1}"></button>`;
   }
   $('mDots').innerHTML = h;
-  $('mDots').querySelectorAll('.dot').forEach(d => {
-    d.addEventListener('click', () => mGo(parseInt(d.dataset.k, 10)));
-  });
+  $('mDots')
+    .querySelectorAll('.dot')
+    .forEach(d => {
+      d.addEventListener('click', () => mGo(parseInt(d.dataset.k, 10)));
+    });
 }
 
 function mGo(k) {
@@ -1886,7 +1993,7 @@ function mGo(k) {
 function step(d) {
   playTapSound();
   if (d > 0 && idx === cur.length - 1) {
-    finish();
+    finishAfterMic();
     return;
   }
   if (idx + d < 0) return;
@@ -1911,10 +2018,13 @@ function reveal(t, sp) {
   const timer = () => {
     clearInterval(rv);
     clearTimeout(rv);
-    rv = setInterval(() => {
-      showWord(n);
-      if (n >= S.length) clearInterval(rv);
-    }, sp ? 320 : 140);
+    rv = setInterval(
+      () => {
+        showWord(n);
+        if (n >= S.length) clearInterval(rv);
+      },
+      sp ? 320 : 140
+    );
   };
   if (!sp) {
     timer();
@@ -1963,7 +2073,10 @@ function mockNote(m) {
 // mHeard[i]: heard (or typed) words of question i ({ w }), the source of the box and of answers[i].
 let mHeard = [];
 let mOk = []; // mOk[i]: answer word indices said right at least once (sticky)
-const mWords = t => String(t || '').split(/\s+/).filter(w => norm(w));
+const mWords = t =>
+  String(t || '')
+    .split(/\s+/)
+    .filter(w => norm(w));
 
 // Status of every answer word of question i (with the live words while speaking).
 function mStatus(i, live = '') {
@@ -1991,14 +2104,15 @@ function mRender(i, live = '') {
   // still from memory); when it stops, the words not said show dull.
   const reach = mMicOn ? st.reduce((n, s, j) => (s !== 'dim' ? j : n), -1) : st.length - 1;
   const CLS = { ok: 'said', bad: 'wrongw', dim: 'notsaid' };
-  box.innerHTML = mWords(ref)
-    .slice(0, reach + 1)
-    .map((w, j) =>
-      st[j] === 'bad'
-        ? `<button type="button" class="aw wrongw" data-heard="${esc(heard[j] || '')}" aria-label="${esc(w)}: you said ${esc(heard[j] || '')}">${esc(w)}</button>`
-        : `<span class="aw ${CLS[st[j]]}">${esc(w)}</span>`
-    )
-    .join(' ') || '<span class="aph">Listening...</span>';
+  box.innerHTML =
+    mWords(ref)
+      .slice(0, reach + 1)
+      .map((w, j) =>
+        st[j] === 'bad'
+          ? `<button type="button" class="aw wrongw" data-heard="${esc(heard[j] || '')}" aria-label="${esc(w)}: you said ${esc(heard[j] || '')}">${esc(w)}</button>`
+          : `<span class="aw ${CLS[st[j]]}">${esc(w)}</span>`
+      )
+      .join(' ') || '<span class="aph">Listening...</span>';
   const last = box.querySelectorAll('.aw.said, .aw.wrongw');
   const x = last[last.length - 1];
   if (x && x.offsetTop + x.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = x.offsetTop - box.clientHeight / 2;
@@ -2018,12 +2132,6 @@ function showWordTip(el, text) {
   tip.style.setProperty('--ax', `${r.left - host.left + r.width / 2 - left}px`);
   clearTimeout(showWordTip.t);
   showWordTip.t = setTimeout(() => tip.classList.add('hidden'), 3500);
-}
-
-// The last word of the saved answer has been said (right or wrong).
-function mDone(i, live = '') {
-  const { st } = mStatus(i, live);
-  return st.length > 0 && st[st.length - 1] !== 'dim';
 }
 
 // Every word of the saved answer said right.
@@ -2090,8 +2198,10 @@ async function mClear() {
   playTapSound();
   if (!(mHeard[idx] || []).length && !answers[idx]) return;
   if (!(await ask('Clear answer?', 'Clear this answer and start again?', 'Clear', 'Cancel', '🧹', true))) return;
-  mHeard[idx] = [];
-  mOk[idx] = [];
+  // Clear in place: a live mic session keeps adding to this same list (a new array would lose
+  // everything said after Clear).
+  (mHeard[idx] = mHeard[idx] || []).length = 0;
+  (mOk[idx] = mOk[idx] || []).length = 0;
   answers[idx] = '';
   saveScr();
   mRender(idx);
@@ -2108,6 +2218,22 @@ async function toggleMic() {
     stopListening(); // stops now; the last phrase still arrives and is added
     return;
   }
+  // A second tap while the mic is still getting ready (permission, internet check) is ignored, so
+  // two sessions can never start at once.
+  if (micBusy) return;
+  micBusy = true;
+  try {
+    await startMockMic();
+  } finally {
+    micBusy = false;
+  }
+}
+
+let micBusy = false;
+let partialFrame = 0; // one Mock box render per frame for live words
+let partialText = '';
+
+async function startMockMic() {
   stopSpeaking(); // the question must not be read into the mic
   clearInterval(rv);
   clearTimeout(rv);
@@ -2152,10 +2278,29 @@ async function toggleMic() {
     onState: st => {
       if (!here()) return;
       if (st === 'ready' || st === 'listening') readyOnce = true;
-      mockNote(st === 'ready' || st === 'listening' ? 'Speak now. Say your answer from memory.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : st === 'stopping' ? 'Finishing...' : '');
+      mockNote(
+        st === 'ready' || st === 'listening'
+          ? 'Speak now. Say your answer from memory.'
+          : st === 'starting'
+            ? readyOnce
+              ? 'Listening...'
+              : 'Getting the mic ready...'
+            : st === 'stopping'
+              ? 'Finishing...'
+              : ''
+      );
     },
     onLevel: db => micLevel($('mic'), db),
-    onPartial: text => mRender(myIdx, text), // shown in the box at once, saved when final
+    // Shown in the box at once (at most one render per frame: partials can come faster than the
+    // phone redraws), saved when final.
+    onPartial: text => {
+      partialText = text;
+      if (partialFrame) return;
+      partialFrame = requestAnimationFrame(() => {
+        partialFrame = 0;
+        if (here()) mRender(myIdx, partialText);
+      });
+    },
     onFinal: text => {
       H.push(...mWords(text).map(w => ({ w })));
       // Answer words in this phrase stay right for good (a red word said again turns right).
@@ -2173,7 +2318,13 @@ async function toggleMic() {
         const ok = st.filter(s => s === 'ok').length;
         const score = Math.round((ok / st.length) * 100);
         mockNote('');
-        return toast(ok ? (score === 100 ? 'Perfect! You said the whole answer 🎉' : `${score}% of your answer said. Red = said wrong, grey = missed.`) : 'No words of your saved answer were heard. Try again.');
+        return toast(
+          ok
+            ? score === 100
+              ? 'Perfect! You said the whole answer 🎉'
+              : `${score}% of your answer said. Red = said wrong, grey = missed.`
+            : 'No words of your saved answer were heard. Try again.'
+        );
       }
       mockNote(reason === 'cancelled' ? '' : message);
     }
@@ -2186,27 +2337,6 @@ async function toggleMic() {
 }
 
 // Evaluation & Feedback Scoring
-const wds = t => String(t || '').split(/\s+/).map(nrm).filter(Boolean);
-const near = (a, b) => {
-  if (a === b) return true;
-  if (a.length < 5 || b.length < 5 || Math.abs(a.length - b.length) > 1) return false;
-  let i = 0, j = 0, e = 0;
-  while (i < a.length && j < b.length) {
-    if (a[i] === b[j]) {
-      i++;
-      j++;
-      continue;
-    }
-    if (++e > 1) return false;
-    if (a.length > b.length) i++;
-    else if (b.length > a.length) j++;
-    else {
-      i++;
-      j++;
-    }
-  }
-  return e + (a.length - i) + (b.length - j) <= 1;
-};
 
 // The saved answer of a Mock question (same rules as Practice: saved edit, then the
 // "Introduce yourself" answer from setup, then the sample answer filled from the profile).
@@ -2221,40 +2351,26 @@ function refText(q) {
   return q.a ? fill(q.a, p && { ...p, role: ROLE[cat] || p.role }) : '';
 }
 
-function mistakes(user, ref) {
-  const u = wds(user);
-  const r = wds(ref);
-  if (!u.length || !r.length) return null;
-  const n = u.length;
-  const m = r.length;
-  const D = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      D[i][j] = near(u[i], r[j]) ? D[i + 1][j + 1] + 1 : Math.max(D[i + 1][j], D[i][j + 1]);
+// Finish while the mic is on: stop it and wait for the last sentence (up to 2.5 s), so the words
+// said last still count in the score (before, the session was cancelled and they were lost).
+let finishing = false;
+async function finishAfterMic() {
+  if (finishing) return;
+  finishing = true;
+  try {
+    if (mMicOn || isListening() || voiceState() !== 'idle') {
+      mMicOn = false;
+      $('mic').classList.remove('on');
+      mockNote('Finishing...');
+      stopListening();
+      const end = Date.now() + 2500;
+      while (voiceState() !== 'idle' && Date.now() < end) await new Promise(r => setTimeout(r, 100));
+      mCommit(idx);
     }
+    if (cs === 'interview') finish();
+  } finally {
+    finishing = false;
   }
-  const hit = new Array(n).fill(false);
-  let i = 0, j = 0;
-  while (i < n && j < m) {
-    if (near(u[i], r[j])) {
-      hit[i] = true;
-      i++;
-      j++;
-    } else if (D[i + 1][j] >= D[i][j + 1]) {
-      i++;
-    } else {
-      j++;
-    }
-  }
-  const f = hit.indexOf(true);
-  const l = hit.lastIndexOf(true);
-  if (f < 0) return { bad: n, span: n };
-  const span = l - f + 1;
-  let bad = 0;
-  for (let k = f; k <= l; k++) {
-    if (!hit[k]) bad++;
-  }
-  return { bad, span };
 }
 
 function finish() {
@@ -2263,8 +2379,6 @@ function finish() {
   cancelListening();
 
   const done = answers.filter(Boolean);
-  const words = done.reduce((s, a) => s + a.split(/\s+/).length, 0);
-  const avg = done.length ? Math.round(words / done.length) : 0;
   // Score from each answer word (like the Mock box colours): said right / all words of the saved
   // answer, averaged over every question (a question not answered counts 0). Before, only the
   // words said right were compared, so one right word gave 10/10.
@@ -2291,10 +2405,13 @@ function finish() {
     (!done.length
       ? 'Add answers to get a score.'
       : total
-      ? `You said ${said} of ${total} words of your saved answers right${wrong ? `, ${wrong} wrong` : ''}. Words you skipped or said wrong lower the score.`
-      : 'Well done for answering.');
+        ? `You said ${said} of ${total} words of your saved answers right${wrong ? `, ${wrong} wrong` : ''}. Words you skipped or said wrong lower the score.`
+        : 'Well done for answering.');
 
-  $('tips').innerHTML = shuffle(TIPS).slice(0, 3).map(t => '• ' + t).join('<br>');
+  $('tips').innerHTML = shuffle(TIPS)
+    .slice(0, 3)
+    .map(t => '• ' + t)
+    .join('<br>');
   renderReview();
 
   // Natural break: the interview is over. The interstitial (if one is ready and allowed)
@@ -2325,18 +2442,22 @@ function finish() {
 }
 
 function renderReview() {
-  $('review').innerHTML = cur.map((q, i) =>
-    `<label class="l">Q${i + 1}. ${esc(q.q)}</label><div class="rans${answers[i] ? '' : ' none'}">${answers[i] ? esc(answers[i]) : 'Empty'}</div>`
-  ).join('');
+  $('review').innerHTML = cur
+    .map(
+      (q, i) => `<label class="l">Q${i + 1}. ${esc(q.q)}</label><div class="rans${answers[i] ? '' : ' none'}">${answers[i] ? esc(answers[i]) : 'Empty'}</div>`
+    )
+    .join('');
 }
 
 function renderHist() {
   const h = getItem('is_hist', []) || [];
   $('hList').innerHTML = h.length
-    ? h.map(x =>
-        `<div class="hist"><span>${esc(x.c)}<br><small class="cnt">${x.d} · ${x.a}/${x.t} answered${x.n ? ' · ' + esc(x.n) : ''}</small></span><b class="hs">${x.s}/10</b></div>`
-      ).join('') +
-      `<button class="full danger" id="clearHistBtn" data-i="trash" aria-label="Clear history" title="Clear history"></button>`
+    ? h
+        .map(
+          x =>
+            `<div class="hist"><span>${esc(x.c)}<br><small class="cnt">${x.d} · ${x.a}/${x.t} answered${x.n ? ' · ' + esc(x.n) : ''}</small></span><b class="hs">${x.s}/10</b></div>`
+        )
+        .join('') + `<button class="full danger" id="clearHistBtn" data-i="trash" aria-label="Clear history" title="Clear history"></button>`
     : `<div class="empty">No attempts yet. Finish a mock interview to see it here.</div>`;
 
   $('clearHistBtn')?.addEventListener('click', () => {
@@ -2385,7 +2506,11 @@ function openPrivacyPolicy() {
 
 // Open a web link in the phone's browser, or explain that the phone is offline.
 async function openExternal(url, notify) {
-  if (!(await requireOnline('policy', notify))) return;
+  // Only https web links and mailto e-mail links ever leave the app.
+  const u = String(url || '');
+  const mail = /^mailto:[^\s]+$/i.test(u);
+  if (!mail && !/^https:\/\/[^\s]+$/i.test(u)) return notify('This link cannot be opened.');
+  if (!mail && !(await requireOnline('policy', notify))) return;
   try {
     if (Capacitor.isNativePlatform()) await AppLauncher.openUrl({ url });
     else window.open(url, '_blank', 'noopener');
@@ -2411,43 +2536,61 @@ async function adPrivacyChoices() {
 
 // Global Touch Gestures
 function setupSwipeGestures() {
-  let px = 0, py = 0;
+  let px = 0,
+    py = 0;
   const elP = $('practice');
-  elP.addEventListener('touchstart', e => {
-    px = e.touches[0].clientX;
-    py = e.touches[0].clientY;
-  }, { passive: true });
-  elP.addEventListener('touchend', e => {
-    if (!$('pEdit').classList.contains('hidden')) return;
-    const dx = e.changedTouches[0].clientX - px;
-    const dy = e.changedTouches[0].clientY - py;
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      pStep(dx < 0 ? 1 : -1);
-    }
-  }, { passive: true });
+  elP.addEventListener(
+    'touchstart',
+    e => {
+      px = e.touches[0].clientX;
+      py = e.touches[0].clientY;
+    },
+    { passive: true }
+  );
+  elP.addEventListener(
+    'touchend',
+    e => {
+      if (!$('pEdit').classList.contains('hidden')) return;
+      const dx = e.changedTouches[0].clientX - px;
+      const dy = e.changedTouches[0].clientY - py;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        pStep(dx < 0 ? 1 : -1);
+      }
+    },
+    { passive: true }
+  );
 
-  let mx = 0, my = 0, mt = 0;
+  let mx = 0,
+    my = 0,
+    mt = 0;
   const elI = $('interview');
   let ok = true;
-  elI.addEventListener('touchstart', e => {
-    mx = e.touches[0].clientX;
-    my = e.touches[0].clientY;
-    mt = Date.now();
-    ok = my <= $('mDots').getBoundingClientRect().bottom + 4;
-  }, { passive: true });
-  elI.addEventListener('touchend', e => {
-    if (!ok) return;
-    const dx = e.changedTouches[0].clientX - mx;
-    const dy = e.changedTouches[0].clientY - my;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2 && Date.now() - mt < 600) {
-      mGo(idx + (dx < 0 ? 1 : -1));
-    }
-  }, { passive: true });
+  elI.addEventListener(
+    'touchstart',
+    e => {
+      mx = e.touches[0].clientX;
+      my = e.touches[0].clientY;
+      mt = Date.now();
+      ok = my <= $('mDots').getBoundingClientRect().bottom + 4;
+    },
+    { passive: true }
+  );
+  elI.addEventListener(
+    'touchend',
+    e => {
+      if (!ok) return;
+      const dx = e.changedTouches[0].clientX - mx;
+      const dy = e.changedTouches[0].clientY - my;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2 && Date.now() - mt < 600) {
+        mGo(idx + (dx < 0 ? 1 : -1));
+      }
+    },
+    { passive: true }
+  );
 }
 
 // Event Listeners Initialization
 function initEventListeners() {
-
   // Dialog buttons
   $('dYes')?.addEventListener('click', () => dlgRes && dlgRes(true));
   $('dNo')?.addEventListener('click', () => dlgRes && dlgRes(false));
@@ -2455,24 +2598,7 @@ function initEventListeners() {
     if (e.target.id === 'dlg' && dlgRes) dlgRes(false);
   });
 
-  // Action sheet
-  $('csPractice')?.addEventListener('click', () => csGo(0));
-  $('csInterview')?.addEventListener('click', () => csGo(1));
-
-  // Profile actions
-  $('pRestoreQBtn')?.addEventListener('click', restoreQ);
-
-  // Practice actions
-  $('pSaveABtn')?.addEventListener('click', saveA);
-  $('pCancelABtn')?.addEventListener('click', cancelA);
-  $('pAddQBtn')?.addEventListener('click', addQ);
-  $('pDelQBtn')?.addEventListener('click', delQ);
-
-  // Mock setup actions
-
-  // Mock interview actions
-  $('qSpkBtn')?.addEventListener('click', () => reveal(cur[idx].q, true));
-  $('mPrevBtn')?.addEventListener('click', () => step(-1));
+  // Mock interview
   // Tap a red word: what the phone heard instead.
   $('ansBox')?.addEventListener('click', e => {
     const b = e.target.closest('.aw.wrongw');
@@ -2483,13 +2609,6 @@ function initEventListeners() {
   document.addEventListener('pointerdown', e => {
     if (!e.target.closest('#wTip, .aw.wrongw')) $('wTip')?.classList.add('hidden');
   });
-
-  // Feedback actions
-  $('fbExportBtn')?.addEventListener('click', exportT);
-  $('fbHomeBtn')?.addEventListener('click', home);
-
-  // Add question
-  $('addqSaveBtn')?.addEventListener('click', saveQ);
 
   // Links inside the bundled policy text open in the browser (with an offline message).
   $('policyText')?.addEventListener('click', e => {
@@ -2520,14 +2639,12 @@ function initEventListeners() {
     }
     if (cs === 'interview' && st.s !== 'interview' && !leaveOK) {
       history.pushState({ s: 'interview', d: dep }, '');
-      ask('Leaving already?', 'Your answers so far will be lost. Want to keep going?', 'Leave', 'Stay', '🥺', true).then(
-        y => {
-          if (y) {
-            leaveOK = true;
-            history.back();
-          }
+      ask('Leaving already?', 'Your answers so far will be lost. Want to keep going?', 'Leave', 'Stay', '🥺', true).then(y => {
+        if (y) {
+          leaveOK = true;
+          history.back();
         }
-      );
+      });
       return;
     }
     leaveOK = false;
@@ -2558,7 +2675,7 @@ function loadPreferences() {
 }
 
 // App Bootstrap
-async function initApp() {
+async function initAppMain() {
   // The welcome screen is on the page: the native splash can go (index.html also does this early).
   if (Capacitor.isNativePlatform()) SplashScreen.hide().catch(() => {});
   await initStorage();
@@ -2571,12 +2688,15 @@ async function initApp() {
   document.documentElement.dataset.theme = savedTheme;
   syncThemeSwitch();
 
-  profiles = getItem('is_profiles') || {};
+  profiles = getItem('is_profiles', {});
   E = getItem('is_edits', {}) || {};
   QE = getItem('is_qedits', {}) || {};
   // Older versions shipped a sample profile ("Alex Khan"). It is not the user: delete it and its edits.
-  if (LEGACY_DEMO_NAMES.some(n => profiles[n])) {
-    LEGACY_DEMO_NAMES.forEach(n => {
+  // Only the old built-in sample: it was never saved through the setup screen (no "setup" flag).
+  // A real user with the same name (they saved it through setup) is never touched.
+  const isDemo = n => profiles[n] && !profiles[n].setup;
+  if (LEGACY_DEMO_NAMES.some(isDemo)) {
+    LEGACY_DEMO_NAMES.filter(isDemo).forEach(n => {
       delete profiles[n];
       [E, QE].forEach(o => Object.keys(o).forEach(k => k.startsWith(n + '|') && delete o[k]));
     });
@@ -2637,10 +2757,11 @@ async function initApp() {
         cat = o.cat;
         lv = o.lv;
         cur = o.cur;
-        answers = o.answers;
+        // Older or damaged saved sessions: missing fields fall back to an empty answer.
+        answers = Array.isArray(o.answers) ? o.answers : cur.map(() => '');
         mHeard = Array.isArray(o.heard) ? o.heard : cur.map(() => []);
         mOk = Array.isArray(o.ok) ? o.ok : cur.map(() => []);
-        idx = Math.min(o.idx, cur.length - 1);
+        idx = Math.max(0, Math.min(Number.isInteger(o.idx) ? o.idx : 0, cur.length - 1));
         show('interview');
         showQ();
       }
@@ -2656,6 +2777,8 @@ async function initApp() {
   // The welcome screen covers the app at start: no banner (and no interstitial) over it.
   if (document.getElementById('intro')) setBannerSuppressed('intro', true);
   // Consent (EEA/UK) first, then AdMob creates ONE banner under the header for the whole session.
+  // Never an interstitial while the mic records (or is still finishing a recording).
+  setInterstitialBlocker(() => mMicOn || pMicOn || isListening() || voiceState() !== 'idle');
   initializeAdMob({ layout: bannerLayout, onSpace: setAdSpace });
   watchBannerLayout();
   watchHeaderInset();
@@ -2695,14 +2818,12 @@ async function initApp() {
       }
       // 2. Mock interview leave confirmation
       if (cs === 'interview') {
-        ask('Leaving already?', 'Your answers so far will be lost. Want to keep going?', 'Leave', 'Stay', '🥺', true).then(
-          y => {
-            if (y) {
-              leaveOK = true;
-              history.back();
-            }
+        ask('Leaving already?', 'Your answers so far will be lost. Want to keep going?', 'Leave', 'Stay', '🥺', true).then(y => {
+          if (y) {
+            leaveOK = true;
+            history.back();
           }
-        );
+        });
         return;
       }
       // 3. Cancel active edits
@@ -2710,12 +2831,17 @@ async function initApp() {
         cancelA();
         return;
       }
-      // 4. Back in navigation stack
+      // 4. Setup form step 2: back to step 1 (keeps what was typed)
+      if (cs === 'setup' && sStep > 0) {
+        setupStep(-1);
+        return;
+      }
+      // 5. Back in navigation stack
       if (cs !== 'home') {
         history.back();
         return;
       }
-      // 5. On home screen: double-tap back to exit
+      // 6. On home screen: double-tap back to exit
       if (Date.now() < exitArm) {
         App.exitApp();
       } else {
@@ -2741,9 +2867,19 @@ async function initApp() {
       }
     });
   }
-  introReady();
 }
 
+// Start-up never gets stuck on the welcome screen: whatever fails above is logged (debug panel)
+// and Get Started still appears.
+async function initApp() {
+  try {
+    await initAppMain();
+  } catch (e) {
+    errorLog('start-up', e);
+  } finally {
+    introReady();
+  }
+}
 
 // Profile > Voice: accent and learned corrections (My words are automatic and not shown).
 function renderVoiceSettings() {

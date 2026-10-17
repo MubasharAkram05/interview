@@ -103,20 +103,30 @@ Play rejects an upload with a versionCode it has already seen.
 
 ## 5. Swap test ad IDs for real ones
 
-Do this only when you are ready for production. Never tap your own real ads.
+Do this only when you are ready for production. Never tap your own real ads. The full list of
+release switches is in `RELEASE_CHECKLIST.md`.
 
-First set `INTERSTITIAL_COOLDOWN_MS` in `src/config/ads.js` back to `180000` (it is `30000` for testing).
+All ad IDs live in ONE file, `src/config/ads.js`, in two sets: `TEST_IDS` (Google's sample IDs)
+and `PRODUCTION_IDS` (placeholders `APP_ID`, `BANNER_ID`, `INTERSTITIAL_ID`). Which set a build
+uses is a build flag, not a code edit:
 
-1. In https://admob.google.com create the app (Android, not yet listed or link it after Play publishing) and two ad units: **Banner** (standard 320x50 banner, not adaptive) and **Interstitial**.
-2. Open `src/config/ads.js` and change:
-   - `appId` to your AdMob App ID (`ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY`)
-   - `bannerAdId` to your banner unit ID
-   - `interstitialAdId` to your interstitial unit ID
-   - `isTesting: false`
-3. Open `app/src/main/AndroidManifest.xml` and change the `com.google.android.gms.ads.APPLICATION_ID` value to the same App ID.
+| Build | IDs | Test mode | Interstitial cooldown |
+|---|---|---|---|
+| Debug APK (`npm run build:debug`, `assembleDebug`) | TEST_IDS, always | on | 30 s |
+| Release, `RELEASE_ADS` not set | TEST_IDS | on | 180 s |
+| Release, `RELEASE_ADS=true` | PRODUCTION_IDS | off | 180 s |
+
+The manifest App ID (`com.google.android.gms.ads.APPLICATION_ID`) is filled in by Gradle from the
+same file (`${admobAppId}` placeholder), so it can never differ from the web app. A release build
+with `RELEASE_ADS=true` stops with a clear error (in Vite and in Gradle) while any production ID is
+still a placeholder or a Google test ID.
+
+1. In https://admob.google.com create the app (Android) and two ad units: **Banner** (standard 320x50 banner, not adaptive) and **Interstitial**.
+2. In `src/config/ads.js`, paste the three real IDs into `PRODUCTION_IDS` (nowhere else).
+3. GitHub > Settings > Secrets and variables > Actions > **Variables**: add `RELEASE_ADS` = `true`. The next CI run builds the release AAB with real ads (the debug APK keeps test ads).
 4. In AdMob > Privacy & messaging, create a **GDPR (European regulations) message** for the app and publish it. The in-app consent form comes from this.
 5. Add your test phone as a test device in AdMob (Settings > Test devices) so you can safely check real ads.
-6. Bump versionCode, build, upload.
+6. Upload the new AAB (versionCode grows by itself, see section 4).
 7. After the app is live, add `app-ads.txt` to your developer website if you have one (AdMob shows the exact line).
 
 ## 6. Create the app in Play Console
@@ -269,7 +279,7 @@ Use the `app-debug.apk` from the workflow first, then the release build from the
 6. EEA/UK test (optional): the consent form shows once, with no banner on top of it. Profile > Privacy Policy shows "Ad privacy choices"; the banner hides while that form is open.
 
 ### Interstitial (full-screen ad)
-Rules: Interstitial only at natural breaks: after a mock interview is finished (just before the results screen) and after every 4th Practice question the user moves forward to. Never on app launch, never within 10 s of opening the app, never while recording or typing, never on the back button or exit, never at two breaks in a row, and at least `INTERSTITIAL_COOLDOWN_MS` apart (30 s for testing now, 180 s for release). If no ad is loaded when a break comes, it is skipped silently; the app never waits. The banner hides while the interstitial is open.
+Rules: Interstitial only at natural breaks: after a mock interview is finished (just before the results screen) and after every 4th Practice question the user moves forward to. Never on app launch, never within 60 s of opening the app, never while the mic records or the user types, never on the back button or exit, never at two breaks in a row, and at least `INTERSTITIAL_COOLDOWN_MS` apart (30 s in the debug APK, 180 s in the release build). If no ad is loaded when a break comes, it is skipped silently; the app never waits. The banner hides while the interstitial is open.
 
 Use the **debug APK** for this test (it prints `ADS:` lines; the release build never does). With the phone connected by USB and USB debugging on, run on your PC:
 
@@ -279,8 +289,8 @@ adb logcat | findstr "ADS:"
 (Mac/Linux: `adb logcat | grep "ADS:"`)
 
 1. Open the app online and wait 15 seconds. Log shows `ADS: prepare` then `ADS: loaded`.
-2. Start a mock interview right away and finish it within 10 s of opening the app (or just tap through). Log: `skipped ... reason=too soon after app start`. Results show normally.
-3. Wait until at least 10 s after opening the app, then finish a mock interview. A full-screen "Test Ad" opens; the results screen is underneath. The top banner is hidden while the ad is open.
+2. Start a mock interview right away and finish it within 60 s of opening the app (or just tap through). Log: `skipped ... reason=too soon after app start`. Results show normally.
+3. Wait until at least 60 s after opening the app, then finish a mock interview. A full-screen "Test Ad" opens; the results screen is underneath. The top banner is hidden while the ad is open.
 4. Close the ad. Log: `ADS: dismissed`, then `ADS: prepare` and `ADS: loaded` (next ad loads). The banner comes back.
 5. Go to Practice and swipe forward 4 questions. Log: `skipped ... reason=ad shown at previous break` (never twice in a row) or `cooldown Ns left`.
 6. Wait 30 s, swipe forward 4 more questions: a test ad opens.
@@ -322,13 +332,13 @@ The **debug APK** has a hidden **Ads status** panel. You do not need a PC or adb
 | `Interstitial: ready=true` | A full-screen ad is loaded and can show at the next break. |
 | `prepared / loaded / failed / shown / lastError` | Counters. Error codes: `0` internal, `1` invalid request, `2` network, `3` no fill, `timeout` = no answer in 45 s. |
 | `nextRetryIn` | When the next load attempt happens after a failure (15 s, 30 s, then 60 s). |
-| `cooldownLeft / sinceLaunch` | Time rules: no ad in the first 10 s, and 30 s between ads (testing value). |
+| `cooldownLeft / sinceLaunch` | Time rules: no ad in the first 60 s, and 30 s between ads in the debug APK (180 s in release). |
 | `lastBreak / lastSkip` | The last natural break (`interview_finished` or `practice_question_N`) and why no ad was shown (`too soon after app start`, `cooldown`, `never twice in a row`, `still loading`, `recording`, `typing`, `screen covered: …`). |
 | `last 20 ADS: lines` | The step-by-step log. |
 
 ### Buttons
 - **Copy report**: copies everything above as text. If copy is blocked, long-press the text > Select all > Copy.
-- **Force interstitial test**: tries to show a full-screen test ad right now, ignoring the cooldown, the 10 s rule and "never twice in a row". It still needs consent and a loaded ad. The message under the buttons says what happened (`shown`, `not loaded yet (loading)`, `ads not started (consent=…)`).
+- **Force interstitial test**: tries to show a full-screen test ad right now, ignoring the cooldown, the 60 s rule and "never twice in a row". It still needs consent and a loaded ad. The message under the buttons says what happened (`shown`, `not loaded yet (loading)`, `ads not started (consent=…)`).
 
 ### What to send to the developer
 1. Reproduce the problem (for example: open the app, wait 15 s, finish a mock interview).

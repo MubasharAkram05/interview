@@ -14,15 +14,26 @@ const words = t =>
     .split(/\s+/)
     .filter(w => norm(w));
 
+// Pair scores are memoised: the Mock box re-aligns the whole answer on every partial result, so
+// the same word pairs come back again and again. Levenshtein + double metaphone run once per pair
+// instead of once per pair per partial (bounded: cleared after 20 000 entries, about 1 MB).
+const simCache = new Map();
+
 /** Similarity of a heard and an expected word (0..1), or -1 when they must not be paired. */
 function pairSim(h, e, cfg) {
   const a = norm(h);
   const b = norm(e);
   if (a === b) return 1;
+  const key = a + '|' + b + '|' + cfg.minSim;
+  const hit = simCache.get(key);
+  if (hit !== undefined) return hit;
+  let out = -1;
   const s = similarity(a, b);
-  if (s >= cfg.minSim) return s;
-  if (soundsAlike(a, b)) return Math.max(s, cfg.minSim);
-  return -1;
+  if (s >= cfg.minSim) out = s;
+  else if (soundsAlike(a, b)) out = Math.max(s, cfg.minSim);
+  if (simCache.size > 20000) simCache.clear();
+  simCache.set(key, out);
+  return out;
 }
 
 /**
@@ -141,7 +152,8 @@ export function phraseHits(phrase, expectedText, cfg = LENIENT) {
 /**
  * Status of every answer word for Mock: the in-order alignment of everything heard (LENIENT),
  * then sticky hits on top (a word said right once stays right). Returns { st, heard } like
- * wordDetail.
+ * wordDetail. Time O(n x m) for one alignment (pair scores memoised, see pairSim), space O(n x m);
+ * an answer is at most a few hundred words, so this stays a few ms per live update.
  */
 export function memoryStatus(heardText, expectedText, sticky = []) {
   const d = wordDetail(alignToExpected(heardText, expectedText, { partial: true, cfg: LENIENT }));
@@ -208,15 +220,23 @@ const DEGREES = [
 
 /** "BS IT student" -> { degree: 'BS in Information Technology', studying: true }. */
 export function expandDegree(edu = '') {
-  let t = String(edu).trim().replace(/[.\s]+$/, '');
+  let t = String(edu)
+    .trim()
+    .replace(/[.\s]+$/, '');
   const studying = /\b(student|studying|pursuing|in progress|final year|semester)\b/i.test(t);
-  t = t.replace(/\b(student|studying|pursuing|in progress)\b/gi, '').replace(/\s{2,}/g, ' ').trim();
+  t = t
+    .replace(/\b(student|studying|pursuing|in progress)\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
   for (const [re, full] of DEGREES) if (re.test(t)) return { degree: full || t, studying };
   return { degree: t, studying };
 }
 
 /** "Marketing/Sales" -> "Marketing and Sales", "Cloud/DevOps" -> "Cloud and DevOps". */
-export const roleText = r => String(r || '').trim().replace(/\s*\/\s*/g, ' and ');
+export const roleText = r =>
+  String(r || '')
+    .trim()
+    .replace(/\s*\/\s*/g, ' and ');
 
 /**
  * "Introduce yourself" answer built from the setup details (a template, no AI). Sentences whose
@@ -237,7 +257,8 @@ export function introTemplate(p = {}) {
   else if (city) out.push(`I am from ${city}.`);
   if (degree) out.push(studying ? `I am currently pursuing ${article(degree)} ${degree}.` : `I hold ${article(degree)} ${degree}.`);
   if (skills.length) out.push(`My key skills include ${list(skills)}.`);
-  if (role) out.push(`I am now looking for ${article(role)} ${role} role where I can ${skills.length ? 'use these skills' : 'learn'}, grow and add value to the team.`);
+  if (role)
+    out.push(`I am now looking for ${article(role)} ${role} role where I can ${skills.length ? 'use these skills' : 'learn'}, grow and add value to the team.`);
   return out.join(' ');
 }
 

@@ -36,7 +36,7 @@ const logs = [];
 console.log = (...a) => logs.push(a.join(' '));
 
 const m = await import('./mocks.mjs');
-const { INTERSTITIAL_COOLDOWN_MS } = await import('../../src/config/ads.js');
+const { INTERSTITIAL_COOLDOWN_MS, INTERSTITIAL_MIN_AFTER_LAUNCH_MS: MIN_LAUNCH } = await import('../../src/config/ads.js');
 const out = [];
 const check = (name, cond) => out.push(`${cond ? 'PASS' : 'FAIL'}  ${name}`);
 let n = 0;
@@ -57,16 +57,28 @@ const last = () => logs.at(-1) || '';
   })();
   const start = now;
   check('A1 prepare called after consent/init', m.calls.filter(c => c === 'prepare').length === 1);
-  check('A2 failed load logged with code', logs.some(l => l.includes('ADS: failed code=3')));
-  check('A3 retry scheduled at 15s', logs.some(l => l.includes('ADS: retry in 15s')));
+  check(
+    'A2 failed load logged with code',
+    logs.some(l => l.includes('ADS: failed code=3'))
+  );
+  check(
+    'A3 retry scheduled at 15s',
+    logs.some(l => l.includes('ADS: retry in 15s'))
+  );
   await advance(15000);
-  check('A4 second retry at 30s', logs.some(l => l.includes('ADS: retry in 30s')));
+  check(
+    'A4 second retry at 30s',
+    logs.some(l => l.includes('ADS: retry in 30s'))
+  );
   await advance(30000);
-  check('A5 third prepare loads', logs.some(l => l.startsWith('ADS: loaded')));
+  check(
+    'A5 third prepare loads',
+    logs.some(l => l.startsWith('ADS: loaded'))
+  );
   const t0 = now;
   now = start + 5000;
-  check('A6 skip within 10 s of launch', !(await ads.showInterstitialAtBreak('interview_finished')) && last().includes('too soon'));
-  now = t0;
+  check('A6 skip right after launch', !(await ads.showInterstitialAtBreak('interview_finished')) && last().includes('too soon'));
+  now = Math.max(t0, start + MIN_LAUNCH + 1000);
   check('A7 shows at natural break when loaded', await ads.showInterstitialAtBreak('interview_finished'));
   check('A8 banner hidden while interstitial open', m.calls.includes('hideBanner'));
   check('A9 second break while open skipped', !(await ads.showInterstitialAtBreak('practice_question_4')));
@@ -101,7 +113,7 @@ const last = () => logs.at(-1) || '';
   await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
   await tick();
   check('B1 ready from prepare() even without Loaded event', ads.getAdsDebugState().interstitial.ready === true);
-  await advance(11000);
+  await advance(MIN_LAUNCH + 1000);
   check('B2 and it shows at a break', await ads.showInterstitialAtBreak('interview_finished'));
 }
 
@@ -116,8 +128,14 @@ const last = () => logs.at(-1) || '';
   await tick();
   check('C1 loading while prepare hangs', ads.getAdsDebugState().interstitial.loading === true);
   await advance(45000);
-  check('C2 timeout logged as failure', logs.some(l => l.includes('ADS: failed code=timeout')));
-  check('C3 retry scheduled after timeout', logs.some(l => l.includes('ADS: retry in 15s')));
+  check(
+    'C2 timeout logged as failure',
+    logs.some(l => l.includes('ADS: failed code=timeout'))
+  );
+  check(
+    'C3 retry scheduled after timeout',
+    logs.some(l => l.includes('ADS: retry in 15s'))
+  );
   m.state.prepareHangs = false;
   await advance(15000);
   check('C4 retry loads', ads.getAdsDebugState().interstitial.ready === true);
@@ -131,7 +149,7 @@ const last = () => logs.at(-1) || '';
   const ads = await import(`../../src/services/admob.js?s=${++n}`);
   await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
   await tick();
-  await advance(11000);
+  await advance(MIN_LAUNCH + 1000);
   await ads.showInterstitialAtBreak('interview_finished');
   document.visibilityState = 'hidden';
   fireDoc('visibilitychange');
@@ -180,12 +198,20 @@ const last = () => logs.at(-1) || '';
   m.emit('bl');
   await advance(400);
   check('E7 at most 2 corrections', ads.getAdsDebugState().banner.corrections === 2);
-  check('E8 still wrong after 2 corrections: banner hidden, never over the header', ads.getAdsDebugState().banner.hiddenFor.includes('misplaced') && m.calls.at(-1) === 'hideBanner');
+  check(
+    'E8 still wrong after 2 corrections: banner hidden, never over the header',
+    ads.getAdsDebugState().banner.hiddenFor.includes('misplaced') && m.calls.at(-1) === 'hideBanner'
+  );
   // Next screen change: a fresh banner with its own checks (the limit is per banner, not per session)
   const before = m.calls.filter(c => c.startsWith('showBanner')).length;
   ads.requestBannerRelayout();
   await advance(400);
-  check('E9 screen change: rebuilt and checked again', m.calls.filter(c => c.startsWith('showBanner')).length === before + 1 && ads.getAdsDebugState().banner.corrections === 0 && !ads.getAdsDebugState().banner.hiddenFor.includes('misplaced'));
+  check(
+    'E9 screen change: rebuilt and checked again',
+    m.calls.filter(c => c.startsWith('showBanner')).length === before + 1 &&
+      ads.getAdsDebugState().banner.corrections === 0 &&
+      !ads.getAdsDebugState().banner.hiddenFor.includes('misplaced')
+  );
   // Suppressed by the welcome screen: hidden, and interstitial breaks skip
   ads.setBannerSuppressed('intro', true);
   check('E10 welcome screen hides the banner', ads.getAdsDebugState().banner.hiddenFor.includes('intro'));
@@ -240,6 +266,116 @@ const last = () => logs.at(-1) || '';
   ads.setBannerPlacement('top');
   await tick();
   check('P6 leaving the page restores the top banner', m.calls.filter(c => c === 'pos:TOP_CENTER').length >= 2);
+}
+
+// ---- Scenario E: consent flow (UMP) before any ad request
+async function freshAds() {
+  // Let the previous module finish its async start-up, then drop its timers (ids stay unique,
+  // so an old module's clearTimeout can never cancel a new module's timer).
+  await tick();
+  await tick();
+  timers.forEach(t => (t.f = null));
+  m.calls.length = 0;
+  logs.length = 0;
+  const ads = await import(`../../src/services/admob.js?s=${++n}`);
+  return ads;
+}
+{
+  m.reset();
+  let ads = await freshAds();
+  await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
+  await tick();
+  await tick();
+  const ci = m.calls.findIndex(c => c.startsWith('consent:'));
+  const ii = m.calls.findIndex(c => c.startsWith('init:'));
+  check('E1 consent asked before the SDK starts', ci >= 0 && ii > ci);
+  check(
+    'E2 not child-directed, not under age of consent',
+    m.calls[ii].includes('"tagForChildDirectedTreatment":false') &&
+      m.calls[ii].includes('"tagForUnderAgeOfConsent":false') &&
+      m.calls[ci].includes('"tagForUnderAgeOfConsent":false')
+  );
+  check(
+    'E3 consent not required: no form, ads start',
+    !m.calls.includes('consentForm') && ads.getAdsDebugState().interstitial !== undefined && m.calls.includes('prepare')
+  );
+
+  m.reset();
+  m.state.consent = { status: 'REQUIRED', isConsentFormAvailable: true, canRequestAds: false };
+  m.state.formResult = { status: 'OBTAINED', canRequestAds: true, privacyOptionsRequirementStatus: 'REQUIRED' };
+  ads = await freshAds();
+  await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
+  check(
+    'E4 consent required: form shown before ads',
+    m.calls.includes('consentForm') && m.calls.indexOf('consentForm') < m.calls.findIndex(c => c.startsWith('init:'))
+  );
+  check('E5 privacy options entry needed (EEA/UK)', ads.needsPrivacyOptions() === true);
+
+  m.reset();
+  m.state.consent = { status: 'REQUIRED', isConsentFormAvailable: true, canRequestAds: false };
+  m.state.formResult = { status: 'REQUIRED', canRequestAds: false };
+  ads = await freshAds();
+  let space = -1;
+  const started = await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: h => (space = h) });
+  check(
+    'E6 consent refused: no SDK start, no ad request, slot collapsed',
+    started === false &&
+      !m.calls.some(c => c.startsWith('init:')) &&
+      !m.calls.includes('prepare') &&
+      !m.calls.some(c => c.startsWith('showBanner')) &&
+      space === 0
+  );
+
+  m.reset();
+  m.state.consent = 'throw';
+  ads = await freshAds();
+  const ok = await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
+  check('E7 no network for consent: no crash, SDK still starts (Google decides)', ok === true && m.calls.some(c => c.startsWith('init:')));
+}
+
+// ---- Scenario H: never during mic recording; retry cap
+{
+  m.reset();
+  const ads = await freshAds();
+  await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
+  await tick();
+  await advance(MIN_LAUNCH + 1000);
+  let recording = true;
+  ads.setInterstitialBlocker(() => recording);
+  check('H1 no interstitial while the mic records', !(await ads.showInterstitialAtBreak('interview_finished')) && last().includes('mic is recording'));
+  recording = false;
+  check('H2 shows once recording stopped', await ads.showInterstitialAtBreak('interview_finished'));
+  ads.setInterstitialBlocker(null);
+
+  m.reset();
+  m.state.prepareFails = 1000;
+  const ads2 = await freshAds();
+  m.state.prepareFails = 1000;
+  await ads2.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
+  await tick();
+  await tick();
+  // 30 minutes in 1-minute steps (each step lets the async load attempt finish).
+  for (let i = 0; i < 30; i++) await advance(60 * 1000);
+  const prepares = m.calls.filter(c => c === 'prepare').length;
+  check(`H3 failed loads stop after the retry cap (${prepares} tries in 30 min)`, prepares <= 1 + 6 && logs.some(l => l.includes('retry limit reached')));
+}
+
+// ---- Scenario G: config rules
+{
+  const cfg = await import('../../src/config/ads.js');
+  check('G1 release cooldown is 3 minutes (no Vite debug flag in tests)', cfg.INTERSTITIAL_COOLDOWN_MS === 180000);
+  check('G2 tests and default builds use Google test IDs', !cfg.USE_PRODUCTION_ADS && cfg.ADS_CONFIG.isTesting && cfg.ADS_CONFIG.appId === cfg.TEST_IDS.appId);
+  check('G3 placeholder production IDs are reported', cfg.productionIdProblems().length === 3);
+  check('G4 test IDs are refused as production IDs', cfg.productionIdProblems(cfg.TEST_IDS).length === 3);
+  check(
+    'G5 well-formed real-looking IDs pass',
+    cfg.productionIdProblems({
+      appId: 'ca-app-pub-1234567890123456~1234567890',
+      bannerAdId: 'ca-app-pub-1234567890123456/1234567890',
+      interstitialAdId: 'ca-app-pub-1234567890123456/0987654321'
+    }).length === 0
+  );
+  check('G6 never child-directed', cfg.ADS_CONFIG.tagForChildDirectedTreatment === false && cfg.ADS_CONFIG.tagForUnderAgeOfConsent === false);
 }
 
 check('Z1 no ad IDs in any log line', !logs.some(l => l.includes('ca-app-pub')));

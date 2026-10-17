@@ -1,0 +1,13 @@
+dist/
+node_modules/
+app/
+capacitor-cordova-android-plugins/
+privacy-policy-site/
+store-assets/
+assets/
+public/
+src/data/common-words.js
+package-lock.json
+*.md
+index.html
+src/style.css

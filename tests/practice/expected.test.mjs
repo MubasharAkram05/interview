@@ -1,5 +1,15 @@
 // Practice expected-text matching (src/services/expected.js). Run: node tests/practice/expected.test.mjs
-import { alignToExpected, introTemplate, isIntroQuestion, wordStatus, wordDetail, expandDegree, roleText, phraseHits, memoryStatus } from '../../src/services/expected.js';
+import {
+  alignToExpected,
+  introTemplate,
+  isIntroQuestion,
+  wordStatus,
+  wordDetail,
+  expandDegree,
+  roleText,
+  phraseHits,
+  memoryStatus
+} from '../../src/services/expected.js';
 
 const out = [];
 const check = (name, ok, extra = '') => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : '   ' + extra}`);
@@ -17,10 +27,18 @@ r = alignToExpected('I am from Pakpattan', 'I am from Pakpattan.');
 check('Pakpattan stays Pakpattan', r.text === 'I am from Pakpattan.' && r.score === 100);
 
 r = alignToExpected('I am from Pakistan', 'I am from Pakpattan.');
-check('substitution: a close but different word is a fix (Pakistan -> Pakpattan)', r.text === 'I am from Pakpattan.' || types(r) === 'mmmxe', `${r.text} ${types(r)}`);
+check(
+  'substitution: a close but different word is a fix (Pakistan -> Pakpattan)',
+  r.text === 'I am from Pakpattan.' || types(r) === 'mmmxe',
+  `${r.text} ${types(r)}`
+);
 
 r = alignToExpected('my name is Akram', 'My name is Mubashar Akram.');
-check('missing word: marked missed, not written', r.missed === 1 && r.ops.find(o => o.type === 'missed').expected === 'Mubashar' && r.text === 'My name is Akram.', `${r.text} ${types(r)}`);
+check(
+  'missing word: marked missed, not written',
+  r.missed === 1 && r.ops.find(o => o.type === 'missed').expected === 'Mubashar' && r.text === 'My name is Akram.',
+  `${r.text} ${types(r)}`
+);
 
 r = alignToExpected('my name is really Mubashar Akram', 'My name is Mubashar Akram.');
 check('extra word: kept as heard, marked extra', r.extra === 1 && r.text === 'My name is really Mubashar Akram.' && r.ops[3].type === 'extra', r.text);
@@ -34,26 +52,52 @@ r = alignToExpected('my name is', 'My name is Mubashar Akram.');
 check('attempt finished: the rest is missed', r.missed === 2);
 
 r = alignToExpected('my name is Mubashar I am a student from Pakpattan', EXP);
-check(`score = matched / expected words (${r.score}%)`, r.score === Math.round((r.matched / r.total) * 100) && r.matched === 10 && r.total === 13, `${r.matched}/${r.total}`);
+check(
+  `score = matched / expected words (${r.score}%)`,
+  r.score === Math.round((r.matched / r.total) * 100) && r.matched === 10 && r.total === 13,
+  `${r.matched}/${r.total}`
+);
 
 const t = introTemplate({ name: 'Mubashar Akram', edu: 'BS IT student', city: 'Pakpattan', skills: ['AWS', 'DevOps', 'Linux'], role: 'Cloud Engineer' });
 check(
   'template answer from setup details',
-  t === 'My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing a BS in Information Technology. My key skills include AWS, DevOps and Linux. I am now looking for a Cloud Engineer role where I can use these skills, grow and add value to the team.',
+  t ===
+    'My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing a BS in Information Technology. My key skills include AWS, DevOps and Linux. I am now looking for a Cloud Engineer role where I can use these skills, grow and add value to the team.',
   t
 );
-check('template leaves out missing details', introTemplate({ name: 'Sara', role: 'IT Support' }) === 'My name is Sara. I am now looking for an IT Support role where I can learn, grow and add value to the team.', introTemplate({ name: 'Sara', role: 'IT Support' }));
-check('degree short forms written out, no shortcuts', expandDegree('BS IT').degree === 'BS in Information Technology' && expandDegree('bscs student').studying && expandDegree('BBA').degree.startsWith('Bachelor of Business') && expandDegree('FSc').degree === 'FSc');
-check('role with a slash reads as words', roleText('Marketing/Sales') === 'Marketing and Sales' && introTemplate({ role: 'Marketing/Sales' }).includes('a Marketing and Sales role'));
+check(
+  'template leaves out missing details',
+  introTemplate({ name: 'Sara', role: 'IT Support' }) ===
+    'My name is Sara. I am now looking for an IT Support role where I can learn, grow and add value to the team.',
+  introTemplate({ name: 'Sara', role: 'IT Support' })
+);
+check(
+  'degree short forms written out, no shortcuts',
+  expandDegree('BS IT').degree === 'BS in Information Technology' &&
+    expandDegree('bscs student').studying &&
+    expandDegree('BBA').degree.startsWith('Bachelor of Business') &&
+    expandDegree('FSc').degree === 'FSc'
+);
+check(
+  'role with a slash reads as words',
+  roleText('Marketing/Sales') === 'Marketing and Sales' && introTemplate({ role: 'Marketing/Sales' }).includes('a Marketing and Sales role')
+);
 check('a degree already done: "I hold"', introTemplate({ edu: 'MBA' }) === 'I hold a Master of Business Administration (MBA).', introTemplate({ edu: 'MBA' }));
 
 // Mock (language-app style): lenient matching and sticky hits
 const REF = 'My name is Mubashar Akram. I am a BS IT from Pakpattan. My skills include SEO.';
 const RW = REF.split(/\s+/);
-const hits = h => [...phraseHits(h, REF)].sort((a, b) => a - b).map(j => RW[j]).join(' ');
+const hits = h =>
+  [...phraseHits(h, REF)]
+    .sort((a, b) => a - b)
+    .map(j => RW[j])
+    .join(' ');
 check(`phraseHits: joined word "bsit" = "BS IT" (${hits('I am bsit from')})`, /BS IT/.test(hits('I am bsit from')));
 check(`phraseHits: split word "pak pattan" = "Pakpattan" (${hits('from pak pattan')})`, hits('from pak pattan').includes('Pakpattan.'));
-check(`phraseHits: a word half right counts ("Mubashir", "skill") (${hits('my name is Mubashir my skill include')})`, /Mubashar/.test(hits('my name is Mubashir my skill include')) && /skills/.test(hits('my name is Mubashir my skill include')));
+check(
+  `phraseHits: a word half right counts ("Mubashir", "skill") (${hits('my name is Mubashir my skill include')})`,
+  /Mubashar/.test(hits('my name is Mubashir my skill include')) && /skills/.test(hits('my name is Mubashir my skill include'))
+);
 check('phraseHits: one city word never turns a neighbour green', hits('Pakpattan') === 'Pakpattan.', hits('Pakpattan'));
 const m1 = memoryStatus('my name is Mubashir Akram I am from Lahore', REF);
 const pj = RW.indexOf('Pakpattan.');
@@ -61,7 +105,10 @@ check('memoryStatus: wrong city is red', m1.st[pj] === 'bad' && m1.heard[pj] ===
 const m2 = memoryStatus('my name is Mubashir Akram I am from Lahore Pakpattan', REF, [...phraseHits('Pakpattan', REF)]);
 check('memoryStatus: said again later, the red word turns right (sticky)', m2.st[pj] === 'ok', m2.st.join(' '));
 
-check('intro questions detected', isIntroQuestion('Introduce yourself in 2 minutes.') && isIntroQuestion('Tell me about yourself') && !isIntroQuestion('Why this job?'));
+check(
+  'intro questions detected',
+  isIntroQuestion('Introduce yourself in 2 minutes.') && isIntroQuestion('Tell me about yourself') && !isIntroQuestion('Why this job?')
+);
 
 // Speed: a 120-word answer against a 150-word attempt.
 const long = Array.from({ length: 120 }, (_, i) => `word${i % 37}`).join(' ');
@@ -75,8 +122,16 @@ const ws = h => wordStatus(alignToExpected(h, EXP, { partial: true })).join(' ')
 const W = EXP.split(/\s+/).length;
 check('wordStatus: one entry per answer word', wordStatus(alignToExpected('', EXP)).length === W);
 check('wordStatus: nothing said = all dull', ws('') === Array(W).fill('dim').join(' '));
-check('wordStatus: said words ok, rest dull', ws('my name is Mubashir Akram') === ['ok', 'ok', 'ok', 'ok', 'ok', ...Array(W - 5).fill('dim')].join(' '), ws('my name is Mubashir Akram'));
-check('wordStatus: a wrong word in its place is red ("Lahore" for "Pakpattan")', ws('I am a BS IT student from Lahore').split(' ').slice(-1)[0] === 'bad', ws('I am a BS IT student from Lahore'));
+check(
+  'wordStatus: said words ok, rest dull',
+  ws('my name is Mubashir Akram') === ['ok', 'ok', 'ok', 'ok', 'ok', ...Array(W - 5).fill('dim')].join(' '),
+  ws('my name is Mubashir Akram')
+);
+check(
+  'wordStatus: a wrong word in its place is red ("Lahore" for "Pakpattan")',
+  ws('I am a BS IT student from Lahore').split(' ').slice(-1)[0] === 'bad',
+  ws('I am a BS IT student from Lahore')
+);
 check('wordStatus: skipped words stay dull, not red', ws('my name is Akram').split(' ')[3] === 'dim', ws('my name is Akram'));
 check('wordStatus: one extra word marks one word', (ws('my name is Ali Akram').match(/bad/g) || []).length === 1, ws('my name is Ali Akram'));
 

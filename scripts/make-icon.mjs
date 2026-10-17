@@ -29,7 +29,10 @@ const glyph = (cx, cy, size, color = '#fff') =>
 // the adaptive icon safe zone (a 66 dp circle on the 108 dp canvas).
 async function glyphRadius() {
   const N = 512;
-  const raw = await sharp(svg(N, N, glyph(N / 2, N / 2, N))).ensureAlpha().raw().toBuffer();
+  const raw = await sharp(svg(N, N, glyph(N / 2, N / 2, N)))
+    .ensureAlpha()
+    .raw()
+    .toBuffer();
   let r = 0;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (raw[(y * N + x) * 4 + 3] > 128) r = Math.max(r, Math.hypot(x + 0.5 - N / 2, y + 0.5 - N / 2));
   return r / N;
@@ -54,7 +57,7 @@ for (const [d, k] of Object.entries(DENS)) {
   await write(`${dir}/ic_launcher_monochrome.png`, svg(A, A, glyph(A / 2, A / 2, A * safeScale)), A, A);
   // Legacy: rounded square and circle, like the launcher would mask them.
   const S = L * 4;
-  const legacy = (shape) =>
+  const legacy = shape =>
     svg(S, S, `<defs><clipPath id="c">${shape}</clipPath></defs><g clip-path="url(#c)">${gradient(S, S)}${glyph(S / 2, S / 2, S * 0.62)}</g>`);
   await write(`${dir}/ic_launcher.png`, legacy(`<rect x="${S * 0.04}" y="${S * 0.04}" width="${S * 0.92}" height="${S * 0.92}" rx="${S * 0.2}"/>`), L, L);
   await write(`${dir}/ic_launcher_round.png`, legacy(`<circle cx="${S / 2}" cy="${S / 2}" r="${S * 0.46}"/>`), L, L);
@@ -71,7 +74,7 @@ fs.writeFileSync(`${RES}/mipmap-anydpi-v26/ic_launcher_round.xml`, adaptive);
 
 // Android 12+ splash: the system draws the icon in a 160 dp circle on windowSplashScreenBackground.
 // 288 dp canvas at xxxhdpi-like 4x = 1152 px is more than enough; nodpi keeps one file.
-await write(`${RES}/drawable-nodpi/splash_icon.png`, svg(1152, 1152, glyph(576, 576, 1152 * (75 / 288) / reach)), 432, 432);
+await write(`${RES}/drawable-nodpi/splash_icon.png`, svg(1152, 1152, glyph(576, 576, (1152 * (75 / 288)) / reach)), 432, 432);
 
 // Capacitor splash (shown on Android below 12 and while the web view loads): gradient + glyph.
 for (const dir of fs.readdirSync(RES).filter(d => d.startsWith('drawable'))) {
@@ -84,7 +87,11 @@ for (const dir of fs.readdirSync(RES).filter(d => d.startsWith('drawable'))) {
 
 // Play Store icon: full square (Play rounds the corners itself), 32-bit PNG.
 await write('assets/play/icon-512.png', svg(512, 512, gradient(512, 512) + glyph(256, 256, 512 * 0.64)), 512, 512);
-await sharp('assets/play/icon-512.png').ensureAlpha().png({ compressionLevel: 9 }).toBuffer().then(b => fs.writeFileSync('assets/play/icon-512.png', b));
+await sharp('assets/play/icon-512.png')
+  .ensureAlpha()
+  .png({ compressionLevel: 9 })
+  .toBuffer()
+  .then(b => fs.writeFileSync('assets/play/icon-512.png', b));
 
 // Web icons (favicon, manifest), app build (public/) and the privacy policy site.
 const fav = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${BRAND.a}"/><stop offset=".5" stop-color="${BRAND.b}"/><stop offset="1" stop-color="${BRAND.c}"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#bg)"/>${glyph(256, 256, 512 * 0.66)}</svg>\n`;
