@@ -8,7 +8,7 @@ const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 375, height: 740 } });
 const errors = [];
 p.on('pageerror', e => errors.push(e.message));
-await p.goto('http://localhost:4173/');
+await p.goto((process.env.UI_URL || 'http://localhost:4173/'));
 await p.evaluate(() => {
   localStorage.setItem('is_hist', JSON.stringify([{ c: 'Software Developer', d: '10/14/2026', s: 7, ts: Date.now() - 864e5 }]));
   // A user who finished setup (the app has no demo profile any more).
@@ -167,7 +167,7 @@ await p.waitForTimeout(600);
 check('Back from Mock after a fresh start: Home, no exit warning', (await p.isVisible('#home')) && !/back again/i.test(await p.textContent('#toast')));
 // New user: Get Started on the welcome screen opens Home (no form)
 const p2 = await b.newPage({ viewport: { width: 375, height: 740 } });
-await p2.goto('http://localhost:4173/');
+await p2.goto((process.env.UI_URL || 'http://localhost:4173/'));
 await p2.evaluate(() => localStorage.clear());
 await p2.evaluate(() => new Promise(r => { const q = indexedDB.deleteDatabase('InterviewSimulator'); q.onsuccess = q.onerror = q.onblocked = () => r(); }));
 await p2.reload();

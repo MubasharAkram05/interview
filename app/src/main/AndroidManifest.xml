@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:allowBackup="true"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -9,11 +11,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <!-- AdMob App ID. This is Google's TEST App ID. Replace it with your real App ID
-             before the production release (keep it in sync with src/config/ads.js). -->
+        <!-- AdMob App ID: filled in by Gradle from src/config/ads.js (TEST_IDS, or PRODUCTION_IDS
+             for a release with RELEASE_ADS=true). Never edit an ID here. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"
+            android:value="${admobAppId}"
         />
 
         <activity

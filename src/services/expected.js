@@ -14,15 +14,26 @@ const words = t =>
     .split(/\s+/)
     .filter(w => norm(w));
 
+// Pair scores are memoised: the Mock box re-aligns the whole answer on every partial result, so
+// the same word pairs come back again and again. Levenshtein + double metaphone run once per pair
+// instead of once per pair per partial (bounded: cleared after 20 000 entries, about 1 MB).
+const simCache = new Map();
+
 /** Similarity of a heard and an expected word (0..1), or -1 when they must not be paired. */
 function pairSim(h, e, cfg) {
   const a = norm(h);
   const b = norm(e);
   if (a === b) return 1;
+  const key = a + '|' + b + '|' + cfg.minSim;
+  const hit = simCache.get(key);
+  if (hit !== undefined) return hit;
+  let out = -1;
   const s = similarity(a, b);
-  if (s >= cfg.minSim) return s;
-  if (soundsAlike(a, b)) return Math.max(s, cfg.minSim);
-  return -1;
+  if (s >= cfg.minSim) out = s;
+  else if (soundsAlike(a, b)) out = Math.max(s, cfg.minSim);
+  if (simCache.size > 20000) simCache.clear();
+  simCache.set(key, out);
+  return out;
 }
 
 /**

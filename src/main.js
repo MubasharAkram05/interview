@@ -7,10 +7,6 @@ import {
   TAIL,
   MID,
   OV,
-  MYH,
-  MYT,
-  MYM,
-  MYOV,
   MYEX,
   LK,
   LVH,
@@ -33,6 +29,7 @@ import { PRIVACY_POLICY_URL, VOICE_ACCENTS } from './config/app.js';
 import {
   initializeAdMob,
   showInterstitialAtBreak,
+  setInterstitialBlocker,
   skipInterstitialBreak,
   setBannerSuppressed,
   setBannerPlacement,
@@ -63,6 +60,7 @@ import { SKILL_SUGGESTIONS } from './data/interview-vocab.js';
 
 import { speak, stopSpeaking, isSpeaking, onSpeakingChange, TTS_MESSAGES } from './services/tts.js';
 import { initStorage, getItem, setItem, removeItem } from './services/storage.js';
+import { errorLog } from './services/debug.js';
 import { questionOfDay, bumpStreak, streakNow } from './services/qotd.js';
 import { nativeAdLayout } from './services/native-info.js';
 import { formatSessionDate, formatExportDateTime, calculateStreak } from './services/dates.js';
@@ -74,7 +72,6 @@ const $ = id => document.getElementById(id);
 // Safe HTML escaping
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const clean = v => String(v).trim().replace(/[.\s]+$/, '');
-const nrm = x => String(x).toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]/g, '');
 const ini = n => n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
 // SVG Icons mapping
@@ -118,7 +115,6 @@ let E = {};
 let QE = {};
 let H = {};
 let C = {};
-let editing = null;
 let cur = [];
 let idx = 0;
 let answers = [];
@@ -518,11 +514,11 @@ function fillHx() {
   const card = (cls, icon, title, body, btn, extra = '') =>
     `<article class="hcard ${cls}"><div class="hct"><span class="hci" aria-hidden="true">${icon}</span><h4>${title}</h4></div>${body}<div class="hcb">${extra}${btn}</div></article>`;
   let o = '';
-  const res = questionOfDay({ saved: getItem('is_qotd', null), cats: Object.keys(CATS), lv: LEVELS[pcLv] ? pcLv : 'fresher', list: bank });
+  const res = questionOfDay({ saved: getItem('is_qotd', {}), cats: Object.keys(CATS), lv: LEVELS[pcLv] ? pcLv : 'fresher', list: bank });
   if (res) {
     const { pick, changed } = res;
     if (changed) setItem('is_qotd', pick);
-    const qs = streakNow(getItem('is_qstreak', null));
+    const qs = streakNow(getItem('is_qstreak', {}));
     const fire = qs ? `<span class="qstreak${pick.done ? ' on' : ''}" title="Days in a row">🔥 ${qs} day${qs === 1 ? '' : 's'}</span>` : '';
     o += pick.done
       ? card('qotd done', '✅', `Question of the day${fire}`, `<p class="qotdq">${esc(pick.q)}</p>`, '<button class="sm" id="qotdBtn">Practice again</button>', '<small class="qdone">Done today</small>')
@@ -541,10 +537,10 @@ function fillHx() {
 
 // Question of the day: practised once (spoken in Practice, or Finish tapped on it) = done for today.
 function markQotd(c, lv, q) {
-  const s = getItem('is_qotd', null);
+  const s = getItem('is_qotd', {});
   if (!s || s.done || s.c !== c || s.lv !== lv || s.q !== q) return;
   setItem('is_qotd', { ...s, done: 1 });
-  setItem('is_qstreak', bumpStreak(getItem('is_qstreak', null), s.d));
+  setItem('is_qstreak', bumpStreak(getItem('is_qstreak', {}), s.d));
 }
 
 function pFinish1() {
@@ -1237,6 +1233,12 @@ function stopMedia() {
   clearInterval(rv);
   clearTimeout(rv);
   clearTimeout(pRv);
+  // Show any text that was still appearing letter by letter, so it never stays invisible after
+  // the app comes back from the background or an interstitial.
+  try {
+    pFinish();
+    document.querySelectorAll('#qText .w').forEach(x => x.classList.add('in'));
+  } catch {}
 }
 
 function stopMic() {
@@ -1432,18 +1434,6 @@ function updateMicButtons() {
   if (!voiceOK) $('micSt').textContent = 'Voice input is not available on this phone. Type your answer.';
 }
 
-// Read-along: paint said words (green) and skipped words (orange), scroll to the last one.
-function pPaint(state, pos) {
-  PW.forEach((x, i) => {
-    x.classList.toggle('hl', state[i] === 'ok');
-    x.classList.toggle('miss', state[i] === 'miss');
-  });
-  const a = $('pA');
-  const x = PW[Math.min(pos, PW.length) - 1];
-  if (x && (x.offsetTop + x.offsetHeight > a.scrollTop + a.clientHeight - 10 || x.offsetTop < a.scrollTop)) {
-    a.scrollTop = Math.max(0, x.offsetTop - a.clientHeight / 3);
-  }
-}
 
 
 // Mic button grows a little with your voice, so you can see it is hearing you.
@@ -1886,7 +1876,7 @@ function mGo(k) {
 function step(d) {
   playTapSound();
   if (d > 0 && idx === cur.length - 1) {
-    finish();
+    finishAfterMic();
     return;
   }
   if (idx + d < 0) return;
@@ -2020,11 +2010,6 @@ function showWordTip(el, text) {
   showWordTip.t = setTimeout(() => tip.classList.add('hidden'), 3500);
 }
 
-// The last word of the saved answer has been said (right or wrong).
-function mDone(i, live = '') {
-  const { st } = mStatus(i, live);
-  return st.length > 0 && st[st.length - 1] !== 'dim';
-}
 
 // Every word of the saved answer said right.
 function mAllOk(i) {
@@ -2090,8 +2075,10 @@ async function mClear() {
   playTapSound();
   if (!(mHeard[idx] || []).length && !answers[idx]) return;
   if (!(await ask('Clear answer?', 'Clear this answer and start again?', 'Clear', 'Cancel', '🧹', true))) return;
-  mHeard[idx] = [];
-  mOk[idx] = [];
+  // Clear in place: a live mic session keeps adding to this same list (a new array would lose
+  // everything said after Clear).
+  (mHeard[idx] = mHeard[idx] || []).length = 0;
+  (mOk[idx] = mOk[idx] || []).length = 0;
   answers[idx] = '';
   saveScr();
   mRender(idx);
@@ -2108,6 +2095,22 @@ async function toggleMic() {
     stopListening(); // stops now; the last phrase still arrives and is added
     return;
   }
+  // A second tap while the mic is still getting ready (permission, internet check) is ignored, so
+  // two sessions can never start at once.
+  if (micBusy) return;
+  micBusy = true;
+  try {
+    await startMockMic();
+  } finally {
+    micBusy = false;
+  }
+}
+
+let micBusy = false;
+let partialFrame = 0; // one Mock box render per frame for live words
+let partialText = '';
+
+async function startMockMic() {
   stopSpeaking(); // the question must not be read into the mic
   clearInterval(rv);
   clearTimeout(rv);
@@ -2155,7 +2158,16 @@ async function toggleMic() {
       mockNote(st === 'ready' || st === 'listening' ? 'Speak now. Say your answer from memory.' : st === 'starting' ? (readyOnce ? 'Listening...' : 'Getting the mic ready...') : st === 'stopping' ? 'Finishing...' : '');
     },
     onLevel: db => micLevel($('mic'), db),
-    onPartial: text => mRender(myIdx, text), // shown in the box at once, saved when final
+    // Shown in the box at once (at most one render per frame: partials can come faster than the
+    // phone redraws), saved when final.
+    onPartial: text => {
+      partialText = text;
+      if (partialFrame) return;
+      partialFrame = requestAnimationFrame(() => {
+        partialFrame = 0;
+        if (here()) mRender(myIdx, partialText);
+      });
+    },
     onFinal: text => {
       H.push(...mWords(text).map(w => ({ w })));
       // Answer words in this phrase stay right for good (a red word said again turns right).
@@ -2186,27 +2198,6 @@ async function toggleMic() {
 }
 
 // Evaluation & Feedback Scoring
-const wds = t => String(t || '').split(/\s+/).map(nrm).filter(Boolean);
-const near = (a, b) => {
-  if (a === b) return true;
-  if (a.length < 5 || b.length < 5 || Math.abs(a.length - b.length) > 1) return false;
-  let i = 0, j = 0, e = 0;
-  while (i < a.length && j < b.length) {
-    if (a[i] === b[j]) {
-      i++;
-      j++;
-      continue;
-    }
-    if (++e > 1) return false;
-    if (a.length > b.length) i++;
-    else if (b.length > a.length) j++;
-    else {
-      i++;
-      j++;
-    }
-  }
-  return e + (a.length - i) + (b.length - j) <= 1;
-};
 
 // The saved answer of a Mock question (same rules as Practice: saved edit, then the
 // "Introduce yourself" answer from setup, then the sample answer filled from the profile).
@@ -2221,40 +2212,27 @@ function refText(q) {
   return q.a ? fill(q.a, p && { ...p, role: ROLE[cat] || p.role }) : '';
 }
 
-function mistakes(user, ref) {
-  const u = wds(user);
-  const r = wds(ref);
-  if (!u.length || !r.length) return null;
-  const n = u.length;
-  const m = r.length;
-  const D = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      D[i][j] = near(u[i], r[j]) ? D[i + 1][j + 1] + 1 : Math.max(D[i + 1][j], D[i][j + 1]);
+
+// Finish while the mic is on: stop it and wait for the last sentence (up to 2.5 s), so the words
+// said last still count in the score (before, the session was cancelled and they were lost).
+let finishing = false;
+async function finishAfterMic() {
+  if (finishing) return;
+  finishing = true;
+  try {
+    if (mMicOn || isListening() || voiceState() !== 'idle') {
+      mMicOn = false;
+      $('mic').classList.remove('on');
+      mockNote('Finishing...');
+      stopListening();
+      const end = Date.now() + 2500;
+      while (voiceState() !== 'idle' && Date.now() < end) await new Promise(r => setTimeout(r, 100));
+      mCommit(idx);
     }
+    if (cs === 'interview') finish();
+  } finally {
+    finishing = false;
   }
-  const hit = new Array(n).fill(false);
-  let i = 0, j = 0;
-  while (i < n && j < m) {
-    if (near(u[i], r[j])) {
-      hit[i] = true;
-      i++;
-      j++;
-    } else if (D[i + 1][j] >= D[i][j + 1]) {
-      i++;
-    } else {
-      j++;
-    }
-  }
-  const f = hit.indexOf(true);
-  const l = hit.lastIndexOf(true);
-  if (f < 0) return { bad: n, span: n };
-  const span = l - f + 1;
-  let bad = 0;
-  for (let k = f; k <= l; k++) {
-    if (!hit[k]) bad++;
-  }
-  return { bad, span };
 }
 
 function finish() {
@@ -2263,8 +2241,6 @@ function finish() {
   cancelListening();
 
   const done = answers.filter(Boolean);
-  const words = done.reduce((s, a) => s + a.split(/\s+/).length, 0);
-  const avg = done.length ? Math.round(words / done.length) : 0;
   // Score from each answer word (like the Mock box colours): said right / all words of the saved
   // answer, averaged over every question (a question not answered counts 0). Before, only the
   // words said right were compared, so one right word gave 10/10.
@@ -2385,7 +2361,11 @@ function openPrivacyPolicy() {
 
 // Open a web link in the phone's browser, or explain that the phone is offline.
 async function openExternal(url, notify) {
-  if (!(await requireOnline('policy', notify))) return;
+  // Only https web links and mailto e-mail links ever leave the app.
+  const u = String(url || '');
+  const mail = /^mailto:[^\s]+$/i.test(u);
+  if (!mail && !/^https:\/\/[^\s]+$/i.test(u)) return notify('This link cannot be opened.');
+  if (!mail && !(await requireOnline('policy', notify))) return;
   try {
     if (Capacitor.isNativePlatform()) await AppLauncher.openUrl({ url });
     else window.open(url, '_blank', 'noopener');
@@ -2455,24 +2435,7 @@ function initEventListeners() {
     if (e.target.id === 'dlg' && dlgRes) dlgRes(false);
   });
 
-  // Action sheet
-  $('csPractice')?.addEventListener('click', () => csGo(0));
-  $('csInterview')?.addEventListener('click', () => csGo(1));
-
-  // Profile actions
-  $('pRestoreQBtn')?.addEventListener('click', restoreQ);
-
-  // Practice actions
-  $('pSaveABtn')?.addEventListener('click', saveA);
-  $('pCancelABtn')?.addEventListener('click', cancelA);
-  $('pAddQBtn')?.addEventListener('click', addQ);
-  $('pDelQBtn')?.addEventListener('click', delQ);
-
-  // Mock setup actions
-
-  // Mock interview actions
-  $('qSpkBtn')?.addEventListener('click', () => reveal(cur[idx].q, true));
-  $('mPrevBtn')?.addEventListener('click', () => step(-1));
+  // Mock interview
   // Tap a red word: what the phone heard instead.
   $('ansBox')?.addEventListener('click', e => {
     const b = e.target.closest('.aw.wrongw');
@@ -2484,12 +2447,6 @@ function initEventListeners() {
     if (!e.target.closest('#wTip, .aw.wrongw')) $('wTip')?.classList.add('hidden');
   });
 
-  // Feedback actions
-  $('fbExportBtn')?.addEventListener('click', exportT);
-  $('fbHomeBtn')?.addEventListener('click', home);
-
-  // Add question
-  $('addqSaveBtn')?.addEventListener('click', saveQ);
 
   // Links inside the bundled policy text open in the browser (with an offline message).
   $('policyText')?.addEventListener('click', e => {
@@ -2558,7 +2515,7 @@ function loadPreferences() {
 }
 
 // App Bootstrap
-async function initApp() {
+async function initAppMain() {
   // The welcome screen is on the page: the native splash can go (index.html also does this early).
   if (Capacitor.isNativePlatform()) SplashScreen.hide().catch(() => {});
   await initStorage();
@@ -2571,12 +2528,15 @@ async function initApp() {
   document.documentElement.dataset.theme = savedTheme;
   syncThemeSwitch();
 
-  profiles = getItem('is_profiles') || {};
+  profiles = getItem('is_profiles', {});
   E = getItem('is_edits', {}) || {};
   QE = getItem('is_qedits', {}) || {};
   // Older versions shipped a sample profile ("Alex Khan"). It is not the user: delete it and its edits.
-  if (LEGACY_DEMO_NAMES.some(n => profiles[n])) {
-    LEGACY_DEMO_NAMES.forEach(n => {
+  // Only the old built-in sample: it was never saved through the setup screen (no "setup" flag).
+  // A real user with the same name (they saved it through setup) is never touched.
+  const isDemo = n => profiles[n] && !profiles[n].setup;
+  if (LEGACY_DEMO_NAMES.some(isDemo)) {
+    LEGACY_DEMO_NAMES.filter(isDemo).forEach(n => {
       delete profiles[n];
       [E, QE].forEach(o => Object.keys(o).forEach(k => k.startsWith(n + '|') && delete o[k]));
     });
@@ -2637,10 +2597,11 @@ async function initApp() {
         cat = o.cat;
         lv = o.lv;
         cur = o.cur;
-        answers = o.answers;
+        // Older or damaged saved sessions: missing fields fall back to an empty answer.
+        answers = Array.isArray(o.answers) ? o.answers : cur.map(() => '');
         mHeard = Array.isArray(o.heard) ? o.heard : cur.map(() => []);
         mOk = Array.isArray(o.ok) ? o.ok : cur.map(() => []);
-        idx = Math.min(o.idx, cur.length - 1);
+        idx = Math.max(0, Math.min(Number.isInteger(o.idx) ? o.idx : 0, cur.length - 1));
         show('interview');
         showQ();
       }
@@ -2656,6 +2617,8 @@ async function initApp() {
   // The welcome screen covers the app at start: no banner (and no interstitial) over it.
   if (document.getElementById('intro')) setBannerSuppressed('intro', true);
   // Consent (EEA/UK) first, then AdMob creates ONE banner under the header for the whole session.
+  // Never an interstitial while the mic records (or is still finishing a recording).
+  setInterstitialBlocker(() => mMicOn || pMicOn || isListening() || voiceState() !== 'idle');
   initializeAdMob({ layout: bannerLayout, onSpace: setAdSpace });
   watchBannerLayout();
   watchHeaderInset();
@@ -2710,12 +2673,17 @@ async function initApp() {
         cancelA();
         return;
       }
-      // 4. Back in navigation stack
+      // 4. Setup form step 2: back to step 1 (keeps what was typed)
+      if (cs === 'setup' && sStep > 0) {
+        setupStep(-1);
+        return;
+      }
+      // 5. Back in navigation stack
       if (cs !== 'home') {
         history.back();
         return;
       }
-      // 5. On home screen: double-tap back to exit
+      // 6. On home screen: double-tap back to exit
       if (Date.now() < exitArm) {
         App.exitApp();
       } else {
@@ -2741,7 +2709,18 @@ async function initApp() {
       }
     });
   }
-  introReady();
+}
+
+// Start-up never gets stuck on the welcome screen: whatever fails above is logged (debug panel)
+// and Get Started still appears.
+async function initApp() {
+  try {
+    await initAppMain();
+  } catch (e) {
+    errorLog('start-up', e);
+  } finally {
+    introReady();
+  }
 }
 
 

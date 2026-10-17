@@ -63,6 +63,13 @@ let onBannerSpace = () => {}; // (heightPx) => reserve that much banner height (
 
 const native = () => Capacitor.isNativePlatform();
 
+// The page tells admob.js when an interstitial must never open (mic recording).
+let isBusy = () => false;
+/** fn() returns true while an interstitial must not open (for example while the mic records). */
+export function setInterstitialBlocker(fn) {
+  isBusy = typeof fn === 'function' ? fn : () => false;
+}
+
 /**
  * Ask for consent (only shows a form where the law needs it), then start the SDK and
  * the banner. No ad request is made before consent is resolved.
@@ -74,7 +81,7 @@ export async function initializeAdMob({ layout, onSpace } = {}) {
 
   let canRequestAds = true;
   try {
-    let info = await AdMob.requestConsentInfo();
+    let info = await AdMob.requestConsentInfo({ tagForUnderAgeOfConsent: ADS_CONFIG.tagForUnderAgeOfConsent });
     consent.status = info.status;
     if (info.isConsentFormAvailable && info.status === AdmobConsentStatus.REQUIRED) {
       consent.formShown = true;
@@ -96,7 +103,11 @@ export async function initializeAdMob({ layout, onSpace } = {}) {
   }
 
   try {
-    await AdMob.initialize({ initializeForTesting: ADS_CONFIG.isTesting });
+    await AdMob.initialize({
+      initializeForTesting: ADS_CONFIG.isTesting,
+      tagForChildDirectedTreatment: ADS_CONFIG.tagForChildDirectedTreatment,
+      tagForUnderAgeOfConsent: ADS_CONFIG.tagForUnderAgeOfConsent
+    });
   } catch {
     adsLog('init failed');
     onBannerSpace(0);
@@ -418,9 +429,14 @@ async function preloadInterstitial() {
   }
 }
 
-/** Retry a failed load after 15 s, 30 s, then every 60 s. */
+/** Retry a failed load after 15 s, 30 s, then every 60 s, at most interstitialMaxRetries times. */
 function scheduleInterstitialRetry() {
   if (!ready || !ADS_CONFIG.enableInterstitial || interstitialReady) return;
+  if (retryIndex >= ADS_CONFIG.interstitialMaxRetries) {
+    // Stop retrying on a timer; the next natural break asks for one new load.
+    adsLog('retry limit reached, waiting for the next break');
+    return;
+  }
   const steps = ADS_CONFIG.interstitialRetryMs;
   const wait = steps[Math.min(retryIndex, steps.length - 1)];
   retryIndex++;
@@ -493,6 +509,7 @@ export async function showInterstitialAtBreak(breakName) {
   if (!ADS_CONFIG.enableInterstitial) return skip('disabled in config');
   if (!ready) return skip('ads not started (no consent yet, offline or init failed)');
   if (interstitialOpen) return skip('already open', false);
+  if (isBusy()) return skip('mic is recording', false);
   if (document.visibilityState !== 'visible') return skip('app in background');
   if (suppressed.size) return skip('screen covered: ' + [...suppressed].join(','));
   const sinceLaunch = Date.now() - appStart;

@@ -61,7 +61,8 @@ export function nameError(name) {
   if (!n) return 'Please enter your full name.';
   if (n.length < 2) return 'Name must be at least 2 letters.';
   if (n.length > 40) return 'Name can be at most 40 characters.';
-  if (!/^[\p{L}][\p{L} ]*$/u.test(n)) return 'Use letters and spaces only.';
+  // Letters (with accents and vowel signs), spaces, and the ' - . of names like D'Souza or Abdul-Rahman.
+  if (!/^\p{L}[\p{L}\p{M}' .-]*$/u.test(n)) return 'Use letters, spaces, apostrophes or hyphens only.';
   return '';
 }
 
