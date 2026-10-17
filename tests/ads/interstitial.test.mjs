@@ -365,7 +365,12 @@ async function freshAds() {
   const cfg = await import('../../src/config/ads.js');
   check('G1 cooldown is 3 minutes in every build', cfg.INTERSTITIAL_COOLDOWN_MS === 180000);
   check('G2 tests and default builds use Google test IDs', !cfg.USE_PRODUCTION_ADS && cfg.ADS_CONFIG.isTesting && cfg.ADS_CONFIG.appId === cfg.TEST_IDS.appId);
-  check('G3 placeholder production IDs are reported', cfg.productionIdProblems().length === 3);
+  check('G3 the real production IDs pass', cfg.productionIdProblems().length === 0);
+  check('G3b a placeholder production ID is reported', cfg.productionIdProblems({ ...cfg.PRODUCTION_IDS, bannerAdId: 'BANNER_ID' }).length === 1);
+  check(
+    'G3c a Google test ID among production IDs is reported',
+    cfg.productionIdProblems({ ...cfg.PRODUCTION_IDS, interstitialAdId: cfg.TEST_IDS.interstitialAdId }).length === 1
+  );
   check('G4 test IDs are refused as production IDs', cfg.productionIdProblems(cfg.TEST_IDS).length === 3);
   check(
     'G5 well-formed real-looking IDs pass',

@@ -20,11 +20,11 @@ export const TEST_IDS = {
   interstitialAdId: 'ca-app-pub-3940256099942544/1033173712'
 };
 
-// Real IDs from the AdMob console. Placeholders until the owner fills them in.
+// Real IDs from the AdMob console. Used only when a release build sets RELEASE_ADS=true.
 export const PRODUCTION_IDS = {
-  appId: 'APP_ID',
-  bannerAdId: 'BANNER_ID',
-  interstitialAdId: 'INTERSTITIAL_ID'
+  appId: 'ca-app-pub-1403228791449480~8971004353',
+  bannerAdId: 'ca-app-pub-1403228791449480/1995541620',
+  interstitialAdId: 'ca-app-pub-1403228791449480/9786401738'
 };
 
 const GOOGLE_SAMPLE_PUBLISHER = 'ca-app-pub-3940256099942544';
