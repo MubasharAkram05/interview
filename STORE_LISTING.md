@@ -63,7 +63,7 @@ Please note: this app is a practice tool. It does not guarantee a job offer, and
 |---|---|---|---|
 | App icon | 512 x 512, 32-bit PNG (with alpha), max 1 MB | `assets/play/icon-512.png` (512x512 RGBA, 21 KB, full square, Play rounds the corners) | Ready |
 | Feature graphic | 1024 x 500, JPG or 24-bit PNG (no alpha), max 15 MB | `store-assets/feature-graphic.png` (1024x500 RGB, 44 KB) | Ready |
-| Phone screenshots | at least 2 (max 8), PNG or JPG, 16:9 or 9:16, each side 320 to 3840 px | `store-assets/screenshots/1-home.png` to `4-mock-interview.png` (1080x1920) | Drafts from the web build with the fictional profile "Alex Khan". Replace with real phone screenshots (the mic button only shows on a real phone) |
+| Phone screenshots | at least 2 (max 8), PNG or JPG, 16:9 or 9:16, each side 320 to 3840 px | `store-assets/screenshots/1-home.png` to `4-mock-interview.png` (1080x1920) | Drafts from the web build. Replace with real phone screenshots (the mic button only shows on a real phone), using a fictional profile such as "Sara Ahmed" |
 
 ### Screenshot list (take these on a real phone)
 
@@ -72,6 +72,8 @@ Please note: this app is a practice tool. It does not guarantee a job offer, and
 3. Mock interview setup (interview type and level)
 4. Mock interview screen with the mic button and an answer in progress
 5. Results screen with score and tips
-6. Profile screen (keep the fictional "Alex Khan" profile, not your real personal data)
+6. Profile screen (use a fictional profile such as "Sara Ahmed", not your real personal data)
+
+Required sizes: 2 to 8 phone screenshots, PNG or JPG, 9:16 (for example 1080 x 1920), each side 320 to 3840 px. Feature graphic: exactly 1024 x 500, JPG or 24-bit PNG without alpha (`store-assets/feature-graphic.png`, made by `npm run store:assets`).
 
 To change the icon: edit `assets/logo/glyph.svg` (or the gradient in `scripts/make-icon.mjs` and `--brand-1/2/3` in `src/style.css`), then run `npm run icon` (all icons, splash, Play and web icons, with a size check) and `npm run store:assets` (feature graphic).

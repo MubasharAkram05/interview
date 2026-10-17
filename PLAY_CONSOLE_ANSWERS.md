@@ -1,6 +1,6 @@
 # Play Console Answers: Interview Simulator
 
-Answers for Play Console > Policy and programs > **App content**. Every answer is based on the real code in this project (checked October 15, 2026). If you change the app (new SDK, new feature), check these again.
+Answers for Play Console > Policy and programs > **App content**. Every answer is based on the real code in this project (checked October 17, 2026). If you change the app (new SDK, new feature), check these again.
 
 ## What the code actually does (facts used below)
 
@@ -27,7 +27,7 @@ Answers for Play Console > Policy and programs > **App content**. Every answer i
 ## 3. Ads
 
 - Does your app contain ads? **Yes, my app contains ads**
-- Ad placement (for your own reference, not asked by Play): one standard banner fixed under the header on every screen, in its own reserved space (it never covers content or buttons, and hides while dialogs are open); interstitial only at natural breaks (after a finished mock interview, before the results screen, and after every 4th Practice question), never on launch, within 10 s of opening, while recording or typing, on back/exit, or at two breaks in a row, and at least 3 minutes apart in the release build. No ads before consent where consent is required.
+- Ad placement (for your own reference, not asked by Play): one standard banner in its own reserved space, under the header on every screen and at the bottom of the Mock interview screen (it never covers content or buttons, and hides on forms, the welcome screen and while dialogs are open); interstitial only at natural breaks (after a finished mock interview, before the results screen, and after every 4th Practice question), never on launch, within 60 s of opening, while the mic records or the user types, on back/exit, or at two breaks in a row, and at least 3 minutes apart in the release build. No ad request before the UMP consent step; the app is not child-directed (tagForChildDirectedTreatment and tagForUnderAgeOfConsent are false).
 
 ## 4. Advertising ID
 

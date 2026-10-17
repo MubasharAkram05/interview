@@ -152,7 +152,8 @@ export function phraseHits(phrase, expectedText, cfg = LENIENT) {
 /**
  * Status of every answer word for Mock: the in-order alignment of everything heard (LENIENT),
  * then sticky hits on top (a word said right once stays right). Returns { st, heard } like
- * wordDetail.
+ * wordDetail. Time O(n x m) for one alignment (pair scores memoised, see pairSim), space O(n x m);
+ * an answer is at most a few hundred words, so this stays a few ms per live update.
  */
 export function memoryStatus(heardText, expectedText, sticky = []) {
   const d = wordDetail(alignToExpected(heardText, expectedText, { partial: true, cfg: LENIENT }));

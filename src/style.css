@@ -547,3 +547,7 @@ html{background:var(--bg)}
   #interview .qbody{max-height:96px}
   #pCard .acard{min-height:110px}
 }
+
+/* Touch targets: the 36px favourite and edit icons get a 44x44 tap area without changing how they look
+   (the progress dots already have one, see .dot::after). */
+#pQ .eb::after{content:"";position:absolute;inset:-4px}
