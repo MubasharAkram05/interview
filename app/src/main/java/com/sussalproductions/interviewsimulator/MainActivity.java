@@ -20,7 +20,15 @@ public class MainActivity extends BridgeActivity {
     // Largest text zoom (percent) taken from the phone's font size setting.
     private static final int MAX_TEXT_ZOOM = 115;
 
+    // After the page load event, wait this long for the page's own "painted" signal.
+    private static final long PAGE_LOADED_GRACE_MS = 1500;
+
     private volatile boolean pageVisible = false;
+
+    /** Called when the welcome screen is on screen: let Android's splash go. */
+    public void onWebReady() {
+        pageVisible = true;
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -60,30 +68,21 @@ public class MainActivity extends BridgeActivity {
         } catch (Exception ignored) {
             // keep the default zoom
         }
+        // The splash goes when the page says its welcome screen is in place (index.html calls
+        // BuildInfo.appReady right after it). Releasing it as soon as the WebView committed the
+        // page showed a short blank white screen: the page background was drawn before the
+        // welcome screen existed. Fallbacks: shortly after the page load event, or on a load error.
+        final Handler main = new Handler(Looper.getMainLooper());
         bridge.addWebViewListener(
             new WebViewListener() {
                 @Override
-                public void onPageCommitVisible(WebView view, String url) {
-                    // The page is about to draw: give it one frame, then let the splash go.
-                    view.postVisualStateCallback(
-                        0,
-                        new WebView.VisualStateCallback() {
-                            @Override
-                            public void onComplete(long requestId) {
-                                pageVisible = true;
-                            }
-                        }
-                    );
-                }
-
-                @Override
                 public void onPageLoaded(WebView webView) {
-                    pageVisible = true;
+                    main.postDelayed(MainActivity.this::onWebReady, PAGE_LOADED_GRACE_MS);
                 }
 
                 @Override
                 public void onReceivedError(WebView webView) {
-                    pageVisible = true;
+                    onWebReady();
                 }
             }
         );

@@ -38,6 +38,32 @@ public class BuildInfoPlugin extends Plugin {
         call.resolve(ret);
     }
 
+    /** The page has painted its welcome screen: MainActivity can remove the start-up splash. */
+    @PluginMethod
+    public void appReady(PluginCall call) {
+        call.resolve();
+        if (!(getActivity() instanceof MainActivity)) return;
+        final MainActivity activity = (MainActivity) getActivity();
+        activity.runOnUiThread(() -> {
+            try {
+                // Wait until the current page (with the welcome screen) is ready for the next draw.
+                getBridge()
+                    .getWebView()
+                    .postVisualStateCallback(
+                        0,
+                        new WebView.VisualStateCallback() {
+                            @Override
+                            public void onComplete(long requestId) {
+                                activity.onWebReady();
+                            }
+                        }
+                    );
+            } catch (Exception ex) {
+                activity.onWebReady();
+            }
+        });
+    }
+
     @PluginMethod
     public void getInfo(PluginCall call) {
         JSObject ret = new JSObject();

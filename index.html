@@ -42,8 +42,9 @@
   <p class="ifoot">Your next opportunity is just a practice away.</p>
 </div>
 <script>
-  // The welcome screen is painted: hide the native splash now (the app bundle may still be loading).
-  try { window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen && window.Capacitor.Plugins.SplashScreen.hide({ fadeOutDuration: 200 }); } catch (e) {}
+  // The welcome screen is in the page and styled: tell Android, so its logo splash goes straight to
+  // this screen with no blank page in between (BuildInfo.appReady waits until it is ready to draw).
+  try { window.Capacitor.nativePromise('BuildInfo', 'appReady', {}).catch(function () {}); } catch (e) {}
 </script>
 <div class="app">
 <header class="bar"><button class="ic hidden" id="x" data-i="left" onclick="back()" aria-label="Back" title="Back"></button><span class="logo" id="hLogo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg></span><h1 id="ttl">Interview Simulator</h1><button class="ic hidden" id="hMute" data-i="mute" onclick="muteSpeech()" aria-label="Stop reading aloud" title="Stop reading aloud"></button><button class="ic" id="hStreak" data-i="flame" onclick="streakToast()" aria-label="Streak" title="Streak"></button><button class="ic" id="hProf" data-i="user" onclick="showProfile()" aria-label="Profile" title="Profile"></button></header>
