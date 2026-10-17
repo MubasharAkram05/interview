@@ -223,9 +223,22 @@ jobs:
               echo "AAB is UNSIGNED (no secrets). Add the 4 secrets to get an upload-ready AAB."
             fi
             echo
-            echo "== Leftovers in web bundle =="
-            echo "console.log calls in app/src/main/assets/public: $(grep -o 'console\.log' -r app/src/main/assets/public | wc -l)"
-            echo "test ad IDs in the web bundle: $(grep -o 'ca-app-pub-3940256099942544' -r app/src/main/assets/public | wc -l) (0 expected only with RELEASE_ADS=true)"
+            # Read from the release AAB itself: by now app/src/main/assets/public holds the debug
+            # build (the debug APK step runs after the AAB), so it says nothing about the AAB.
+            echo "== Leftovers in the release AAB =="
+            rm -rf aab_scan && mkdir -p aab_scan && unzip -q -o "$AAB" -d aab_scan
+            WEB=aab_scan/base/assets/public
+            [ -d "$WEB" ] || echo "web assets in the release AAB: MISSING-BAD"
+            echo "console.log calls in the release AAB web assets: $(grep -rao 'console\.log' "$WEB" | wc -l)"
+            # Google's sample publisher: the test App ID and every test ad unit start with it.
+            TEST_PUB='ca-app-pub-3940256099942544'
+            echo "test ad IDs in the release AAB web assets: $(grep -rao "$TEST_PUB" "$WEB" | wc -l) (0 expected only with RELEASE_ADS=true)"
+            TEST_ANY=$(grep -rao "$TEST_PUB" aab_scan | wc -l)
+            echo "test ad IDs anywhere in the release AAB (manifest, dex, assets): $TEST_ANY"
+            if [ "$RELEASE_ADS" = "true" ] && [ "$TEST_ANY" -gt 0 ]; then
+              echo "release AAB contains Google test ad IDs: YES-BAD"
+              grep -rlaF "$TEST_PUB" aab_scan | sed 's|^aab_scan/|  in |'
+            fi
           } | tee $R
           cat $R >> "$GITHUB_STEP_SUMMARY"
           grep -q "16 KB page size: PASS" $R
