@@ -82,6 +82,7 @@ public class BuildInfoPlugin extends Plugin {
                     ret.put("webViewHeight", webView.getHeight() / d);
 
                     View root = getActivity().getWindow().getDecorView();
+                    ret.put("windowHeight", root.getHeight() / d);
                     WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(root);
                     if (insets != null) {
                         Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());

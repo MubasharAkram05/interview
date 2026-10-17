@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
@@ -15,6 +16,9 @@ public class MainActivity extends BridgeActivity {
 
     // Longest time the logo splash may stay if the page never reports that it is visible.
     private static final long SPLASH_MAX_MS = 6000;
+
+    // Largest text zoom (percent) taken from the phone's font size setting.
+    private static final int MAX_TEXT_ZOOM = 115;
 
     private volatile boolean pageVisible = false;
 
@@ -46,6 +50,15 @@ public class MainActivity extends BridgeActivity {
             if (bridge.getWebView() != null) bridge.getWebView().setBackgroundColor(Color.TRANSPARENT);
         } catch (Exception ignored) {
             // the page paints its own background anyway
+        }
+        // Large system font: the WebView scales all text by the phone's font size. Above 115% the
+        // question, answer box and buttons no longer fit on one screen, so cap the text zoom there
+        // (text still grows with the setting up to that point).
+        try {
+            WebSettings ws = bridge.getWebView().getSettings();
+            if (ws.getTextZoom() > MAX_TEXT_ZOOM) ws.setTextZoom(MAX_TEXT_ZOOM);
+        } catch (Exception ignored) {
+            // keep the default zoom
         }
         bridge.addWebViewListener(
             new WebViewListener() {

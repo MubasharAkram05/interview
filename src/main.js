@@ -282,9 +282,15 @@ if (Capacitor.isNativePlatform() && ADS_CONFIG.enableBanner) setAdSpace(ADS_CONF
 async function checkHeaderInset() {
   const l = await nativeAdLayout();
   if (!l || typeof l.webViewTop !== 'number') return;
+  const root = document.documentElement.classList;
   const below = l.webViewTop > 1;
-  if (below !== document.documentElement.classList.contains('wv-below-bars')) {
-    document.documentElement.classList.toggle('wv-below-bars', below);
+  // Same at the bottom: a WebView that ends above the navigation bar needs no bottom inset.
+  const above =
+    typeof l.windowHeight === 'number' && l.windowHeight > 0 && (l.insetBottom || 0) > 0 &&
+    l.webViewTop + l.webViewHeight <= l.windowHeight - l.insetBottom + 1;
+  if (below !== root.contains('wv-below-bars') || above !== root.contains('wv-above-navbar')) {
+    root.toggle('wv-below-bars', below);
+    root.toggle('wv-above-navbar', above);
     requestBannerRelayout();
   }
 }
