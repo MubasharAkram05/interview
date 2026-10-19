@@ -10,6 +10,7 @@
     "android:prep": "npm run build && npx cap sync android",
     "policy:page": "node scripts/build-policy-page.mjs",
     "store:assets": "node scripts/make-store-assets.mjs",
+    "store:screens": "node scripts/make-screenshots.mjs",
     "icon": "node scripts/make-icon.mjs",
     "icon:check": "node scripts/check-icons.mjs",
     "policy:check": "node scripts/check-policy-sync.mjs",
