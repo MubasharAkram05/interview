@@ -63,9 +63,9 @@ Please note: this app is a practice tool. It does not guarantee a job offer, and
 |---|---|---|---|
 | App icon | 512 x 512, 32-bit PNG (with alpha), max 1 MB | `assets/play/icon-512.png` (512x512 RGBA, 21 KB, full square, Play rounds the corners) | Ready |
 | Feature graphic | 1024 x 500, JPG or 24-bit PNG (no alpha), max 15 MB | `store-assets/feature-graphic.png` (1024x500 RGB, 44 KB) | Ready |
-| Phone screenshots | at least 2 (max 8), PNG or JPG, 16:9 or 9:16, each side 320 to 3840 px | `store-assets/screenshots/1-home.png` to `4-mock-interview.png` (1080x1920) | Drafts from the web build. Replace with real phone screenshots (the mic button only shows on a real phone), using a fictional profile such as "Sara Ahmed" |
+| Phone screenshots | at least 2 (max 8), PNG or JPG, 16:9 or 9:16, each side 320 to 3840 px | `store-assets/screenshots/1-home.png` to `6-profile.png` (1080x1920, 6 screens, fictional profile "Sara Ahmed") | Ready. Made from the release web build by `npm run store:screens` (see below). The mic button is drawn as on a phone; the Mock answer is typed |
 
-### Screenshot list (take these on a real phone)
+### Screenshot list (`npm run store:screens` makes all six)
 
 1. Home screen with Question of the day and interview type grid
 2. Practice screen with a question and sample answer
@@ -73,6 +73,8 @@ Please note: this app is a practice tool. It does not guarantee a job offer, and
 4. Mock interview screen with the mic button and an answer in progress
 5. Results screen with score and tips
 6. Profile screen (use a fictional profile such as "Sara Ahmed", not your real personal data)
+
+To remake them after a UI change: `npm run build`, then `npx vite preview --port 4173 &` and `npm run store:screens`. It uses the fictional profile "Sara Ahmed" (Lahore, BS Computer Science), never real data.
 
 Required sizes: 2 to 8 phone screenshots, PNG or JPG, 9:16 (for example 1080 x 1920), each side 320 to 3840 px. Feature graphic: exactly 1024 x 500, JPG or 24-bit PNG without alpha (`store-assets/feature-graphic.png`, made by `npm run store:assets`).
 
