@@ -23,11 +23,11 @@
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.js\" \"tests/**/*.mjs\" \"scripts/**/*.mjs\" vite.config.js eslint.config.js capacitor.config.ts",
     "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.mjs\" \"scripts/**/*.mjs\" vite.config.js eslint.config.js capacitor.config.ts",
-    "test:storage": "node --import ./tests/storage/reg.mjs tests/storage/storage.test.mjs",
+    "test:storage": "node --import ./tests/storage/reg.mjs tests/storage/storage.test.mjs && node tests/storage/migrate.test.mjs",
     "test": "npm run test:ads && npm run test:home && npm run test:voice && npm run test:vocab && npm run test:practice && npm run test:storage",
     "test:smoke": "node scripts/smoke.mjs",
     "test:coverage": "c8 --include=\"src/**\" --exclude=\"src/data/**\" --reporter=text-summary npm test",
-    "test:ui": "node tests/ui/home-ui.mjs && node tests/ui/voice-ui.mjs && node tests/ui/regress-ui.mjs && node tests/ui/personalize-ui.mjs"
+    "test:ui": "node tests/ui/home-ui.mjs && node tests/ui/voice-ui.mjs && node tests/ui/regress-ui.mjs && node tests/ui/personalize-ui.mjs && node tests/ui/migrate-ui.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.2.1",

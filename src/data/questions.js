@@ -1,12 +1,12 @@
 import { MORE } from './more-questions.js';
 
 export const CATS = {
-  software: 'Software Developer / IT',
-  marketing: 'Marketing / Sales',
+  software: 'Software Developer',
+  marketing: 'Marketing',
   customer: 'Customer Service',
   teaching: 'Teaching',
-  fresh: 'Fresh Graduate / HR Round',
-  cloud: 'Cloud / DevOps / Security'
+  fresh: 'Fresh Graduate',
+  cloud: 'Cloud / DevOps'
 };
 
 export const LEVELS = {
@@ -248,12 +248,16 @@ export const MID = {
       'Infrastructure as Code defines infrastructure in version-controlled files using tools like Terraform or CloudFormation. It makes environments repeatable, reviewable and fast to rebuild, and it removes manual configuration errors.'
     ],
     [
-      'How would you secure an S3 bucket?',
-      'I block public access by default, apply least-privilege bucket policies, enable encryption at rest and in transit, turn on versioning and access logging, and set alerts for unusual access.'
-    ],
-    [
       'Explain a basic CI/CD pipeline.',
       'Code is pushed to Git, then the pipeline builds it, runs unit tests and security scans, and deploys automatically to staging and to production after approval. This delivers faster, safer and more consistent releases.'
+    ],
+    [
+      'What is the difference between a container and a virtual machine?',
+      'A virtual machine runs a full guest operating system on a hypervisor, so it is heavier and slower to start. A container shares the host kernel and packages only the app and its dependencies, so it is lighter and starts in seconds. Containers give consistent deployments, while virtual machines give stronger isolation.'
+    ],
+    [
+      'What is Kubernetes, and why do teams use it?',
+      'Kubernetes is an open source platform that runs and manages containers across many machines. It schedules containers, restarts failed ones, scales them up or down and handles rolling updates. Teams use it to run many services reliably, but for a small app a simpler managed service can be enough.'
     ]
   ],
   fresh: [
@@ -278,7 +282,7 @@ export const MID = {
       'Yes. I am eager to learn new skills, and I understand that a new role can require flexibility. I will communicate early if I need support.'
     ],
     [
-      'Do you have any questions for us?',
+      'What would you like to ask us about this job?',
       'Yes. What does success look like in the first 90 days? Which skills matter most for this role? And how does the team support learning and growth?'
     ],
     [
@@ -286,7 +290,7 @@ export const MID = {
       'I am motivated by learning, solving real problems and seeing my work help others. Clear goals and regular feedback keep me focused and consistent.'
     ],
     [
-      'What do you know about our company?',
+      'What have you learned about our company before this interview?',
       'I have researched your company, including its mission, main services and recent work. I like your focus on quality and growth, and I can see how this role contributes to your goals.'
     ],
     [
@@ -480,7 +484,10 @@ export const MYM = {
       'Are you willing to learn new skills and work flexible hours?',
       'Yes. I am a fresher and happy to learn new skills. I can work flexible hours when the job needs it, and I will tell my manager early if I need support.'
     ],
-    ['Do you have any questions for us?', 'Yes. What will my first month look like? Which skills matter most for this role? And how will my work be measured?']
+    [
+      'What would you like to ask us about this job?',
+      'Yes. What will my first month look like? Which skills matter most for this role? And how will my work be measured?'
+    ]
   ]
 };
 
@@ -514,12 +521,12 @@ export const MYOV = {
   },
   software: {
     10: [
-      'Why do you want to work in IT?',
-      'I like building things that work and solving problems with logic. My projects and internship showed me that I enjoy coding and cloud work, and I want to build my career in IT.'
+      'Why do you want to work in software development?',
+      'I like building things that work and solving problems with logic. My projects and internship showed me that I enjoy coding, and I want to build my career in software development.'
     ],
     12: [
       'Where do you see yourself in 5 years?',
-      'In five years I see myself as a skilled developer or cloud engineer who can work on real projects with confidence. I want to keep learning new tools and help junior team members.'
+      'In five years I see myself as a skilled developer who can work on real projects with confidence. I want to keep learning new tools and help junior team members.'
     ],
     13: [
       'Why should we hire you?',
@@ -571,6 +578,18 @@ export const MYOV = {
 };
 
 export const MYEX = {
+  // Fresh Graduate: questions added in data version 2, at the end so the places of the questions
+  // that shipped before do not change.
+  fresh: [
+    [
+      'Can you explain the gap in your career or education?',
+      'After my studies I spent some time preparing for my career. I completed {certs} and practised {skills} with small projects. Now I am ready to start work and give my best.'
+    ],
+    [
+      'How did you decide on your expected salary?',
+      'I checked what freshers usually earn for this role in the market. I expect a fair starting salary, and my main focus is learning and growth, so I am open to discussing it.'
+    ]
+  ],
   customer: [
     [
       'What does good customer service mean to you?',
@@ -813,6 +832,31 @@ export const LVX = {
   }
 };
 
+// Extra questions at the END of a Junior or Senior list (after the shared closing questions), for
+// questions added after a type shipped: the places of the older questions stay the same.
+export const LVEX = {
+  junior: {
+    fresh: [
+      [
+        'Are you interviewing with other companies at the moment?',
+        'Yes, I am exploring a few options, which is normal at this stage. This role is my top choice because it matches my skills and the direction I want to grow in. If you make me an offer, I will give you a clear answer quickly.'
+      ],
+      [
+        'Is your expected salary negotiable?',
+        'Yes, I am open to a fair discussion. I look at the whole offer, including growth, learning, benefits and the work itself, not only the base salary. If we agree on clear goals, I am happy to review pay again after a set period.'
+      ]
+    ]
+  },
+  senior: {
+    fresh: [
+      [
+        'How would you negotiate your offer for a senior position?',
+        'I research the market for similar senior roles and look at the total value, including scope, team size and growth. I share a clear range with my reasons and listen to the limits of the company. I aim for an agreement that feels fair to both sides, because a good start builds trust.'
+      ]
+    ]
+  }
+};
+
 export const TIPS = [
   'Open with a short answer, then back it with one concrete example.',
   'Quantify results when you can, like time saved or errors reduced.',
@@ -833,7 +877,7 @@ export const PCI = {
   cloud: ['#66bb4f', 'M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 9.5 4 4 0 0 1 17.5 18zM12 12v4M10 14h4']
 };
 
-// More interview types (src/data/more-questions.js), shown after the first six.
+// More interview types (src/data/more-questions.js).
 Object.entries(MORE).forEach(([c, m]) => {
   CATS[c] = m.label;
   if (m.role) ROLE[c] = m.role;
@@ -844,3 +888,42 @@ Object.entries(MORE).forEach(([c, m]) => {
   PCI[c] = [m.color, m.icon];
   buildLK(c);
 });
+
+// Order of the tiles on Home, Practice and Mock: each type sits next to related ones (a split
+// half right after the type it came from). Ids never change, so saved data keeps working.
+export const ORDER = [
+  'software',
+  'web',
+  'it',
+  'marketing',
+  'graphic',
+  'customer',
+  'teaching',
+  'fresh',
+  'cloud',
+  'cyber',
+  'data',
+  'hrq',
+  'situational',
+  'behavioral',
+  'sales',
+  'waiter',
+  'micro',
+  'sql',
+  'cpp',
+  'java',
+  'network',
+  'civil',
+  'mech',
+  'accounting',
+  'finance',
+  'hr',
+  'ops'
+];
+{
+  const all = { ...CATS };
+  Object.keys(CATS).forEach(c => delete CATS[c]);
+  [...ORDER, ...Object.keys(all)].forEach(c => {
+    if (all[c] && !(c in CATS)) CATS[c] = all[c];
+  });
+}

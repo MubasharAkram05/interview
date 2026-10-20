@@ -1,4 +1,4 @@
-import { CATS, LEVELS, HEAD, TAIL, MID, OV, MYEX, LK, LVH, LVT, LVX, TIPS, PCI } from './data/questions.js';
+import { CATS, LEVELS, HEAD, TAIL, MID, OV, MYEX, LVEX, LK, LVH, LVT, LVX, TIPS, PCI } from './data/questions.js';
 
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
@@ -38,6 +38,7 @@ import {
 import { voiceAccent, setAccentPref, corrections, removeCorrection, applyCorrections, learnCorrection } from './services/voice-prefs.js';
 import { rareWords, norm } from './services/vocab.js';
 import { alignToExpected, memoryStatus, phraseHits } from './services/expected.js';
+import { runMigration } from './services/migrate.js';
 import { answerContext, sampleAnswer, roleMatches, isGeneric, parseSessionInput, MAX_SKILLS as PERS_MAX_SKILLS } from './services/answer-context.js';
 import {
   ROLES,
@@ -166,9 +167,8 @@ const bank = (c, level = 'fresher') => {
     const k = LK[c]?.[q];
     return k ? { i, q: k[0], a: k[1] } : { i, q, a: OV[c]?.[q] || a };
   });
-  if (fr) {
-    (MYEX[c] || []).forEach(([q, a], j) => items.push({ i: L.length + j, q, a }));
-  }
+  // Questions added later go after the list, so the places (i) of the older ones never change.
+  ((fr ? MYEX[c] : LVEX[level]?.[c]) || []).forEach(([q, a], j) => items.push({ i: L.length + j, q, a }));
   return items
     .filter(x => {
       if (seen.has(x.q)) return false;
@@ -2796,6 +2796,8 @@ async function initAppMain() {
   document.documentElement.dataset.theme = savedTheme;
   syncThemeSwitch();
 
+  // Saved per-question data follows its question when interview types change (runs once).
+  runMigration(getItem, setItem);
   profiles = getItem('is_profiles', {});
   E = getItem('is_edits', {}) || {};
   QE = getItem('is_qedits', {}) || {};

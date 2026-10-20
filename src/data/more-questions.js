@@ -1,5 +1,5 @@
-// More interview types (added after the first six in questions.js). Every entry has the same parts
-// as the first six:
+// More interview types (tile order: ORDER in questions.js). Every entry has the same parts
+// as the six in questions.js:
 //   label, role: tile name and the {role} used in answers (null: the user's own target role)
 //   color, icon: tile colour and a 24x24 stroke icon (own drawing)
 //   setupRole, skills: the target role and key skill suggestions on the setup screen
@@ -1091,6 +1091,332 @@ export const MORE = {
       [
         'How do you manage operations across several sites?',
         'I set standard processes and KPIs for all sites, compare results to share best practice, give site managers clear authority and hold regular reviews to solve problems together.'
+      ]
+    ]
+  },
+  // Split from "Software Developer / IT".
+  it: {
+    label: 'IT Support',
+    role: 'IT Support Specialist',
+    color: '#0891b2',
+    icon: 'M3 4h18v12H3zM8 20h8M12 16v4M9 10l2 2 4-4',
+    setupRole: 'IT Support', // skill suggestions: the IT Support list in src/services/setup.js
+    mid: [
+      [
+        'A user says their computer is very slow. How do you troubleshoot it?',
+        'I first ask when it started and what changed, such as a new program or an update. I check Task Manager for high CPU, memory or disk use, and look at startup programs and free disk space. I also run a malware scan and install pending updates. I fix one cause at a time and confirm with the user that it is better.'
+      ],
+      [
+        'A user cannot print. How do you fix it?',
+        'I check whether only this user or everyone is affected. Then I check the basics: power, paper, toner, error lights and whether the printer is online on the network. On the computer I check the default printer, clear stuck jobs in the print queue and restart the print spooler service. If needed, I reinstall the correct driver and print a test page.'
+      ],
+      [
+        'What is Active Directory, and how do you reset a user password?',
+        'Active Directory is the Microsoft directory service that stores users, computers and groups and controls who can sign in and what they can access. Before a reset, I verify the identity of the user using our process. Then I reset the password, set it to change at the next sign-in and unlock the account if needed.'
+      ],
+      [
+        'How do you prioritize support tickets?',
+        'I use impact and urgency. An issue that stops many users or a critical system comes first, and a single user with a workaround comes later. I follow the agreed response time for each priority and keep users updated. If a ticket waits too long, I escalate it.'
+      ],
+      [
+        'How do you explain a technical fix to a non-technical user?',
+        'I avoid jargon and use simple words and short steps. I check understanding by asking the user to try it while I watch. If the issue may happen again, I also share a short written guide. My goal is that the user feels confident, not confused.'
+      ],
+      [
+        'How do you tell a hardware problem from a software problem?',
+        'A hardware problem comes from a physical part, like a failing disk, memory or cable. A software problem comes from the operating system, a driver or an application. I look for physical signs, run the built-in hardware diagnostics and test in safe mode or with another user profile. If the fault stays even in safe mode and the diagnostics fail, it is most likely hardware.'
+      ],
+      [
+        'Why is documentation important in IT support?',
+        'Clear notes in each ticket show what was tried, what fixed it and who did it. This saves time when the problem comes back and helps the rest of the team. I also turn common fixes into knowledge base articles, so users and new staff can solve simple issues faster.'
+      ]
+    ],
+    fresher: [
+      'I ask what changed, then check Task Manager for programs using too much CPU, memory or disk. I remove unneeded startup programs, check free disk space and run updates and a virus scan. Then I ask the user to test again.',
+      'I check if the printer has power, paper and toner and is online. Then I clear stuck print jobs, check that the right printer is selected and print a test page. If it still fails, I reinstall the driver.',
+      'Active Directory keeps the list of users and computers in a Windows network and controls their access. To reset a password, I verify the user first, then reset it and ask them to change it at the next sign-in.'
+    ],
+    junior: [
+      [
+        'What do you do when you cannot solve a ticket in the expected time?',
+        'I document every step I tried, tell the user about the delay and escalate to the next level with a clear summary. I stay involved to learn the final fix. Then I add it to the knowledge base so the team can solve it faster next time.'
+      ],
+      [
+        "How do you set up a new employee's laptop and accounts?",
+        'I follow a checklist: create the accounts with the right groups, install the standard image and required software, set up email and multi-factor sign-in, and apply updates and security tools. I test sign-in, printing and shared drives. On the first day I give a short walkthrough so the person can start working quickly.'
+      ]
+    ],
+    senior: [
+      [
+        'How would you reduce the number of repeat support tickets?',
+        'I review ticket data to find the most common issues and their root causes. Then I fix the cause, for example with automation, better configuration or user training, and publish self-help articles. I track the ticket volume each month to confirm the change worked.'
+      ],
+      [
+        'How do you plan a company-wide software rollout?',
+        'I test it with a small pilot group first and fix any issues. I roll it out in phases, tell users the dates and changes, and keep a rollback plan ready. I watch tickets closely after each phase and adjust before moving to the next group.'
+      ]
+    ]
+  },
+  // Split from "Cloud / DevOps / Security".
+  cyber: {
+    label: 'Cyber Security',
+    role: 'Cyber Security Analyst',
+    color: '#0f766e',
+    icon: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12h6v4H9zM10 12v-2a2 2 0 0 1 4 0v2',
+    setupRole: 'Cyber Security',
+    skills: ['Network security', 'Firewalls', 'SIEM', 'Vulnerability assessment', 'Incident response', 'Linux', 'IAM', 'Wireshark', 'OWASP', 'Cloud security'],
+    mid: [
+      [
+        'What is the CIA triad in information security?',
+        'The CIA triad stands for confidentiality, integrity and availability. Confidentiality keeps data private to the right people. Integrity makes sure data is accurate and not changed without permission. Availability means systems and data are there when users need them.'
+      ],
+      [
+        'What is the difference between a vulnerability, a threat and a risk?',
+        'A vulnerability is a weakness, such as an unpatched server. A threat is something that can exploit that weakness, such as an attacker or malware. Risk is the chance that the threat exploits the weakness, combined with the damage it would cause. I reduce risk by fixing weaknesses and adding controls.'
+      ],
+      [
+        'How do you recognize and respond to a phishing email?',
+        'I check the sender address, the links and any attachments, and I look for urgent or unusual requests. I never click links or open attachments in a suspicious email. I report it through the company process so the security team can block it and warn others. If someone already clicked, we reset their password and check the device quickly.'
+      ],
+      [
+        'What are the main steps of incident response?',
+        'A common model has these steps: preparation, detection and analysis, containment, eradication, recovery, and lessons learned. First we confirm and scope the incident, then we contain it to stop the spread. After removing the cause and restoring systems, we review what happened and improve our controls.'
+      ],
+      [
+        'What is a SIEM, and how is it used?',
+        'A SIEM, or security information and event management system, collects logs from servers, firewalls, endpoints and applications in one place. It links related events and raises alerts on suspicious activity, such as many failed logins. Analysts use it to investigate alerts and search logs. Good tuning is important to reduce false positives.'
+      ],
+      [
+        'How would you secure an S3 bucket?',
+        'I block public access by default, apply least-privilege bucket policies, enable encryption at rest and in transit, turn on versioning and access logging, and set alerts for unusual access.'
+      ],
+      [
+        'Why is multi-factor authentication important?',
+        'Multi-factor authentication asks for two or more kinds of proof, such as a password and a code from an app or a security key. Even if a password is stolen, the attacker cannot sign in without the second factor. Phishing-resistant methods like security keys and passkeys are stronger than SMS codes. I recommend it for all users, especially admin accounts.'
+      ]
+    ],
+    fresher: [
+      'CIA means confidentiality, integrity and availability. Data should stay private, stay correct and be available when people need it.',
+      'A vulnerability is a weakness, a threat is something that can use that weakness, and risk is the chance and impact of it happening. For example, an old unpatched system is a vulnerability, and malware is a threat.',
+      'I check the sender, the links and any urgent request. I do not click anything suspicious, and I report it to the IT or security team so they can block it.'
+    ],
+    junior: [
+      [
+        'How do you investigate a security alert?',
+        'I first check whether the alert is real or a false positive by looking at the logs, the user and the device involved. I find out what happened, when, and which systems are affected. If it is real, I contain it, for example by isolating the device, and escalate with clear notes. I record every step in the ticket.'
+      ],
+      [
+        'What is the OWASP Top 10?',
+        'The OWASP Top 10 is a widely used list of the most critical security risks for web applications, such as broken access control, injection and security misconfiguration. Developers and testers use it as a checklist. I use it to guide code reviews and security tests.'
+      ]
+    ],
+    senior: [
+      [
+        'How do you build a vulnerability management program?',
+        'I start with an accurate asset inventory, then scan regularly and rank findings by severity and business impact. I agree clear patch timelines with system owners and track every finding to closure. I report the trend to management and fix the process gaps that cause repeat findings.'
+      ],
+      [
+        'How do you apply a zero trust approach in an organization?',
+        'Zero trust means never trusting a user or device just because it is inside the network. I verify every access request with strong identity, multi-factor sign-in and device health checks, and I give least-privilege access. I also segment the network and monitor activity all the time. I roll it out step by step, starting with the most sensitive systems.'
+      ]
+    ]
+  },
+  web: {
+    label: 'Web Development',
+    role: 'Web Developer',
+    color: '#0369a1',
+    icon: 'M3 5h18v14H3zM3 9h18M10 12l-2 2.5 2 2.5M14 12l2 2.5-2 2.5',
+    setupRole: 'Web Developer', // skill suggestions: the Web Developer list in src/services/setup.js
+    mid: [
+      [
+        'What happens when you type a URL into the browser and press Enter?',
+        'The browser finds the IP address of the server through DNS, then opens a connection, secured with TLS for HTTPS. It sends an HTTP request, and the server returns HTML. The browser then loads the CSS, JavaScript and images, builds the page and shows it. Caching can skip some of these steps on later visits.'
+      ],
+      [
+        'What is responsive design, and how do you build it?',
+        'Responsive design means a page works well on phones, tablets and desktops. I start mobile-first, use flexible layouts with Flexbox and CSS Grid, and add media queries for larger screens. I use relative units and responsive images, and I test on real screen sizes.'
+      ],
+      [
+        'What is the difference between let, const and var in JavaScript?',
+        'var is function-scoped and hoisted, which can cause bugs. let and const are block-scoped. let can be reassigned, but const cannot, although an object stored in a const can still be changed. I use const by default and let only when a value must change.'
+      ],
+      [
+        'How do you improve the loading speed of a website?',
+        'I compress and resize images and use modern formats like WebP or AVIF. I minify CSS and JavaScript, split large bundles and lazy-load content that is not on the first screen. I also use caching and a CDN. I measure with Lighthouse and Core Web Vitals before and after each change.'
+      ],
+      [
+        'What is the difference between cookies, localStorage and sessionStorage?',
+        'Cookies are small values sent to the server with each request, so they are used for things like sessions. localStorage keeps data in the browser with no expiry, and sessionStorage keeps it only until the tab is closed, and neither is sent to the server. I never keep passwords or sensitive tokens in localStorage, because any script on the page can read it.'
+      ],
+      [
+        'How do you make a website accessible?',
+        'I use semantic HTML, such as real headings, buttons and form labels, and add alt text to images. I make sure everything works with a keyboard and has a visible focus state. I check colour contrast and test with a screen reader. I follow the WCAG guidelines.'
+      ],
+      [
+        'How do you protect a web application from XSS and SQL injection?',
+        'For XSS, I escape output, avoid inserting raw HTML and add a Content Security Policy. For SQL injection, I use parameterized queries or an ORM and never join user input into SQL strings. I also validate input on the server, use HTTPS and keep dependencies updated.'
+      ]
+    ],
+    fresher: [
+      'The browser asks DNS for the server address, connects to it and sends a request. The server sends back HTML, then the browser loads the CSS, JavaScript and images and shows the page.',
+      'Responsive design means the website fits any screen. I start with the phone layout, use Flexbox or Grid, and add media queries for bigger screens.',
+      'var is the old way and is function-scoped. let and const are block-scoped. I use const when the value does not change and let when it does.'
+    ],
+    junior: [
+      [
+        'How do you work with an API in a front-end application?',
+        'I call the API with fetch or a small library, using async and await. I show a loading state, handle errors clearly and check the response status before using the data. I keep API calls in one service file, so the components stay clean and easy to test.'
+      ],
+      [
+        'How do you fix a layout problem that happens in only one browser?',
+        'I reproduce it first, then inspect the element and its styles with the developer tools of that browser. I check whether a CSS feature is not supported there, using a compatibility table such as Can I use. Then I add a fallback or a simpler rule and test again in all target browsers.'
+      ]
+    ],
+    senior: [
+      [
+        'How do you choose between server-side rendering and client-side rendering?',
+        'Server-side rendering sends ready HTML, so the first load is fast and search engines can read the content easily. Client-side rendering suits app-like pages with a lot of interaction after the first load. I choose based on SEO needs, performance and team skills, and many frameworks let us mix both page by page.'
+      ],
+      [
+        'How do you keep a large front-end codebase maintainable?',
+        'I agree on a clear folder structure, reusable components and a shared design system. I use TypeScript, linting and automated tests, and keep code reviews focused. I also watch the bundle size and remove unused code regularly.'
+      ]
+    ]
+  },
+  data: {
+    label: 'Data / AI',
+    role: 'Data and AI Engineer',
+    color: '#b45309',
+    icon: 'M3 3v18h18M7 15l4-4 3 3 6-6',
+    setupRole: 'Data/AI', // skill suggestions: the Data/AI list in src/services/setup.js
+    mid: [
+      [
+        'What is the difference between supervised and unsupervised learning?',
+        'In supervised learning, the model learns from labelled data, such as emails marked spam or not spam, and predicts labels for new data. In unsupervised learning there are no labels, and the model finds patterns by itself, such as customer groups through clustering. I choose based on whether labelled data is available and what the business needs.'
+      ],
+      [
+        'What is overfitting, and how do you prevent it?',
+        'Overfitting happens when a model learns the training data too closely, including its noise, so it performs poorly on new data. I prevent it with more data, cross-validation and simpler models. I also use regularization, early stopping and a separate test set to check the real performance.'
+      ],
+      [
+        'How do you clean a dataset before analysis?',
+        'I check for missing values, duplicates, wrong data types and outliers. I decide how to handle each one, for example by filling, removing or flagging rows, based on the business context. I also make formats like dates and text consistent. I document every step so the analysis can be repeated.'
+      ],
+      [
+        'Which metrics do you use to evaluate a classification model?',
+        'I look at accuracy, but also precision, recall and the F1 score, because accuracy can mislead on imbalanced data. A confusion matrix shows exactly where the model makes mistakes, and ROC AUC helps me compare models. I choose the main metric based on the cost of false positives and false negatives.'
+      ],
+      [
+        'How do you explain data findings to a non-technical audience?',
+        'I start with the main message and what it means for the business. I use simple charts, avoid technical terms and give one clear recommendation. I also mention the limits of the data honestly, so people can make good decisions.'
+      ],
+      [
+        'What is the difference between a data analyst, a data engineer and a data scientist?',
+        'A data engineer builds the pipelines and storage that move and prepare data. A data analyst explores that data, builds reports and answers business questions. A data scientist builds statistical and machine learning models to predict outcomes or automate decisions. In small teams one person often does parts of all three.'
+      ],
+      [
+        'How do you use AI tools like large language models responsibly at work?',
+        'I never share private or customer data with a tool the company has not approved. I check AI output for errors, because models can give confident but wrong answers. I keep a human review step for important decisions, and I watch the results for bias.'
+      ]
+    ],
+    fresher: [
+      'Supervised learning uses data with labels, like emails marked as spam or not spam. Unsupervised learning has no labels and finds groups or patterns by itself, like customer segments.',
+      'Overfitting means the model remembers the training data but does badly on new data. I use a test set, cross-validation and simpler models to avoid it.',
+      'I remove duplicates, handle missing values, fix data types and check outliers. I also make dates and text consistent before I start the analysis.'
+    ],
+    junior: [
+      [
+        'How would you find the top 5 customers by total sales with SQL?',
+        'I group the sales rows by customer and add up the amount with SUM. Then I sort by that total from highest to lowest with ORDER BY and DESC, and keep the first five rows with LIMIT 5. On SQL Server I would use TOP 5 instead of LIMIT.'
+      ],
+      [
+        'How do you take a model from a notebook to production?',
+        'I turn the notebook into clean, reusable code, add tests and record the model version and the data used. I deploy it behind an API or as a batch job, often in a container. Then I monitor its accuracy and data drift, and retrain it when performance drops.'
+      ]
+    ],
+    senior: [
+      [
+        'How do you design a reliable data pipeline?',
+        'I define the sources, the data contract and how fresh the data must be. I make each step safe to rerun without creating duplicates, and add data quality checks and alerts at every stage. I use an orchestration tool to schedule and retry jobs, and I document the data lineage so people trust the numbers.'
+      ],
+      [
+        'How do you decide whether a problem needs machine learning at all?',
+        'I first check if simple rules, SQL or a dashboard can solve it, because they are cheaper and easier to maintain. Machine learning makes sense when the patterns are complex, there is enough good data and the value is worth the cost. I agree on a clear success metric and a simple baseline before building a model.'
+      ]
+    ]
+  },
+  graphic: {
+    label: 'Graphic Design',
+    role: 'Graphic Designer',
+    color: '#c026d3',
+    icon: 'M12 19l7-7 3 3-7 7zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18zM2 2l7.6 7.6M11 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+    setupRole: 'Graphic Designer',
+    skills: [
+      'Photoshop',
+      'Illustrator',
+      'Canva',
+      'Figma',
+      'Typography',
+      'Branding',
+      'Logo design',
+      'Layout design',
+      'Color theory',
+      'Social media design',
+      'Portfolio'
+    ],
+    mid: [
+      [
+        'Walk me through your design process.',
+        'I start with the brief to understand the goal, the audience and the deadline. Then I research, collect references and sketch rough ideas. I build two or three options, share them early for feedback and refine the chosen one. Finally I prepare the files in the right formats.'
+      ],
+      [
+        'What is the difference between RGB and CMYK?',
+        'RGB uses red, green and blue light and is used for screens. CMYK uses cyan, magenta, yellow and black ink and is used for printing. For print work I design in CMYK, or convert carefully and check the colours, because some bright RGB colours cannot be printed exactly.'
+      ],
+      [
+        'What is the difference between vector and raster images?',
+        'Vector images are made of paths and shapes, so they scale to any size without losing quality, which is ideal for logos and icons. Raster images are made of pixels, like photos, and lose quality when enlarged. I use Illustrator or Figma for vectors and Photoshop for raster editing.'
+      ],
+      [
+        'How do you handle negative feedback on your design?',
+        'I listen fully and ask questions to understand the real concern behind the comment. I separate personal taste from the project goals, and I explain my choices calmly when they support the brief. Then I make the changes and share an updated version quickly.'
+      ],
+      [
+        'How do you choose fonts and colours for a brand?',
+        'I start from the brand personality and the audience. I usually pick one or two fonts with clear contrast, such as one for headings and one for body text, and check that they are readable at small sizes. For colours I build a small palette with a main colour, an accent and neutrals, and I check contrast for accessibility.'
+      ],
+      [
+        'How do you prepare a design file for print?',
+        'I set the correct size with bleed, usually 3 mm on each side, and keep important text inside the safe area. I use CMYK colours and images at about 300 DPI, and I embed or outline the fonts. Then I export a print-ready PDF and confirm the specifications with the printer.'
+      ],
+      [
+        'How do you manage several design projects with tight deadlines?',
+        'I list all projects with their deadlines and priority, and agree realistic timelines with the people involved. I use templates and reusable assets to save time. If two deadlines clash, I discuss the priority with my manager early instead of rushing both.'
+      ]
+    ],
+    fresher: [
+      'I first understand the brief and the audience. Then I collect ideas, make rough sketches, design a few options and improve the best one after feedback.',
+      'RGB is for screens and uses light. CMYK is for printing and uses ink. For print work I design in CMYK so the colours come out right.',
+      'Vector images use shapes and can grow to any size without becoming blurry, so they are good for logos. Raster images use pixels, like photos, and become blurry when enlarged.'
+    ],
+    junior: [
+      [
+        'How do you keep designs consistent across many social media posts?',
+        'I create templates with a fixed grid, fonts, colours and logo position. I keep a simple brand guide and a shared asset library. This keeps every post on brand and also makes my work faster.'
+      ],
+      [
+        'How do you hand over a design to developers?',
+        'I share organized Figma files with clear names, components and styles. I note spacing, sizes and states such as hover and error, and export the assets in the right formats. I stay available for questions and check the built version before release.'
+      ]
+    ],
+    senior: [
+      [
+        'How do you build and maintain a brand identity system?',
+        'I define the core elements: logo rules, colour palette, typography, image style and tone of voice. I document them in a clear brand guide with examples of correct and wrong use. I create shared templates and review new work regularly, so the brand stays consistent as the team grows.'
+      ],
+      [
+        'How do you measure whether a design was successful?',
+        'I go back to the goal in the brief, such as more sign-ups, clicks or sales. I look at the data, run A/B tests where possible and collect user feedback. A design is successful when it meets that goal, not only when it looks good.'
       ]
     ]
   }

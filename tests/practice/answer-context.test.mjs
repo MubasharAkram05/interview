@@ -1,6 +1,6 @@
 // Personalised answers (src/services/answer-context.js): the shared resolver, the intro answer, the
 // {placeholder} filler and the "Personalize" sheet validation. Run: npm run test:practice
-import { CATS, LEVELS, HEAD, TAIL, MID, LVH, LVT, LVX, LK } from '../../src/data/questions.js';
+import { CATS, LEVELS, HEAD, TAIL, MID, LVH, LVT, LVX, LK, MYEX, LVEX } from '../../src/data/questions.js';
 import {
   answerContext,
   introAnswer,
@@ -42,7 +42,8 @@ const P = {
 const questions = (c, level) => {
   const fr = level === 'fresher';
   const L = fr ? [...HEAD, ...MID[c], ...TAIL] : [...LVH[level], ...MID[c], ...(LVX[level]?.[c] || []), ...LVT[level]];
-  return L.map(([q, a]) => (fr && LK[c]?.[q] ? LK[c][q] : [q, a]));
+  const extra = (fr ? MYEX[c] : LVEX[level]?.[c]) || [];
+  return [...L.map(([q, a]) => (fr && LK[c]?.[q] ? LK[c][q] : [q, a])), ...extra];
 };
 const BAD = /[{}[\]]|undefined|null| {2}/;
 const SOFTWARE_CATS = Object.keys(CATS).filter(c => FAMILIES.Software.includes(catToRole(c)));
@@ -70,6 +71,34 @@ check(
   'Infra family: IT Support matches Networking and Cloud',
   ['network', 'cloud'].every(c => roleMatches({ roleKey: 'IT Support' }, c))
 );
+check('Software family: Software Engineer matches Web Development', roleMatches(SW, 'web') && roleMatches({ roleKey: 'Web Developer' }, 'software'));
+check(
+  'Infra family: Cyber Security matches Cloud, IT Support and Networking (and back)',
+  ['cloud', 'it', 'network', 'cyber'].every(c => roleMatches({ roleKey: 'Cyber Security' }, c)) && roleMatches({ roleKey: 'IT Support' }, 'cyber')
+);
+check(
+  'Data/AI has no family: only Data / AI matches',
+  roleMatches({ roleKey: 'Data/AI' }, 'data') &&
+    !['software', 'web', 'sql', 'cloud'].some(c => roleMatches({ roleKey: 'Data/AI' }, c)) &&
+    !roleMatches(SW, 'data')
+);
+check(
+  'Graphic Designer has no family: only Graphic Design matches',
+  roleMatches({ roleKey: 'Graphic Designer' }, 'graphic') && !roleMatches({ roleKey: 'Graphic Designer' }, 'marketing') && !roleMatches(SW, 'graphic')
+);
+check('Software Engineer does not match IT Support or Cyber Security', !roleMatches(SW, 'it') && !roleMatches(SW, 'cyber'));
+check('Fresh Graduate is general: always matches', isGeneric('fresh') && roleMatches({}, 'fresh'));
+{
+  const g = introAnswer(answerContext(SW, 'graphic'), true);
+  check(
+    'Graphic Design intro: its own role and skills, no software',
+    /a Graphic Designer role/.test(g) && /Photoshop/.test(g) && !/JavaScript|Software/.test(g),
+    g
+  );
+  const d = introAnswer(answerContext({ roleKey: 'Data/AI', role: 'Data/AI', skillTags: ['Python', 'SQL'] }, 'data'), true);
+  check('Data / AI intro: profile skills when the role matches', /Data and AI Engineer role/.test(d) && /Python and SQL/.test(d), d);
+  check('IT Support intro uses "an"', /an IT Support Specialist role/.test(introAnswer(answerContext(SW, 'it'))));
+}
 check('different family does not match', !roleMatches(SW, 'network') && !roleMatches(SW, 'customer') && !roleMatches(SW, 'accounting'));
 check('case-insensitive', roleMatches({ roleKey: 'customer service' }, 'customer'));
 check(
