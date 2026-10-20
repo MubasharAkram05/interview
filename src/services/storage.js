@@ -31,7 +31,8 @@ export const KEYS = [
   'is_voice_mem',
   'is_pbest',
   'is_qotd',
-  'is_qstreak'
+  'is_qstreak',
+  'is_dv' // data version marker (src/services/migrate.js)
 ];
 
 // localStorage marker for "deleted" (so an older IndexedDB copy can never bring a value back).

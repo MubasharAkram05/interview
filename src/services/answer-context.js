@@ -17,7 +17,8 @@ export const GENERIC_ROLE = 'Fresher/General';
 /** Profile roles that count as a match for each other's categories. */
 export const FAMILIES = {
   Software: ['Software Engineer', 'Web Developer', 'Java Developer', 'C/C++ Developer', 'Database Developer'],
-  Infra: ['Cloud/DevOps', 'IT Support', 'Network Engineer']
+  Infra: ['Cloud/DevOps', 'IT Support', 'Network Engineer', 'Cyber Security']
+  // Data/AI and Graphic Designer have no family: only their own categories match.
 };
 
 export const MAX_SKILLS = 5;

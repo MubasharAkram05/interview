@@ -4,19 +4,20 @@
 
 import { MORE, MORE_ROLES } from '../data/more-questions.js';
 
-export const ROLES = [
+const BASE_ROLES = [
   'Software Engineer',
   'Web Developer',
   'Cloud/DevOps',
   'IT Support',
+  'Cyber Security',
   'Data/AI',
   'Marketing/Sales',
+  'Graphic Designer',
   'Customer Service',
   'Teaching',
-  'Fresher/General',
-  ...Object.keys(MORE_ROLES),
-  'Other'
+  'Fresher/General'
 ];
+export const ROLES = [...BASE_ROLES, ...Object.keys(MORE_ROLES).filter(r => !BASE_ROLES.includes(r)), 'Other'];
 export const EXPERIENCE = { fresher: 'Fresher', mid: '1 to 2 years', senior: '3 plus years' };
 export const MAX_SKILLS = 10;
 const MAX_WORDS = 20; // automatic profile words (autoWords)

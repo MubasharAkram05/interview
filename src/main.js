@@ -38,6 +38,7 @@ import {
 import { voiceAccent, setAccentPref, corrections, removeCorrection, applyCorrections, learnCorrection } from './services/voice-prefs.js';
 import { rareWords, norm } from './services/vocab.js';
 import { alignToExpected, memoryStatus, phraseHits } from './services/expected.js';
+import { runMigration } from './services/migrate.js';
 import { answerContext, sampleAnswer, roleMatches, isGeneric, parseSessionInput, MAX_SKILLS as PERS_MAX_SKILLS } from './services/answer-context.js';
 import {
   ROLES,
@@ -2796,6 +2797,8 @@ async function initAppMain() {
   document.documentElement.dataset.theme = savedTheme;
   syncThemeSwitch();
 
+  // Saved per-question data follows its question when interview types change (runs once).
+  runMigration(getItem, setItem);
   profiles = getItem('is_profiles', {});
   E = getItem('is_edits', {}) || {};
   QE = getItem('is_qedits', {}) || {};
