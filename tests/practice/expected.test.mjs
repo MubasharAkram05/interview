@@ -1,5 +1,5 @@
 // Practice expected-text matching (src/services/expected.js). Run: node tests/practice/expected.test.mjs
-import { alignToExpected, introTemplate, isIntroQuestion, wordDetail, expandDegree, roleText, phraseHits, memoryStatus } from '../../src/services/expected.js';
+import { alignToExpected, isIntroQuestion, wordDetail, expandDegree, roleText, phraseHits, memoryStatus } from '../../src/services/expected.js';
 
 // Status of every answer word ('ok' | 'bad' | 'dim'), as the Mock box colours them.
 const wordStatus = r => wordDetail(r).st;
@@ -51,19 +51,6 @@ check(
   `${r.matched}/${r.total}`
 );
 
-const t = introTemplate({ name: 'Mubashar Akram', edu: 'BS IT student', city: 'Pakpattan', skills: ['AWS', 'DevOps', 'Linux'], role: 'Cloud Engineer' });
-check(
-  'template answer from setup details',
-  t ===
-    'My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing a BS in Information Technology. My key skills include AWS, DevOps and Linux. I am now looking for a Cloud Engineer role where I can use these skills, grow and add value to the team.',
-  t
-);
-check(
-  'template leaves out missing details',
-  introTemplate({ name: 'Sara', role: 'IT Support' }) ===
-    'My name is Sara. I am now looking for an IT Support role where I can learn, grow and add value to the team.',
-  introTemplate({ name: 'Sara', role: 'IT Support' })
-);
 check(
   'degree short forms written out, no shortcuts',
   expandDegree('BS IT').degree === 'BS in Information Technology' &&
@@ -71,11 +58,8 @@ check(
     expandDegree('BBA').degree.startsWith('Bachelor of Business') &&
     expandDegree('FSc').degree === 'FSc'
 );
-check(
-  'role with a slash reads as words',
-  roleText('Marketing/Sales') === 'Marketing and Sales' && introTemplate({ role: 'Marketing/Sales' }).includes('a Marketing and Sales role')
-);
-check('a degree already done: "I hold"', introTemplate({ edu: 'MBA' }) === 'I hold a Master of Business Administration (MBA).', introTemplate({ edu: 'MBA' }));
+check('role with a slash reads as words', roleText('Marketing/Sales') === 'Marketing and Sales');
+// The "Introduce yourself" answer is built in src/services/answer-context.js (tests/practice/answer-context.test.mjs).
 
 // Mock (language-app style): lenient matching and sticky hits
 const REF = 'My name is Mubashar Akram. I am a BS IT from Pakpattan. My skills include SEO.';

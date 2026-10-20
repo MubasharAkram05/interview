@@ -117,6 +117,11 @@ check('a new day gives a different question', q2 !== q1);
 
 await p.click('#qotdBtn');
 await p.waitForTimeout(600);
+// The question of the day can be from a category for another job: "Personalize" sheet first.
+if (await p.isVisible('#psheet')) {
+  await p.click('#psSkip');
+  await p.waitForTimeout(600);
+}
 check('Practice it opens that question', (await p.textContent('#pQt')).trim() === q2.trim());
 check('bottom nav hidden on practice question screen', !(await p.isVisible('#nav')));
 check('Practice it shows only 1 question (1 / 1, no dots)', /· 1 \/ 1$/.test((await p.textContent('#pCount')).trim()) && !(await p.isVisible('#pDots')));
@@ -195,6 +200,10 @@ await p.waitForTimeout(300);
 const pickedC = await p.getAttribute('#mGrid .mt:nth-child(2)', 'data-c');
 await p.click('#mGrid .mt:nth-child(2)');
 await p.waitForTimeout(1200);
+if (await p.isVisible('#psheet')) {
+  await p.click('#psSkip'); // a category for another job asks for skills first
+  await p.waitForTimeout(1000);
+}
 if (await p.isVisible('#dlg')) {
   await p.click('#dYes');
   await p.waitForTimeout(1000);

@@ -56,6 +56,7 @@
 <div id="safeTopProbe" aria-hidden="true"></div>
 <div id="dlg" class="dlg hidden" role="dialog" aria-modal="true"><div class="dcard"><div class="dem" id="dEm"></div><h3 id="dT"></h3><p id="dM"></p><div class="drow"><button id="dNo" class="dno"></button><button id="dYes" class="dyes"></button></div></div></div>
 <div id="csheet" class="dlg hidden" role="dialog" aria-modal="true" onclick="if(event.target.id==='csheet')closeCS()"><div class="dcard"><div class="dem">🎯</div><h3 id="csT"></h3><p>What do you want to do?</p><div class="drow"><button class="dno" onclick="csGo(0)">Practice</button><button class="dyes" onclick="csGo(1)">Start interview</button></div></div></div>
+<div id="psheet" class="bsheet hidden" role="dialog" aria-modal="true" aria-labelledby="psT" aria-describedby="psM"><div class="bscard"><h3 id="psT">Personalize</h3><p id="psM"></p><label class="bslbl" for="psSkills">Your skills for this interview (comma separated)</label><input id="psSkills" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="next" placeholder="For example: Communication, Teamwork"><p class="pserr hidden" id="psErr" role="alert"></p><div class="pschips" id="psChips" role="group" aria-label="Suggested skills"></div><label class="bslbl" for="psProj">A project or experience (optional)</label><input id="psProj" type="text" autocomplete="off" maxlength="80" enterkeyhint="done" placeholder="For example: a part-time job in a shop"><div class="psbtns"><button type="button" class="dno" id="psSkip">Skip</button><button type="button" class="pri" id="psUse">Use these</button></div></div></div>
 <div id="toast" class="hidden"></div>
 <main id="main">
 
@@ -159,7 +160,7 @@
 </section>
 
 <section class="scr hidden" id="practice">
-  <div class="ptop"><span class="cnt" id="pCount"></span></div>
+  <div class="ptop"><span class="cnt" id="pCount"></span><button type="button" class="linkb hidden" id="pPers" onclick="editPers()">Edit details</button></div>
   <div id="pCard">
     <div class="q" id="pQ"><span id="pQt"></span><i class="qsp"></i><button class="pbtn eb" id="pFav" data-i="star" onclick="toggleFav()" aria-label="Add to favorites" title="Add to favorites"></button><button class="pbtn eb" id="pEditBtn" data-i="edit" onclick="editA()" aria-label="Edit question and answer" title="Edit question and answer"></button></div>
     <div class="acard" id="pWrap"><div class="atools"><span class="tag hidden" id="pTag">Edited by you</span><span class="tag best hidden" id="pBestTag"></span></div><div id="pA"></div></div>

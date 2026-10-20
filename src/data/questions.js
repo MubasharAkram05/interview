@@ -19,7 +19,8 @@ export const ROLE = {
   software: 'Software Developer',
   marketing: 'Marketing Executive',
   customer: 'Customer Service Representative',
-  teaching: 'Teacher'
+  teaching: 'Teacher',
+  cloud: 'Cloud and DevOps Engineer'
 };
 
 export const FIELDS = [
