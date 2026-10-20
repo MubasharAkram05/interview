@@ -12,6 +12,7 @@ const p = await b.newPage({ viewport: { width: 360, height: 640 } });
 const errors = [];
 p.on('pageerror', e => errors.push(e.message));
 await p.goto(URL);
+await wait(1500); // let the first start finish (on an empty phone it writes the version marker)
 await p.evaluate(
   () =>
     new Promise(r => {
@@ -38,6 +39,7 @@ await p.evaluate(() => {
   localStorage.setItem('is_profiles', JSON.stringify({ 'Sara Ahmed': me }));
   localStorage.setItem('is_active', JSON.stringify('Sara Ahmed'));
   localStorage.setItem('is_shuf', 'false');
+  localStorage.setItem('is_dv', 'null'); // version 1 phones have no marker ("null" = deleted, wins over IndexedDB)
   localStorage.setItem(
     'is_edits',
     JSON.stringify({
