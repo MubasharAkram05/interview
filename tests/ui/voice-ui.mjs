@@ -114,7 +114,9 @@ const a = (await p.textContent('#pA')).trim();
 check(
   `Practice "${q.slice(0, 30)}": generated answer from setup`,
   /introduce yourself|tell me about yourself/i.test(q)
-    ? a.startsWith('My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing a BS in Information Technology.')
+    ? a.startsWith(
+        'Good morning, and thank you for this opportunity. My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing a BS in Information Technology'
+      )
     : true
 );
 check('Practice: no From memory / mode buttons, answer shown', (await p.locator('#pModes, #pHint').count()) === 0 && (await p.isVisible('#pA')));
@@ -190,12 +192,13 @@ if (intro) {
   const ref = await p.evaluate(() => document.querySelectorAll('#ansBox .aw').length);
   check(
     `Mock: the whole saved answer is shown in order ("${shown.slice(0, 60)}...")`,
-    shown.startsWith('My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing') && ref > 15
+    shown.startsWith('Good morning, and thank you for this opportunity. My name is Mubashar Akram, and I am from Pakpattan. I am currently pursuing') &&
+      ref > 15
   );
   const ok = await p.$$eval('#ansBox .aw.said', x => x.map(e => e.textContent).join(' '));
   check(
     `Mock: said words dark, saved spelling ("${ok}")`,
-    ok.startsWith('My name is Mubashar Akram, and I am from I am currently pursuing a BS in Information Technology.')
+    ok.startsWith('My name is Mubashar Akram, and I am from I am currently pursuing a BS in Information Technology')
   );
   check('Mock: the word said wrong is red', (await p.$$eval('#ansBox .aw.wrongw', x => x.map(e => e.textContent).join())) === 'Pakpattan.');
   check('Mock: words not said are dull', (await p.locator('#ansBox .aw.notsaid').count()) > 5);
