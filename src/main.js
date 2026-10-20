@@ -1,4 +1,4 @@
-import { CATS, LEVELS, ROLE, DEF, HEAD, TAIL, MID, OV, MYEX, LK, LVH, LVT, LVX, TIPS, PCI } from './data/questions.js';
+import { CATS, LEVELS, HEAD, TAIL, MID, OV, MYEX, LK, LVH, LVT, LVX, TIPS, PCI } from './data/questions.js';
 
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
@@ -37,7 +37,8 @@ import {
 } from './services/voice.js';
 import { voiceAccent, setAccentPref, corrections, removeCorrection, applyCorrections, learnCorrection } from './services/voice-prefs.js';
 import { rareWords, norm } from './services/vocab.js';
-import { alignToExpected, introTemplate, isIntroQuestion, memoryStatus, phraseHits, expandDegree, roleText } from './services/expected.js';
+import { alignToExpected, memoryStatus, phraseHits } from './services/expected.js';
+import { answerContext, sampleAnswer, roleMatches, isGeneric, parseSessionInput, MAX_SKILLS as PERS_MAX_SKILLS } from './services/answer-context.js';
 import {
   ROLES,
   EXPERIENCE,
@@ -66,10 +67,6 @@ const $ = id => document.getElementById(id);
 
 // Safe HTML escaping
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const clean = v =>
-  String(v)
-    .trim()
-    .replace(/[.\s]+$/, '');
 const ini = n =>
   n
     .split(' ')
@@ -187,28 +184,109 @@ const bank = (c, level = 'fresher') => {
     });
 };
 
-// Fill a sample answer from the profile, in full professional words: degree short forms written
-// out ("BS IT" -> "BS in Information Technology"), "Marketing/Sales" -> "Marketing and Sales", and
-// no "at my university" when the university is not known.
-const fill = (t, p) => {
-  const q = p ? { ...p, degree: expandDegree(p.degree || p.edu).degree, role: roleText(p.role) } : p;
-  let s = String(t);
-  if (!(q && q.uni)) s = s.replace(/,?\s+(at|from) \{uni\}/g, '').replace(/\bAt \{uni\}/g, 'At university');
-  return s.replace(/\{(\w+)\}/g, (_, k) => (q && q[k] ? clean(q[k]) : DEF[k] || `[${k}]`));
-};
 const ekey = it => `${active}|${CK(P.cat, P.lv)}|${it.i}`;
-const rp = p => p && { ...p, role: ROLE[P.cat] || p.role };
-// Saved answer, or the sample answer filled from the profile. "Introduce yourself" questions use
-// an answer built from the setup details (src/services/expected.js) until the user saves their own.
-const ansText = it => {
-  if (ekey(it) in E) return E[ekey(it)];
-  const p = profiles[active];
-  if (p && isIntroQuestion(it.q)) {
-    const t = introTemplate({ name: p.name, edu: p.edu || p.degree, city: p.city, skills: p.skillTags || p.skills, role: p.role });
-    if (t) return t;
+
+// Skills and project typed in the "Personalize" sheet for a category whose role is not the
+// profile's: `${profile}|${category}` -> { skills, project }. Memory only: never stored, never put in
+// the profile, gone when the app closes. persAsked: sheets already shown (or skipped) this session.
+const persVals = {};
+const persAsked = new Set();
+const persKey = c => `${active}|${c}`;
+
+// The answer of a question in a category: the user's saved edit always wins; otherwise the sample
+// answer filled from the profile for this category (src/services/answer-context.js). Practice shows
+// this text and Mock matches the mic against the same text.
+function answerFor(it, c, l) {
+  const k = `${active}|${CK(c, l)}|${it.i}`;
+  if (k in E) return E[k];
+  return sampleAnswer(it.q, it.a, answerContext(profiles[active], c, persVals[persKey(c)]));
+}
+const ansText = it => answerFor(it, P.cat, P.lv);
+
+// ---- "Personalize for <category>": the profile's role does not fit this category ----
+let persThen = null;
+let persCat = '';
+const persNeeded = c => !isGeneric(c) && !roleMatches(profiles[active], c);
+
+/** Before a category opens: true = go on now; false = the sheet opened and calls then() later. */
+function personalized(c, then) {
+  if (!persNeeded(c) || persAsked.has(persKey(c))) return true;
+  openPers(c, then);
+  return false;
+}
+
+function openPers(c, then = null) {
+  persCat = c;
+  persThen = then;
+  const role = (profiles[active] && profiles[active].role) || 'another role';
+  const v = persVals[persKey(c)] || {};
+  $('psT').textContent = `Personalize for ${CATS[c]}`;
+  $('psM').textContent = `Your profile is set for ${role}. Add your skills for ${CATS[c]} to get a better sample answer. This will not change your profile.`;
+  $('psSkills').value = (v.skills || []).join(', ');
+  $('psProj').value = v.project || '';
+  $('psErr').classList.add('hidden');
+  persChips();
+  setBannerSuppressed('psheet', true);
+  $('psheet').classList.remove('hidden');
+}
+
+const persList = () =>
+  $('psSkills')
+    .value.split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+// Suggested skills of the category's role; a chip adds or removes that skill in the field.
+function persChips() {
+  const have = persList().map(s => s.toLowerCase());
+  $('psChips').innerHTML = (ROLE_SKILLS[catToRole(persCat)] || [])
+    .map(s => {
+      const on = have.includes(s.toLowerCase());
+      return `<button type="button" data-s="${esc(s)}" aria-pressed="${on}" aria-label="${on ? 'Remove' : 'Add'} ${esc(s)}">${esc(s)}</button>`;
+    })
+    .join('');
+}
+
+function persChip(s) {
+  playTapSound();
+  const cur = persList();
+  const i = cur.findIndex(x => x.toLowerCase() === s.toLowerCase());
+  if (i >= 0) cur.splice(i, 1);
+  else if (cur.length < PERS_MAX_SKILLS) cur.push(s);
+  $('psSkills').value = cur.join(', ');
+  $('psErr').classList.add('hidden');
+  persChips();
+}
+
+function closePers(vals) {
+  playTapSound();
+  const k = persKey(persCat);
+  persAsked.add(k);
+  if (vals) persVals[k] = vals;
+  else delete persVals[k]; // Skip: the category's default skills
+  $('psheet').classList.add('hidden');
+  setBannerSuppressed('psheet', false);
+  const go = persThen;
+  persThen = null;
+  if (go) go();
+  else if (cs === 'practice') pr(); // Edit details: show the answer with the new values
+}
+
+function usePers() {
+  const r = parseSessionInput($('psSkills').value, $('psProj').value);
+  if (r.error) {
+    playErrorBeep();
+    $('psErr').textContent = r.error;
+    $('psErr').classList.remove('hidden');
+    $('psSkills').focus();
+    return;
   }
-  return fill(it.a, rp(p));
-};
+  closePers({ skills: r.skills, project: r.project });
+}
+
+function editPers() {
+  if (P.cat) openPers(P.cat, null);
+}
 
 // Toast Notification
 function toast(m) {
@@ -1188,6 +1266,7 @@ function pcLevel(v) {
 function pcGo(c, i, lv, one = null) {
   playTapSound();
   if (!need(() => pcGo(c, i, lv, one), c)) return;
+  if (!personalized(c, () => pcGo(c, i, lv, one))) return;
   const v = LEVELS[lv] ? lv : pcLv;
   P = { cat: c, lv: v, list: [], i: 0, one };
   const l = (P.list = plist());
@@ -1355,6 +1434,7 @@ function pr() {
   const it = P.list[P.i];
   const ed = ekey(it) in E || ekey(it) in QE;
   $('pCount').textContent = `${CL(P.cat, P.lv)} · ${P.i + 1} / ${n}`;
+  $('pPers').classList.toggle('hidden', !persNeeded(P.cat));
   pWords(ansText(it) || 'No answer yet. Tap the pencil to write one.');
   pReveal(it.q);
   renderPRes(null);
@@ -1918,6 +1998,7 @@ function shuffle(a) {
 function startInterview() {
   playTapSound();
   if (!need(() => startInterview(), $('cat').value)) return;
+  if (!personalized($('cat').value, () => startInterview())) return;
   cat = $('cat').value;
   lv = $('lvl').value;
   timerOn = false;
@@ -2358,17 +2439,9 @@ async function startMockMic() {
 
 // Evaluation & Feedback Scoring
 
-// The saved answer of a Mock question (same rules as Practice: saved edit, then the
-// "Introduce yourself" answer from setup, then the sample answer filled from the profile).
+// The saved answer of a Mock question: the same text Practice shows (answerFor).
 function refText(q) {
-  const k = `${active}|${CK(cat, lv)}|${q.i}`;
-  if (k in E) return E[k];
-  const p = profiles[active];
-  if (p && isIntroQuestion(q.q)) {
-    const t = introTemplate({ name: p.name, edu: p.edu || p.degree, city: p.city, skills: p.skillTags || p.skills, role: p.role });
-    if (t) return t;
-  }
-  return q.a ? fill(q.a, p && { ...p, role: ROLE[cat] || p.role }) : '';
+  return answerFor(q, cat, lv);
 }
 
 // Finish while the mic is on: stop it and wait for the last sentence (up to 2.5 s), so the words
@@ -2614,6 +2687,20 @@ function initEventListeners() {
   // Dialog buttons
   $('dYes')?.addEventListener('click', () => dlgRes && dlgRes(true));
   $('dNo')?.addEventListener('click', () => dlgRes && dlgRes(false));
+  // "Personalize" sheet
+  $('psUse')?.addEventListener('click', usePers);
+  $('psSkip')?.addEventListener('click', () => closePers(null));
+  $('psChips')?.addEventListener('click', e => {
+    const b = e.target.closest('button[data-s]');
+    if (b) persChip(b.dataset.s);
+  });
+  $('psSkills')?.addEventListener('input', () => {
+    $('psErr').classList.add('hidden');
+    persChips();
+  });
+  $('psheet')?.addEventListener('click', e => {
+    if (e.target.id === 'psheet') closePers(null); // tap outside = Skip
+  });
   $('dlg')?.addEventListener('click', e => {
     if (e.target.id === 'dlg' && dlgRes) dlgRes(false);
   });
@@ -2956,6 +3043,7 @@ Object.assign(window, {
   adPrivacyChoices,
   startPractice,
   startMock,
+  editPers,
   startInterview,
   mSync,
   mPick,

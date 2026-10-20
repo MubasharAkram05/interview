@@ -84,6 +84,22 @@ select{appearance:none;-webkit-appearance:none;padding-right:38px;background-ima
 @keyframes dpop{from{transform:translateY(16px) scale(.9);opacity:0}}@keyframes dfade{from{opacity:0}}
 @media(prefers-reduced-motion:reduce){.dlg,.dcard{animation:none}}
 .ptop{display:flex;align-items:center;justify-content:space-between;min-height:42px;margin-bottom:6px}
+#practice .ptop .linkb{flex:none;margin:0 0 0 8px;min-height:44px;padding:0 4px}
+/* "Personalize for ..." bottom sheet: skills and project for this session only */
+.bsheet{position:fixed;inset:0;z-index:100;display:flex;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.45);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);animation:dfade .18s}
+.bscard{width:100%;max-width:480px;max-height:88dvh;overflow-y:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-bottom:0;border-radius:24px 24px 0 0;padding:20px 18px calc(14px + var(--sab,0px));box-shadow:0 -12px 40px rgba(15,23,42,.25);animation:bsup .22s cubic-bezier(.2,.9,.3,1)}
+.bscard h3{margin:0 0 6px;font-size:19px}.bscard>p{margin:0 0 14px;color:var(--mute);font-size:14.5px;line-height:1.5}
+.bslbl{display:block;margin:10px 0 6px;font-size:13.5px;font-weight:650}
+.bscard input{width:100%;min-height:48px;padding:0 14px;border:1px solid var(--line);border-radius:14px;background:var(--fill);color:var(--ink);font-size:16px}
+.bscard input:focus{outline:2px solid var(--acc);outline-offset:1px}
+.pschips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.pschips button{min-height:36px;padding:0 12px;border-radius:999px;font-size:13.5px;width:auto}
+.pschips button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff}
+.pserr{margin:8px 0 0;color:var(--bad);font-size:14px;font-weight:600}
+.psbtns{position:sticky;bottom:calc(-14px - var(--sab,0px));display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:16px;padding:10px 0 4px;background:var(--card)}
+.psbtns button{min-height:48px;margin:0}
+@keyframes bsup{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.bsheet,.bscard{animation:none}}
 .pbtn{width:42px;height:42px;min-height:0;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none}
 .pbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .acard{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px 16px 18px;box-shadow:var(--sh)}

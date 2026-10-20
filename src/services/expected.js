@@ -186,9 +186,9 @@ export function wordDetail(r) {
   return { st, heard };
 }
 
-const list = a => (a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
+export const list = a => (a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
 // 'an' before a vowel sound: 'an IT Support', 'an MBA', 'a BS in ...'.
-const article = w => (/^([aeiou]|(mba|mbbs|ms|msc|mcs|mphil|ma|mit|hr|seo|sql)\b)/i.test(w) ? 'an' : 'a');
+export const article = w => (/^([aeiou]|(mba|mbbs|ms|msc|mcs|mphil|ma|mit|hr|seo|sql)\b)/i.test(w) ? 'an' : 'a');
 
 // Common Pakistani degree short forms, written out for a professional answer.
 const DEGREES = [
@@ -229,29 +229,5 @@ export const roleText = r =>
     .trim()
     .replace(/\s*\/\s*/g, ' and ');
 
-/**
- * "Introduce yourself" answer built from the setup details (a template, no AI). Sentences whose
- * details are missing are left out. p: { name, edu, city, skills: [] | 'a, b', role }.
- */
-export function introTemplate(p = {}) {
-  const name = String(p.name || '').trim();
-  const city = String(p.city || '').trim();
-  const role = roleText(p.role).replace(/^(other|fresher and general)$/i, '');
-  const { degree, studying } = expandDegree(p.edu);
-  const skills = (Array.isArray(p.skills) ? p.skills : String(p.skills || '').split(/,| and /))
-    .map(s => String(s).trim())
-    .filter(Boolean)
-    .slice(0, 5);
-  const out = [];
-  if (name && city) out.push(`My name is ${name}, and I am from ${city}.`);
-  else if (name) out.push(`My name is ${name}.`);
-  else if (city) out.push(`I am from ${city}.`);
-  if (degree) out.push(studying ? `I am currently pursuing ${article(degree)} ${degree}.` : `I hold ${article(degree)} ${degree}.`);
-  if (skills.length) out.push(`My key skills include ${list(skills)}.`);
-  if (role)
-    out.push(`I am now looking for ${article(role)} ${role} role where I can ${skills.length ? 'use these skills' : 'learn'}, grow and add value to the team.`);
-  return out.join(' ');
-}
-
-/** Questions that get the template when no answer is saved. */
+/** "Introduce yourself" questions: their sample answer is built by src/services/answer-context.js. */
 export const isIntroQuestion = q => /introduce yourself|tell me about yourself/i.test(String(q || ''));
