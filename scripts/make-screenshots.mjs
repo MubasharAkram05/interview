@@ -62,7 +62,7 @@ await p.addStyleTag({ content: '#toast{display:none!important}' });
 // spoken ones). The first words come from the Hint button; once something is said, the box shows
 // the whole saved answer, said words dark and the rest grey. maxWords leaves an answer in progress.
 const typeInBox = async text => {
-  await p.click('#mTypeB');
+  await p.click('#ansBox');
   await p.keyboard.press('Control+A');
   await p.keyboard.type(text);
   await p.click('#qText'); // leave the box

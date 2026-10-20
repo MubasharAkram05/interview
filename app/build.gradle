@@ -25,9 +25,9 @@ def hasReleaseSigning = releaseStoreFile && rootProject.file(releaseStoreFile).e
         releaseStorePassword && releaseKeyAlias && releaseKeyPassword
 
 // AdMob App ID for the manifest, read from src/config/ads.js (the only place ad IDs live), so the
-// manifest and the web app always use the same set. Debug: TEST_IDS. Release: PRODUCTION_IDS only
-// when RELEASE_ADS=true, else TEST_IDS. A release build with RELEASE_ADS=true stops while the
-// production App ID is still a placeholder.
+// manifest and the web app always use the same set: PRODUCTION_IDS when RELEASE_ADS=true (release
+// and debug builds alike; the owner's phone is a registered AdMob test device), else TEST_IDS. A
+// build with RELEASE_ADS=true stops while the production App ID is still a placeholder.
 def adsConfigText = rootProject.file('src/config/ads.js').text
 def admobAppId = { String setName ->
     def m = (adsConfigText =~ /(?s)${setName}\s*=\s*\{.*?appId:\s*'([^']+)'/)
@@ -40,8 +40,8 @@ def productionAdmobAppId = admobAppId('PRODUCTION_IDS')
 def productionAppIdValid = productionAdmobAppId ==~ /ca-app-pub-\d{16}~\d{10}/ &&
         !productionAdmobAppId.startsWith('ca-app-pub-3940256099942544')
 gradle.taskGraph.whenReady { graph ->
-    def buildsRelease = graph.allTasks.any { it.project == project && it.name.toLowerCase().contains('release') }
-    if (releaseAds && buildsRelease && !productionAppIdValid) {
+    def buildsApp = graph.allTasks.any { it.project == project && it.name.toLowerCase() =~ /release|debug/ }
+    if (releaseAds && buildsApp && !productionAppIdValid) {
         throw new GradleException("RELEASE_ADS=true but PRODUCTION_IDS.appId in src/config/ads.js is not a real " +
                 "AdMob App ID (\"${productionAdmobAppId}\"). Paste the real IDs (RELEASE_CHECKLIST.md) or build without RELEASE_ADS.")
     }
@@ -59,7 +59,7 @@ android {
         versionCode Integer.parseInt(System.getenv("VERSION_CODE") ?: "1")
         // versionName: the "version" in package.json (one place). versionCode: CI run number.
         versionName new groovy.json.JsonSlurper().parse(rootProject.file('package.json')).version
-        manifestPlaceholders = [admobAppId: testAdmobAppId]
+        manifestPlaceholders = [admobAppId: releaseAds ? productionAdmobAppId : testAdmobAppId]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -80,7 +80,7 @@ android {
 
     buildTypes {
         debug {
-            manifestPlaceholders = [admobAppId: testAdmobAppId]
+            manifestPlaceholders = [admobAppId: releaseAds ? productionAdmobAppId : testAdmobAppId]
         }
         release {
             manifestPlaceholders = [admobAppId: releaseAds ? productionAdmobAppId : testAdmobAppId]

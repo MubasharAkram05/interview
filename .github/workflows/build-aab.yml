@@ -148,12 +148,19 @@ jobs:
           unzip -q -o "$APK" 'assets/public/*' -d chk/apk
           SHA=$(git rev-parse --short HEAD)
           has() { grep -rqF -- "$2" "$1"; }
+          # The banner unit the debug APK must use: the real one with RELEASE_ADS=true (the owner's
+          # phone is a registered AdMob test device), Google's test unit otherwise.
+          BANNER=$(node -e "import('./src/config/ads.js').then(m => console.log((process.env.RELEASE_ADS === 'true' ? m.PRODUCTION_IDS : m.TEST_IDS).bannerAdId))")
           R=apk-contents.txt
           {
             echo "Commit: $SHA"
-            for m in "ADS:" "interview_finished" "6300978111" "adSlot" "BuildInfo" "getAdLayout" "Copy report" "$SHA"; do
+            for m in "ADS:" "interview_finished" "$BANNER" "adSlot" "BuildInfo" "getAdLayout" "Copy report" "$SHA"; do
               echo "debug APK contains '$m': $(has chk/apk "$m" && echo yes || echo NO)"
             done
+            if [ "$RELEASE_ADS" = "true" ]; then
+              # Full IDs only: the debug panel keeps the bare publisher prefix to mask real IDs.
+              echo "debug APK web assets contain Google test ad IDs: $(grep -rqE 'ca-app-pub-3940256099942544[~/][0-9]' chk/apk && echo YES-BAD || echo no)"
+            fi
             for m in "Copy report" "Force interstitial test" "dbgPanel"; do
               echo "release AAB contains debug panel text '$m': $(has chk/aab "$m" && echo YES-BAD || echo no)"
             done

@@ -54,7 +54,6 @@
 <header class="bar"><button class="ic hidden" id="x" data-i="left" onclick="back()" aria-label="Back" title="Back"></button><span class="logo" id="hLogo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v4"/></svg></span><h1 id="ttl">Interview Simulator</h1><button class="ic hidden" id="hMute" data-i="mute" onclick="muteSpeech()" aria-label="Stop reading aloud" title="Stop reading aloud"></button><button class="ic" id="hStreak" data-i="flame" onclick="streakToast()" aria-label="Streak" title="Streak"></button><button class="ic" id="hProf" data-i="user" onclick="showProfile()" aria-label="Profile" title="Profile"></button></header>
 <div id="adSlot" aria-hidden="true"></div>
 <div id="safeTopProbe" aria-hidden="true"></div>
-<div id="safeBotProbe" aria-hidden="true"></div>
 <div id="dlg" class="dlg hidden" role="dialog" aria-modal="true"><div class="dcard"><div class="dem" id="dEm"></div><h3 id="dT"></h3><p id="dM"></p><div class="drow"><button id="dNo" class="dno"></button><button id="dYes" class="dyes"></button></div></div></div>
 <div id="csheet" class="dlg hidden" role="dialog" aria-modal="true" onclick="if(event.target.id==='csheet')closeCS()"><div class="dcard"><div class="dem">🎯</div><h3 id="csT"></h3><p>What do you want to do?</p><div class="drow"><button class="dno" onclick="csGo(0)">Practice</button><button class="dyes" onclick="csGo(1)">Start interview</button></div></div></div>
 <div id="toast" class="hidden"></div>
@@ -189,11 +188,11 @@
 <section class="scr hidden" id="interview">
   <div class="qcard"><div class="qtop"><span class="cnt" id="qCount"></span></div><div class="bar"><i id="qBar"></i></div><div class="qbody"><button class="spk" data-i="speaker" onclick="reveal(cur[idx].q,true)" aria-label="Read question aloud" title="Read aloud"></button><div class="q" id="qText"></div></div></div>
   <div id="tWrap" class="hidden" style="margin-top:12px"><div class="bar"><i id="tBar" style="width:100%;transition:width 1s linear"></i></div><div class="cnt" id="tText"></div></div>
-  <div class="ansbox" id="ansBox" role="textbox" aria-readonly="true" aria-label="Your answer" aria-live="polite"></div>
+  <div class="ansbox" id="ansBox" role="textbox" aria-label="Your answer: tap to type" aria-live="polite"></div>
   <div class="wtip hidden" id="wTip" role="status"></div>
-  <div class="mtools"><div class="vlive mhintt hidden" id="mHintT" aria-live="polite"></div><button type="button" class="hintb" id="mHint" onclick="mHint()">Hint</button><button type="button" class="hintb" id="mTypeB" onclick="mType()">Type</button><button type="button" class="hintb" onclick="mClear()">Clear</button></div>
+  <div class="mtools"><div class="vlive mhintt hidden" id="mHintT" aria-live="polite"></div><button type="button" class="hintb" id="mHint" onclick="mHint()">Hint</button><button type="button" class="mic msm" id="mic" data-i="mic" onclick="toggleMic()" aria-label="Speak your answer" title="Speak your answer"></button><button type="button" class="hintb" onclick="mClear()">Clear</button></div>
   <div class="dots" id="mDots"></div>
-  <div class="mctl"><button class="mnav" data-i="left" onclick="step(-1)" aria-label="Previous question" title="Previous"></button><button class="mic" id="mic" data-i="mic" onclick="toggleMic()" aria-label="Speak to type" title="Speak to type"></button><button class="mnav ok" id="nBtn" data-i="right" onclick="step(1)" aria-label="Next question" title="Next"></button></div>
+  <div class="mctl"><button class="mnav" data-i="left" onclick="step(-1)" aria-label="Previous question" title="Previous"></button><button class="mnav ok" id="nBtn" data-i="right" onclick="step(1)" aria-label="Next question" title="Next"></button></div>
   <div class="note mnote" id="micSt" aria-live="polite"></div>
 </section>
 

@@ -16,7 +16,6 @@ import {
   setInterstitialBlocker,
   skipInterstitialBreak,
   setBannerSuppressed,
-  setBannerPlacement,
   requestBannerRelayout,
   needsPrivacyOptions,
   showPrivacyOptions
@@ -260,12 +259,9 @@ function setAdSpace(h) {
 function bannerLayout() {
   const header = document.querySelector('header.bar');
   const probe = $('safeTopProbe');
-  const bottom = $('safeBotProbe');
   return {
     headerBottom: header ? header.getBoundingClientRect().bottom : 0,
-    safeTop: probe ? probe.getBoundingClientRect().height : 0,
-    viewportH: window.innerHeight,
-    safeBottom: bottom ? bottom.getBoundingClientRect().height : 0
+    safeTop: probe ? probe.getBoundingClientRect().height : 0
   };
 }
 
@@ -384,10 +380,6 @@ function render(id) {
     mRender(idx); // details may have changed (Edit my details)
   }
 
-  // Mock interview session page: banner at the bottom (below Prev/Next); everywhere else at the top.
-  const adBottom = id === 'interview';
-  document.documentElement.classList.toggle('ad-bottom', adBottom);
-  setBannerPlacement(adBottom ? 'bottom' : 'top');
   // Forms (details, new question): no banner and no reserved space.
   const noAd = id === 'setup' || id === 'addq';
   document.documentElement.classList.toggle('no-ad', noAd);
@@ -1409,7 +1401,7 @@ function dots() {
   let h = '';
   for (let k = s; k < e; k++) {
     const sm = ((k === s && s > 0) || (k === e - 1 && e < n)) && k !== P.i;
-    h += `<button class="dot${k === P.i ? ' on' : ''}${sm ? ' sm' : ''}" data-k="${k}" aria-label="Question ${k + 1}"></button>`;
+    h += `<button class="dot${k === P.i ? ' on' : ''}${sm ? ' edge' : ''}" data-k="${k}" aria-label="Question ${k + 1}"></button>`;
   }
   $('pDots').innerHTML = h;
   $('pDots')
@@ -1536,7 +1528,7 @@ function updateMicButtons() {
   $('pMic').classList.toggle('hidden', !voiceOK || !PRACTICE_MIC);
   $('pMicSt').classList.toggle('hidden', !voiceOK || !PRACTICE_MIC);
   $('mic').classList.toggle('hidden', !voiceOK);
-  if (!voiceOK) $('micSt').textContent = 'Voice input is not available on this phone. Type your answer.';
+  if (!voiceOK) $('micSt').textContent = 'Voice input is not available on this phone. Tap the box to type your answer.';
 }
 
 // Mic button grows a little with your voice, so you can see it is hearing you.
@@ -1983,7 +1975,7 @@ function mDots() {
   let h = '';
   for (let k = s; k < e; k++) {
     const sm = ((k === s && s > 0) || (k === e - 1 && e < n)) && k !== idx;
-    h += `<button class="dot${k === idx ? ' on' : ''}${sm ? ' sm' : ''}" data-k="${k}" aria-label="Question ${k + 1}"></button>`;
+    h += `<button class="dot${k === idx ? ' on' : ''}${sm ? ' edge' : ''}" data-k="${k}" aria-label="Question ${k + 1}"></button>`;
   }
   $('mDots').innerHTML = h;
   $('mDots')
@@ -2115,7 +2107,9 @@ function mRender(i, live = '') {
   const box = $('ansBox');
   const H = mHeard[i] || [];
   if (!H.length && !live) {
-    box.innerHTML = answers[i] ? esc(answers[i]) : '<span class="aph">Tap the mic and say your answer from memory.</span>';
+    box.innerHTML = answers[i]
+      ? esc(answers[i])
+      : `<span class="aph">${voiceOK ? 'Tap here to type, or tap the mic to say your answer from memory.' : 'Tap here to type your answer from memory.'}</span>`;
     return;
   }
   const ref = refText(cur[i]);
@@ -2194,10 +2188,10 @@ function mHint() {
   mHint.t = setTimeout(() => el.classList.add('hidden'), 3000);
 }
 
-// Type: the box becomes editable; the typed words are checked like spoken ones when done.
+// Tap the answer box: it becomes editable (the keyboard opens); the typed words are checked like
+// spoken ones when done. Not while the mic is listening.
 function mType() {
-  playTapSound();
-  if (mMicOn || isListening() || voiceState() === 'stopping') return;
+  if (mMicOn || isListening() || voiceState() === 'stopping' || $('ansBox').isContentEditable) return;
   const box = $('ansBox');
   box.textContent = answers[idx] || '';
   box.contentEditable = 'plaintext-only';
@@ -2625,10 +2619,11 @@ function initEventListeners() {
   });
 
   // Mock interview
-  // Tap a red word: what the phone heard instead.
+  // Tap a red word: what the phone heard instead. Tap anywhere else in the box: type.
   $('ansBox')?.addEventListener('click', e => {
+    if ($('ansBox').isContentEditable) return;
     const b = e.target.closest('.aw.wrongw');
-    if (!b || $('ansBox').isContentEditable) return;
+    if (!b) return mType();
     playTapSound();
     showWordTip(b, b.dataset.heard ? `You said "${b.dataset.heard}"` : 'Not said right');
   });
@@ -2985,7 +2980,6 @@ Object.assign(window, {
   mClear,
   muteSpeech,
   heroGo,
-  mType,
   homeLevel,
   pcLevel,
   pcGo,

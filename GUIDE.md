@@ -123,7 +123,7 @@ still a placeholder or a Google test ID.
 
 1. In https://admob.google.com create the app (Android) and two ad units: **Banner** (standard 320x50 banner, not adaptive) and **Interstitial**.
 2. In `src/config/ads.js`, paste the three real IDs into `PRODUCTION_IDS` (nowhere else).
-3. GitHub > Settings > Secrets and variables > Actions > **Variables**: add `RELEASE_ADS` = `true`. The next CI run builds the release AAB with real ads (the debug APK keeps test ads).
+3. GitHub > Settings > Secrets and variables > Actions > **Variables**: add `RELEASE_ADS` = `true`. The next CI run builds the release AAB and the debug APK with the real ad units. Register your own phone as a test device in AdMob (Settings > Test devices, with its advertising ID) before you install the debug APK: it then gets ads labelled "Test Ad" from the real units, so your own views and taps never count. Never tap real ads on a phone that is not registered.
 4. In AdMob > Privacy & messaging, create a **GDPR (European regulations) message** for the app and publish it. The in-app consent form comes from this.
 5. Add your test phone as a test device in AdMob (Settings > Test devices) so you can safely check real ads.
 6. Upload the new AAB (versionCode grows by itself, see section 4).

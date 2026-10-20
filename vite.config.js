@@ -15,12 +15,13 @@ import { productionIdProblems } from './src/config/ads.js';
 
 // `vite build` (release, used for the Play Store .aab): debug tools are compiled out.
 // `vite build --mode debug` (used for the debug APK): adds the hidden ads status panel.
-// RELEASE_ADS=true (release only): real ads from PRODUCTION_IDS in src/config/ads.js. The build
-// stops with a clear message while any production ID is still a placeholder. Debug builds always
-// use Google's test IDs.
+// RELEASE_ADS=true: real ads from PRODUCTION_IDS in src/config/ads.js, in the release AND the
+// debug build (the owner's phone is a registered AdMob test device, so it gets test-labelled ads
+// from the real ad units). The build stops with a clear message while any production ID is still a
+// placeholder. Without RELEASE_ADS (local builds, unit and UI tests): Google's test IDs.
 export default defineConfig(({ mode }) => {
   const debugTools = mode === 'debug' || mode === 'development';
-  const releaseAds = process.env.RELEASE_ADS === 'true' && !debugTools;
+  const releaseAds = process.env.RELEASE_ADS === 'true';
   if (releaseAds) {
     const problems = productionIdProblems();
     if (problems.length) {
