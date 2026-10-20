@@ -294,6 +294,10 @@ export const MID = {
       'I have researched your company, including its mission, main services and recent work. I like your focus on quality and growth, and I can see how this role contributes to your goals.'
     ],
     [
+      'How do you handle conflict with a teammate?',
+      'I talk to the person privately, listen to their view and focus on the problem, not the person. We agree on a shared solution, and if needed I involve a lead. Respectful, early communication keeps teams productive.'
+    ],
+    [
       'Describe a time you failed and what you learned.',
       'In a past project I underestimated the time needed and missed an internal deadline. I took responsibility, reorganized my plan and delivered soon after. Now I add buffer time and share progress early.'
     ],
@@ -574,6 +578,18 @@ export const MYOV = {
 };
 
 export const MYEX = {
+  // Fresh Graduate: questions added in data version 2, at the end so the places of the questions
+  // that shipped before do not change.
+  fresh: [
+    [
+      'Can you explain the gap in your career or education?',
+      'After my studies I spent some time preparing for my career. I completed {certs} and practised {skills} with small projects. Now I am ready to start work and give my best.'
+    ],
+    [
+      'How did you decide on your expected salary?',
+      'I checked what freshers usually earn for this role in the market. I expect a fair starting salary, and my main focus is learning and growth, so I am open to discussing it.'
+    ]
+  ],
   customer: [
     [
       'What does good customer service mean to you?',
@@ -816,6 +832,31 @@ export const LVX = {
   }
 };
 
+// Extra questions at the END of a Junior or Senior list (after the shared closing questions), for
+// questions added after a type shipped: the places of the older questions stay the same.
+export const LVEX = {
+  junior: {
+    fresh: [
+      [
+        'Are you interviewing with other companies at the moment?',
+        'Yes, I am exploring a few options, which is normal at this stage. This role is my top choice because it matches my skills and the direction I want to grow in. If you make me an offer, I will give you a clear answer quickly.'
+      ],
+      [
+        'Is your expected salary negotiable?',
+        'Yes, I am open to a fair discussion. I look at the whole offer, including growth, learning, benefits and the work itself, not only the base salary. If we agree on clear goals, I am happy to review pay again after a set period.'
+      ]
+    ]
+  },
+  senior: {
+    fresh: [
+      [
+        'How would you negotiate your offer for a senior position?',
+        'I research the market for similar senior roles and look at the total value, including scope, team size and growth. I share a clear range with my reasons and listen to the limits of the company. I aim for an agreement that feels fair to both sides, because a good start builds trust.'
+      ]
+    ]
+  }
+};
+
 export const TIPS = [
   'Open with a short answer, then back it with one concrete example.',
   'Quantify results when you can, like time saved or errors reduced.',
@@ -859,7 +900,6 @@ export const ORDER = [
   'customer',
   'teaching',
   'fresh',
-  'hround',
   'cloud',
   'cyber',
   'data',

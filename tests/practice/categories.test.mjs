@@ -1,6 +1,6 @@
 // Every interview type (the first six and src/data/more-questions.js) has a full question bank.
 // Run: npm run test:practice
-import { CATS, LEVELS, HEAD, TAIL, MID, LVH, LVT, LVX, LK, PCI, ROLE, ORDER, MYEX } from '../../src/data/questions.js';
+import { CATS, LEVELS, HEAD, TAIL, MID, LVH, LVT, LVX, LK, PCI, ROLE, ORDER, MYEX, LVEX } from '../../src/data/questions.js';
 import { MORE } from '../../src/data/more-questions.js';
 import { catToRole, ROLE_SKILLS, ROLES } from '../../src/services/setup.js';
 import { FAMILIES, isGeneric } from '../../src/services/answer-context.js';
@@ -14,10 +14,13 @@ const list = (c, level) => {
   const fr = level === 'fresher';
   const L = fr ? [...HEAD, ...MID[c], ...TAIL] : [...LVH[level], ...MID[c], ...(LVX[level]?.[c] || []), ...LVT[level]];
   const keep = new Set([0, 1, 2, 3, 4, 5, 6, L.length - 4, L.length - 2, L.length - 1]);
-  return L.map(([q, a], i) => (LK[c]?.[q] && fr ? LK[c][q] : [q, a])).filter((x, i) => !fr || keep.has(i));
+  const extra = (fr ? MYEX[c] : LVEX[level]?.[c]) || []; // added at the end of the list
+  return L.map(([q, a], i) => (LK[c]?.[q] && fr ? LK[c][q] : [q, a]))
+    .filter((x, i) => !fr || keep.has(i))
+    .concat(extra);
 };
 
-check(`28 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 28);
+check(`27 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 27);
 check('tiles follow ORDER (each type next to related ones)', Object.keys(CATS).join() === ORDER.join());
 
 // The four split types keep their ids; each new half gets its own id.
@@ -28,7 +31,6 @@ const SPEC = {
   cyber: ['Cyber Security', 'Cyber Security', 'Cyber Security Analyst'],
   marketing: ['Marketing', 'Marketing/Sales', 'Marketing Executive'],
   fresh: ['Fresh Graduate', 'Fresher/General', undefined],
-  hround: ['HR Round', 'Fresher/General', undefined],
   web: ['Web Development', 'Web Developer', 'Web Developer'],
   data: ['Data / AI', 'Data/AI', 'Data and AI Engineer'],
   graphic: ['Graphic Design', 'Graphic Designer', 'Graphic Designer']
@@ -39,7 +41,7 @@ for (const [c, [label, setupRole, role]] of Object.entries(SPEC))
     CATS[c] === label && catToRole(c) === setupRole && ROLE[c] === role
   );
 check('only one Sales type', Object.values(CATS).filter(l => /sales/i.test(l)).length === 1);
-check('HR Round and Fresh Graduate are general types', isGeneric('hround') && isGeneric('fresh'));
+check('Fresh Graduate is a general type', isGeneric('fresh') && !ROLE.fresh);
 check(
   'families: Web in Software; Cyber Security in Infra; Data/AI and Graphic Designer in none',
   FAMILIES.Software.includes('Web Developer') &&
@@ -61,7 +63,7 @@ check(
       'Network security,Firewalls,SIEM,Vulnerability assessment,Incident response,Linux,IAM,Wireshark,OWASP,Cloud security'
 );
 check('no role twice in the setup list', new Set(ROLES).size === ROLES.length);
-const NEW = ['it', 'cyber', 'hround', 'web', 'data', 'graphic'];
+const NEW = ['it', 'cyber', 'web', 'data', 'graphic'];
 const cols = Object.values(PCI).map(x => x[0].toLowerCase());
 check(
   'new types: own tile colour (not used by any other type)',
@@ -91,12 +93,46 @@ for (const c of Object.keys(CATS)) {
   );
 }
 
+// Fresh Graduate: the list that shipped before is unchanged; new questions only at the end.
+{
+  const V1 = [
+    'What is the biggest lesson you learned in college?',
+    'Do you prefer teamwork or individual work?',
+    'How do you handle stress or pressure?',
+    'Describe a time you showed leadership.',
+    'Are you willing to learn new skills and work flexible hours?',
+    'What would you like to ask us about this job?',
+    'What motivates you to do your best work?',
+    'What have you learned about our company before this interview?',
+    'How do you handle conflict with a teammate?',
+    'Describe a time you failed and what you learned.',
+    'How do you prioritize tasks and manage your time?',
+    'Why did you choose your degree, and what have you gained from it?',
+    'How would your teachers or friends describe you?'
+  ];
+  check('Fresh Graduate: shipped order kept (2 reworded in place)', MID.fresh.map(x => x[0]).join('|') === V1.join('|'));
+  check(
+    'Fresh Graduate: new questions added at the end of each level',
+    (MYEX.fresh || []).length === 2 && (LVEX.junior.fresh || []).length === 2 && (LVEX.senior.fresh || []).length === 1
+  );
+}
+
 // No question text in two types (the shared opening and closing questions aside).
 {
   const shared = new Set([...HEAD, ...TAIL, ...LVH.junior, ...LVH.senior, ...LVT.junior, ...LVT.senior].map(x => x[0]));
   const where = {};
   for (const c of Object.keys(CATS)) {
-    const own = new Set([...MID[c], ...(LVX.junior[c] || []), ...(LVX.senior[c] || []), ...(MYEX[c] || []), ...Object.values(LK[c] || {})].map(x => x[0]));
+    const own = new Set(
+      [
+        ...MID[c],
+        ...(LVX.junior[c] || []),
+        ...(LVX.senior[c] || []),
+        ...(MYEX[c] || []),
+        ...(LVEX.junior[c] || []),
+        ...(LVEX.senior[c] || []),
+        ...Object.values(LK[c] || {})
+      ].map(x => x[0])
+    );
     own.forEach(t => !shared.has(t) && (where[t.toLowerCase()] ||= []).push(c));
   }
   const dup = Object.entries(where).filter(([, cs]) => cs.length > 1);

@@ -1,6 +1,6 @@
 // Personalised answers (src/services/answer-context.js): the shared resolver, the intro answer, the
 // {placeholder} filler and the "Personalize" sheet validation. Run: npm run test:practice
-import { CATS, LEVELS, HEAD, TAIL, MID, LVH, LVT, LVX, LK } from '../../src/data/questions.js';
+import { CATS, LEVELS, HEAD, TAIL, MID, LVH, LVT, LVX, LK, MYEX, LVEX } from '../../src/data/questions.js';
 import {
   answerContext,
   introAnswer,
@@ -42,7 +42,8 @@ const P = {
 const questions = (c, level) => {
   const fr = level === 'fresher';
   const L = fr ? [...HEAD, ...MID[c], ...TAIL] : [...LVH[level], ...MID[c], ...(LVX[level]?.[c] || []), ...LVT[level]];
-  return L.map(([q, a]) => (fr && LK[c]?.[q] ? LK[c][q] : [q, a]));
+  const extra = (fr ? MYEX[c] : LVEX[level]?.[c]) || [];
+  return [...L.map(([q, a]) => (fr && LK[c]?.[q] ? LK[c][q] : [q, a])), ...extra];
 };
 const BAD = /[{}[\]]|undefined|null| {2}/;
 const SOFTWARE_CATS = Object.keys(CATS).filter(c => FAMILIES.Software.includes(catToRole(c)));
@@ -86,7 +87,7 @@ check(
   roleMatches({ roleKey: 'Graphic Designer' }, 'graphic') && !roleMatches({ roleKey: 'Graphic Designer' }, 'marketing') && !roleMatches(SW, 'graphic')
 );
 check('Software Engineer does not match IT Support or Cyber Security', !roleMatches(SW, 'it') && !roleMatches(SW, 'cyber'));
-check('HR Round is general: always matches', isGeneric('hround') && roleMatches({}, 'hround'));
+check('Fresh Graduate is general: always matches', isGeneric('fresh') && roleMatches({}, 'fresh'));
 {
   const g = introAnswer(answerContext(SW, 'graphic'), true);
   check(

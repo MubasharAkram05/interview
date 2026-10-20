@@ -2,7 +2,7 @@
 // interview types were split. A fixture of version 1 storage covers every per-question store.
 // Run: npm run test:storage
 import { migrateV2, runMigration, rawList, mapQuestion, RENAMED, DATA_VERSION, VERSION_KEY } from '../../src/services/migrate.js';
-import { CATS } from '../../src/data/questions.js';
+import { CATS, MYEX, LVEX } from '../../src/data/questions.js';
 
 const out = [];
 const check = (name, ok, got) => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok || got === undefined ? '' : `\n      got: ${got}`}`);
@@ -108,16 +108,30 @@ for (const [key, name] of [
   check(`${name}: every entry is on the same question as before`, !bad, bad);
 }
 
-// ---- The two moved questions
+// ---- The moved question, and Fresh Graduate (unchanged places)
 const E2 = store.get('is_edits');
 for (const l of LV) {
   const s3 = rawList('cloud', l, V1.cloud).indexOf('How would you secure an S3 bucket?');
   const s3New = rawList('cyber', l).indexOf('How would you secure an S3 bucket?');
   check(`${l}: S3 bucket answer moved from Cloud to Cyber Security`, E2[`${N}|${ck('cyber', l)}|${s3New}`] === `answer cloud ${l} ${s3}`);
-  const cf = rawList('fresh', l, V1.fresh).indexOf('How do you handle conflict with a teammate?');
-  const cfNew = rawList('hround', l).indexOf('How do you handle conflict with a teammate?');
-  check(`${l}: conflict answer moved from Fresh Graduate to HR Round`, E2[`${N}|${ck('hround', l)}|${cfNew}`] === `answer fresh ${l} ${cf}`);
+  // Fresh Graduate only got questions at the end: the shipped list is the start of the new one.
+  const added = ((l === 'fresher' ? MYEX.fresh : LVEX[l].fresh) || []).length;
+  const v1 = rawList('fresh', l, V1.fresh)
+    .slice(0, rawList('fresh', l).length - added)
+    .map(want);
+  check(`${l}: Fresh Graduate shipped list is the start of the new list`, rawList('fresh', l).slice(0, v1.length).join('|') === v1.join('|'));
+  check(`${l}: Fresh Graduate has new questions at the end`, added > 0 && rawList('fresh', l).length === v1.length + added);
 }
+check(
+  'Fresh Graduate: every saved entry stays exactly where it was',
+  Object.keys(edits)
+    .filter(k => /\|fresh(@|\|)/.test(k))
+    .every(k => E2[k] === edits[k])
+);
+check(
+  'Fresh Graduate: no index mapping',
+  [0, 8, 12, 20].every(i => LV.every(l => mapQuestion('fresh', l, i) === null))
+);
 check(
   'renamed question keeps its answer',
   newText('fresh', 'junior', 4 + 5) === RENAMED['Do you have any questions for us?'] && E2[`${N}|fresh@junior|9`] === 'answer fresh junior 9'

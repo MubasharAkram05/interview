@@ -220,7 +220,7 @@ if (intro) {
 check('Mock: voice never writes free text ("Python")', !/Python|Lahore/.test(shown));
 // Score: one right sentence out of a long answer (other questions empty) is far from 10/10
 const sc0 = await p.evaluate(async () => {
-  window.mGo(9);
+  window.mGo(Number(document.getElementById('qCount').textContent.split('/')[1]) - 1); // the last question
   await new Promise(r => setTimeout(r, 300));
   document.getElementById('nBtn').click();
   await new Promise(r => setTimeout(r, 500));

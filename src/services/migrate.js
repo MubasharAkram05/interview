@@ -3,16 +3,17 @@
 // Saved data points at a question by its position in the type's list (index i): answers and
 // question edits (is_edits, is_qedits), best scores (is_pbest), hidden questions (is_hidden),
 // favourites (is_fav), the Question of the day (is_qotd) and the open Practice question (is_scr).
-// Version 2 split four types. Ids stay the same, so only the lists below changed:
-//   cloud: "How would you secure an S3 bucket?" moved to the new Cyber Security type (cyber)
-//   fresh: "How do you handle conflict with a teammate?" moved to the new HR Round type (hround)
-// and every later question of those two lists moved up one place. Each saved entry is matched by
-// its QUESTION TEXT in the old list and moved to the place that text has now.
+// Version 2 split four types. Ids stay the same, so only the list below changed:
+//   cloud: "How would you secure an S3 bucket?" moved to the new Cyber Security type (cyber),
+// and every later question of that list moved up one place. Each saved entry is matched by its
+// QUESTION TEXT in the old list and moved to the place that text has now. Other types only got
+// questions added at the END of their lists (for example Fresh Graduate), so the old list is the
+// start of the new one and nothing needs to move.
 //
 // Pure: reads through get(key), returns the new values; nothing is written here. main.js writes
 // them together with the version marker, so a second run does nothing. If anything goes wrong the
 // caller writes nothing: old data is kept, never deleted. Tested in tests/storage/migrate.test.mjs.
-import { HEAD, TAIL, MID, LVH, LVT, LVX, MYEX } from '../data/questions.js';
+import { HEAD, TAIL, MID, LVH, LVT, LVX, MYEX, LVEX } from '../data/questions.js';
 
 export const DATA_VERSION = 2;
 export const VERSION_KEY = 'is_dv';
@@ -26,25 +27,10 @@ const V1_MID = {
     'What is Infrastructure as Code and why use it?',
     'How would you secure an S3 bucket?',
     'Explain a basic CI/CD pipeline.'
-  ],
-  fresh: [
-    'What is the biggest lesson you learned in college?',
-    'Do you prefer teamwork or individual work?',
-    'How do you handle stress or pressure?',
-    'Describe a time you showed leadership.',
-    'Are you willing to learn new skills and work flexible hours?',
-    'Do you have any questions for us?',
-    'What motivates you to do your best work?',
-    'What do you know about our company?',
-    'How do you handle conflict with a teammate?',
-    'Describe a time you failed and what you learned.',
-    'How do you prioritize tasks and manage your time?',
-    'Why did you choose your degree, and what have you gained from it?',
-    'How would your teachers or friends describe you?'
   ]
 };
 // Where a question of a changed type may have moved to.
-const MOVED_TO = { cloud: ['cyber'], fresh: ['hround'] };
+const MOVED_TO = { cloud: ['cyber'] };
 // Questions reworded in version 2 (same meaning, same place), old text -> new text.
 export const RENAMED = {
   'Do you have any questions for us?': 'What would you like to ask us about this job?',
@@ -64,7 +50,7 @@ export function rawList(c, level, mid = MID[c]) {
   const L =
     level === 'fresher'
       ? [...HEAD, ...mid, ...TAIL, ...(MYEX[c] || [])]
-      : [...(LVH[level] || []), ...mid, ...((LVX[level] || {})[c] || []), ...(LVT[level] || [])];
+      : [...(LVH[level] || []), ...mid, ...((LVX[level] || {})[c] || []), ...(LVT[level] || []), ...((LVEX[level] || {})[c] || [])];
   return L.map(q0);
 }
 
