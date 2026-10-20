@@ -2,6 +2,8 @@
 // city, experience, skills, My words, voice accent). Stored on the phone only.
 // Pure helpers, unit tested in tests/practice/setup.test.mjs.
 
+import { MORE, MORE_ROLES } from '../data/more-questions.js';
+
 export const ROLES = [
   'Software Engineer',
   'Web Developer',
@@ -12,6 +14,7 @@ export const ROLES = [
   'Customer Service',
   'Teaching',
   'Fresher/General',
+  ...Object.keys(MORE_ROLES),
   'Other'
 ];
 export const EXPERIENCE = { fresher: 'Fresher', mid: '1 to 2 years', senior: '3 plus years' };
@@ -27,6 +30,7 @@ const CAT_ROLE = {
   teaching: 'Teaching',
   fresh: 'Fresher/General'
 };
+Object.entries(MORE).forEach(([c, m]) => (CAT_ROLE[c] = m.setupRole));
 export const catToRole = cat => CAT_ROLE[cat] || '';
 
 // Key skill suggestions for each target role (setup screen).
@@ -137,7 +141,8 @@ export const ROLE_SKILLS = {
     'Empathy'
   ],
   Teaching: ['Lesson planning', 'Classroom management', 'Communication', 'Curriculum', 'Assessment', 'MS Office', 'Online teaching', 'Mentoring', 'Patience'],
-  'Fresher/General': ['Communication', 'Teamwork', 'MS Office', 'Excel', 'Time management', 'Problem solving', 'Leadership', 'Adaptability', 'Quick learner']
+  'Fresher/General': ['Communication', 'Teamwork', 'MS Office', 'Excel', 'Time management', 'Problem solving', 'Leadership', 'Adaptability', 'Quick learner'],
+  ...MORE_ROLES
 };
 
 /**
