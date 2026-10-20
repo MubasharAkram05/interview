@@ -172,6 +172,7 @@
 - [x] Mock: Type button removed; the mic is a small icon between Hint and Clear; Prev | Next below; tapping the answer box starts typing
 - [x] Debug APK uses the real ad units when RELEASE_ADS=true (the owner's phone is a registered AdMob test device)
 - [x] Tablets: the app fills the height and is up to 720px wide (it was a floating phone-sized card); 320px phones: the two hero buttons stack so "Mock interview" is not cut, smaller header title; the last progress dot no longer shows as a big grey pill (`.dot.sm` clashed with `button.sm`, now `.dot.edge`)
+- [x] 16 more interview types (`src/data/more-questions.js`): HR Questions, Situational, Behavioral, Sales Associate, Waiter / Restaurant, Microprocessor / Electronics, SQL / Database, C / C++, Java, Networking, Civil, Mechanical, Accounting, Finance, Human Resources, Operations Manager; each with 7 field questions, Fresher answers and Junior / Senior extras (10 / 19 / 19 questions), an icon, and a setup role with skill suggestions
 - [ ] Mock From memory with real speech on a phone (colours while speaking): **NOT CHECKED**
 - [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
 - [ ] Practice matching with real speech (voice report: expected, heard, alignment, score): **NOT CHECKED**

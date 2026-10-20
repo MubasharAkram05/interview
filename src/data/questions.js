@@ -1,3 +1,5 @@
+import { MORE } from './more-questions.js';
+
 export const CATS = {
   software: 'Software Developer / IT',
   marketing: 'Marketing / Sales',
@@ -584,8 +586,9 @@ export const MYEX = {
   ]
 };
 
+// Fresher wording of each question (question text -> [question, answer]).
 export const LK = {};
-Object.keys(MID).forEach(c => {
+const buildLK = c => {
   const L = [...MYH, ...(MYM[c] || []), ...MYT];
   const m = {};
   L.forEach(([q, a]) => (m[q] = [q, a]));
@@ -593,7 +596,8 @@ Object.keys(MID).forEach(c => {
     if (L[i]) m[L[i][0]] = v;
   });
   LK[c] = m;
-});
+};
+Object.keys(MID).forEach(buildLK);
 
 export const LVH = {
   junior: [
@@ -827,3 +831,15 @@ export const PCI = {
   fresh: ['#6a1bff', 'M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z'],
   cloud: ['#66bb4f', 'M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 9.5 4 4 0 0 1 17.5 18zM12 12v4M10 14h4']
 };
+
+// More interview types (src/data/more-questions.js), shown after the first six.
+Object.entries(MORE).forEach(([c, m]) => {
+  CATS[c] = m.label;
+  if (m.role) ROLE[c] = m.role;
+  MID[c] = m.mid;
+  MYM[c] = m.fresher.map((a, i) => [m.mid[i][0], a]);
+  LVX.junior[c] = m.junior;
+  LVX.senior[c] = m.senior;
+  PCI[c] = [m.color, m.icon];
+  buildLK(c);
+});

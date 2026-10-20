@@ -131,7 +131,7 @@ select{appearance:none;-webkit-appearance:none;padding-right:38px;background-ima
 .pnode:not(.go){filter:grayscale(.2)}
 .pnode:active{transform:translateY(4px);box-shadow:0 2px 0 var(--line)}
 .pnode.go:active{box-shadow:0 2px 0 #46a302}
-.pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px 4px;margin-top:22px}
+.pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px 4px;margin-top:22px}
 .pt{display:flex;flex-direction:column;align-items:center;gap:8px;background:none;border:0;padding:0;min-height:0;color:var(--ink);font-weight:500}
 .pc{width:68px;height:68px;border-radius:50%;display:grid;place-items:center;box-shadow:0 4px 10px rgba(0,0,0,.25)}
 .pc svg{width:34px;height:34px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -261,7 +261,7 @@ header.bar{min-height:0;padding-top:calc(4px + max(env(safe-area-inset-top,0px),
 /* ---- Mock page picker: like Practice, with purple tabs and rounded-square tiles ---- */
 .mseg button.on{background:linear-gradient(135deg,#4f46e5,#7c3aed);box-shadow:0 5px 0 #3730a3}
 .mhint{margin:18px 2px 0;font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
-.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.mgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
 .mt{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;min-height:0;padding:16px 6px 14px;border-radius:20px;border:2px solid var(--line);background:var(--card);color:var(--ink);font-weight:500;box-shadow:0 4px 0 var(--line);transition:transform .15s,border-color .2s,box-shadow .2s,background .2s}
 .mt .mc{position:relative;width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:var(--c);box-shadow:0 6px 14px color-mix(in srgb,var(--c) 40%,transparent);transition:transform .2s}
 .mt .mc svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -310,7 +310,7 @@ header.bar{min-height:0;padding-top:calc(4px + max(env(safe-area-inset-top,0px),
 @media(hover:hover){.hcta:hover svg{transform:translateX(3px)}.hcta2:hover{box-shadow:0 6px 14px color-mix(in srgb,var(--brand-2) 18%,transparent)}}
 @media(max-width:360px){.hname{font-size:21px}.hcta,.hcta2{font-size:14px;padding:0 8px}}
 /* Very small phones (320px): the two hero buttons one under the other, so "Mock interview" is never cut */
-@media(max-width:340px){.hbtns{grid-template-columns:1fr}header.bar h1{font-size:17px}}
+@media(max-width:340px){.hbtns{grid-template-columns:1fr}header.bar h1{font-size:17px}.pgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){.hart .hchat,.hart .hlist{animation:none}}
 @keyframes hin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
