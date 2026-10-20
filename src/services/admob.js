@@ -43,15 +43,22 @@ const istats = { prepared: 0, loaded: 0, failed: 0, shown: 0, lastErrorCode: nul
 // Banner state: 'off' (no banner), 'requested' (loading), 'loaded', 'failed'
 let bannerState = 'off';
 let bannerMargin = -1; // margin (dp = CSS px) the current banner was created with
-let bannerPlace = 'top'; // 'top': under the header (all pages); 'bottom': Mock interview session page
-const bannerAdjustBy = { top: 0, bottom: 0 }; // correction learned from the real native position
-const bannerCorrectionsBy = { top: 0, bottom: 0 };
+let bannerAdjust = 0; // correction learned from the real native position
+let bannerCorrections = 0;
 let relayoutTimer = null;
-const bstats = { errorCode: null, height: 0, headerBottom: null, safeTop: null, desiredTop: null, actualTop: null, native: null };
+// A banner request that never answers (no Loaded and no FailedToLoad) counts as failed.
+const BANNER_REQUEST_TIMEOUT_MS = 60000;
+let bannerRequestTimer = null;
+let bannerRequestId = 0;
+// No fill while online: try again later (60 s, 2 min, 4 min, then every 8 min).
+const BANNER_RETRY_MS = [60000, 120000, 240000, 480000];
+let bannerRetryTimer = null;
+let bannerRetries = 0;
+const bstats = { errorCode: null, height: 0, headerBottom: null, safeTop: null, desiredTop: null, actualTop: null, native: null, retries: 0 };
 const suppressed = new Set(); // reasons the banner is hidden right now (dialog, consent form, interstitial)
 
 // Callbacks from the page
-let getLayout = () => ({ headerBottom: 0, safeTop: 0, viewportH: 0, safeBottom: 0 }); // CSS px
+let getLayout = () => ({ headerBottom: 0, safeTop: 0 }); // CSS px
 let onBannerSpace = () => {}; // (heightPx) => reserve that much banner height (0 = collapse)
 
 const native = () => Capacitor.isNativePlatform();
@@ -131,18 +138,18 @@ function addListeners() {
       }
     });
     AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
+      clearTimeout(bannerRequestTimer);
+      clearTimeout(bannerRetryTimer);
+      bannerRetries = 0;
       bannerState = 'loaded';
       adsLog('banner loaded');
       if (suppressed.size) AdMob.hideBanner().catch(() => {});
       setTimeout(checkBannerPosition, 300);
     });
     AdMob.addListener(BannerAdPluginEvents.FailedToLoad, err => {
-      // The plugin destroys a banner that failed. Collapse the slot; retry when back online.
-      bannerState = 'failed';
-      bannerMargin = -1;
-      bstats.errorCode = errCode(err);
-      adsLog('banner failed', 'code=' + bstats.errorCode);
-      onBannerSpace(0);
+      // The plugin destroys a banner that failed. Collapse the slot; retry later (no fill) or
+      // when back online.
+      bannerFailed(errCode(err));
     });
     AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => interstitialLoaded('event'));
     AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, err => {
@@ -177,78 +184,92 @@ async function isOnline() {
 // ---------------------------------------------------------------- banner
 
 function bannerTargets() {
-  let l = { headerBottom: 0, safeTop: 0, viewportH: 0, safeBottom: 0 };
+  let l = { headerBottom: 0, safeTop: 0 };
   try {
     l = getLayout() || l;
   } catch {
     // keep defaults
   }
-  if (bannerPlace === 'bottom') {
-    // Just above the gesture / navigation bar. The page adds padding below the Prev/Next
-    // buttons (banner height + safe area), so the banner never covers the mic or the buttons.
-    const h = bstats.height || ADS_CONFIG.bannerReserveHeight;
-    const desiredTop = (l.viewportH || 0) - (l.safeBottom || 0) - h;
-    // Like TOP_CENTER, the plugin is expected to add the bottom inset itself; if it does not,
-    // checkBannerPosition() measures the real position and raises the margin.
-    const margin = Math.max(0, Math.round(bannerAdjustBy.bottom));
-    bstats.desiredTop = Math.round(desiredTop);
-    bstats.safeBottom = Math.round(l.safeBottom || 0);
-    return { desiredTop, margin };
-  }
   const desiredTop = l.headerBottom + ADS_CONFIG.bannerGapTop;
   // The plugin adds the top system-bar inset itself for TOP_CENTER, so subtract the same inset.
-  const margin = Math.max(0, Math.round(desiredTop - l.safeTop + bannerAdjustBy.top));
+  const margin = Math.max(0, Math.round(desiredTop - l.safeTop + bannerAdjust));
   bstats.headerBottom = Math.round(l.headerBottom);
   bstats.safeTop = Math.round(l.safeTop);
   bstats.desiredTop = Math.round(desiredTop);
   return { desiredTop, margin };
 }
 
+function bannerFailed(code) {
+  clearTimeout(bannerRequestTimer);
+  bannerState = 'failed';
+  bannerMargin = -1;
+  bstats.errorCode = code;
+  adsLog('banner failed', 'code=' + code);
+  onBannerSpace(0);
+  // Offline: the network listener starts it again. Otherwise (no fill, timeout) try again later.
+  if (code === 'offline') return;
+  clearTimeout(bannerRetryTimer);
+  const wait = BANNER_RETRY_MS[Math.min(bannerRetries, BANNER_RETRY_MS.length - 1)];
+  bannerRetries++;
+  bstats.retries = bannerRetries;
+  adsLog('banner retry in', Math.round(wait / 1000) + 's');
+  bannerRetryTimer = setTimeout(() => {
+    if (bannerState === 'failed') startBanner();
+  }, wait);
+}
+
 /** Create the one banner (only when consent allows, the SDK is ready and the phone is online). */
 async function startBanner() {
   if (!ready || !ADS_CONFIG.enableBanner || bannerState === 'requested' || bannerState === 'loaded') return;
   if (!(await isOnline())) {
-    bannerState = 'failed';
-    bstats.errorCode = 'offline';
     adsLog('banner skipped: offline');
-    onBannerSpace(0);
+    bannerFailed('offline');
     return;
   }
+  if (bannerState === 'requested' || bannerState === 'loaded') return; // another call got here first
   bannerState = 'requested';
   bannerMargin = bannerTargets().margin;
   onBannerSpace(bstats.height || ADS_CONFIG.bannerReserveHeight);
-  adsLog('banner requested', 'place=' + bannerPlace, 'margin=' + bannerMargin);
+  adsLog('banner requested', 'margin=' + bannerMargin);
+  // Safety net: if the native banner was replaced before it could answer (see rebuildBanner),
+  // neither Loaded nor FailedToLoad arrives and the banner would stay gone for the session.
+  const id = ++bannerRequestId;
+  clearTimeout(bannerRequestTimer);
+  bannerRequestTimer = setTimeout(() => {
+    if (bannerState === 'requested' && id === bannerRequestId) bannerFailed('no answer');
+  }, BANNER_REQUEST_TIMEOUT_MS);
   try {
     await AdMob.showBanner({
       adId: ADS_CONFIG.bannerAdId,
       adSize: BannerAdSize.BANNER,
-      position: bannerPlace === 'bottom' ? BannerAdPosition.BOTTOM_CENTER : BannerAdPosition.TOP_CENTER,
+      position: BannerAdPosition.TOP_CENTER,
       margin: bannerMargin,
       isTesting: ADS_CONFIG.isTesting
     });
     if (suppressed.size) AdMob.hideBanner().catch(() => {});
   } catch {
-    bannerState = 'failed';
-    bannerMargin = -1;
-    bstats.errorCode = 'show rejected';
-    adsLog('banner failed', 'code=show rejected');
-    onBannerSpace(0);
+    bannerFailed('show rejected');
   }
 }
 
 async function rebuildBanner(reason, { correction = false } = {}) {
   adsLog('banner rebuild', reason);
-  // A rebuild for a new place or a moved header gets its own position checks again (the limit is
-  // per banner, not per session: before, a banner that moved later could never be fixed).
-  if (!correction) bannerCorrectionsBy[bannerPlace] = 0;
+  // A rebuild for a moved header gets its own position checks again (the limit is per banner,
+  // not per session: before, a banner that moved later could never be fixed).
+  if (!correction) bannerCorrections = 0;
   setBannerSuppressed('misplaced', false);
+  clearTimeout(bannerRequestTimer);
   try {
     await AdMob.removeBanner();
   } catch {
     // ignore
   }
   bannerState = 'off';
-  startBanner();
+  // removeBanner resolves before Android has removed the old view. Showing the new one at once
+  // could reach the plugin while the old view still exists: it then only reloads the old view,
+  // which is removed a moment later, and no banner comes back. Give the UI thread a moment.
+  await new Promise(r => setTimeout(r, 250));
+  if (bannerState === 'off') startBanner();
 }
 
 /**
@@ -269,7 +290,7 @@ async function checkBannerPosition() {
   const { desiredTop } = bannerTargets();
   const diff = desiredTop - n.top;
   if (Math.abs(diff) <= BANNER_TOLERANCE_PX) return;
-  if (bannerCorrectionsBy[bannerPlace] >= BANNER_MAX_CORRECTIONS) {
+  if (bannerCorrections >= BANNER_MAX_CORRECTIONS) {
     adsLog('banner position off by', Math.round(diff) + 'px, no more corrections');
     // Still wrong: never let the banner cover the header or the page. Hide it (the slot stays,
     // so nothing jumps); the next screen change or rebuild tries again.
@@ -279,9 +300,8 @@ async function checkBannerPosition() {
     }
     return;
   }
-  bannerCorrectionsBy[bannerPlace]++;
-  // Top: a larger margin moves the banner down. Bottom: a larger margin moves it up.
-  bannerAdjustBy[bannerPlace] += bannerPlace === 'bottom' ? -diff : diff;
+  bannerCorrections++;
+  bannerAdjust += diff; // a larger margin moves the banner down
   rebuildBanner('position off by ' + Math.round(diff) + 'px', { correction: true });
 }
 
@@ -297,24 +317,13 @@ async function relayoutBanner() {
     if (bannerState === 'loaded') {
       if (suppressed.has('misplaced')) {
         // Try once more on this screen (a new screen can have a different header).
-        bannerCorrectionsBy[bannerPlace] = 0;
+        bannerCorrections = 0;
         rebuildBanner('retry after misplaced');
       } else checkBannerPosition();
     }
     return;
   }
   rebuildBanner('header moved');
-}
-
-/**
- * Banner place: 'bottom' only on the Mock interview session page, 'top' everywhere else.
- * Changing it rebuilds the banner at the new place (the interstitial is not affected).
- */
-export function setBannerPlacement(place) {
-  const p = place === 'bottom' ? 'bottom' : 'top';
-  if (p === bannerPlace) return;
-  bannerPlace = p;
-  if (native() && (bannerState === 'loaded' || bannerState === 'requested')) rebuildBanner('placement ' + p);
 }
 
 /** Ask for a re-measure soon (layout settled, safe-area vars changed, viewport changed). */
@@ -581,13 +590,12 @@ export function getAdsDebugState() {
       errorCode: bstats.errorCode,
       height: bstats.height,
       marginTop: bannerMargin,
-      placement: bannerPlace,
       headerBottom: bstats.headerBottom,
       safeTop: bstats.safeTop,
       desiredTop: bstats.desiredTop,
       actualTop: bstats.actualTop,
-      adjust: Math.round(bannerAdjustBy[bannerPlace]),
-      corrections: bannerCorrectionsBy[bannerPlace],
+      adjust: Math.round(bannerAdjust),
+      corrections: bannerCorrections,
       hiddenFor: [...suppressed]
     },
     interstitial: {

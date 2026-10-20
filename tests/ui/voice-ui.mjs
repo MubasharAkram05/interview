@@ -138,7 +138,7 @@ if (await p.isVisible('#dlg')) {
   await p.click('#dYes');
   await wait(900);
 }
-await p.evaluate(() => document.documentElement.style.setProperty('--ad-h', '50px')); // bottom banner space
+await p.evaluate(() => document.documentElement.style.setProperty('--ad-slot', '64px')); // banner under the header
 await wait(150);
 check(
   'Mock: the session page fits the screen (no scroll)',
@@ -150,7 +150,12 @@ check(
 check('Mock: no Free answer / From memory toggle, no chips', (await p.locator('#mModes, #vChips, #micLive').count()) === 0);
 const boxH = await p.$eval('#ansBox', e => e.getBoundingClientRect().height);
 check(`Mock: answer box fills the free space (${Math.round(boxH)}px)`, boxH >= 200);
-check('Mock: empty box explains what to do', /say your answer from memory/i.test(await p.textContent('#ansBox')));
+check('Mock: empty box explains what to do', /tap here to type/i.test(await p.textContent('#ansBox')));
+check('Mock: no Type button any more', (await p.locator('#mTypeB').count()) === 0);
+check(
+  'Mock: the mic sits in the Hint / Clear row, not between Prev and Next',
+  (await p.locator('.mtools #mic').count()) === 1 && (await p.locator('.mctl #mic').count()) === 0
+);
 await p.click('#mHint');
 await wait(100);
 const hintT = (await p.textContent('#mHintT')).trim();
@@ -202,13 +207,9 @@ if (intro) {
     return { text: document.getElementById('wTip').textContent, above: t.bottom <= w.top + 1 && t.bottom > w.top - 30, visible: t.height > 0 };
   });
   check(`Mock: tap a red word shows what was said just above it ("${tip.text}")`, tip.visible && tip.above && tip.text === 'You said "Lahore"');
-  const row = await p.evaluate(() => ['.mctl .mnav', '#mic', '#nBtn'].map(q => document.querySelector(q).getBoundingClientRect()));
-  // In the test browser there is no speech service, so the mic is hidden; then only Prev | Next.
-  const micShown = row[1].width > 0;
-  check(
-    `Mock: Previous and Next sit left and right of the mic (mic ${micShown ? 'shown' : 'hidden here'})`,
-    micShown ? row[0].right <= row[1].left && row[1].right <= row[2].left : row[0].right <= row[2].left && Math.abs(row[0].top - row[2].top) < 4
-  );
+  const row = await p.evaluate(() => ['.mctl .mnav', '#nBtn'].map(q => document.querySelector(q).getBoundingClientRect()));
+  check('Mock: Previous and Next side by side', row[0].right <= row[1].left && Math.abs(row[0].top - row[1].top) < 4);
+  check('Mock: tapping a red word shows the bubble, it does not start typing', !(await p.evaluate(() => document.getElementById('ansBox').isContentEditable)));
   const dimC = await p.$eval('#ansBox .aw.notsaid', e => getComputedStyle(e).color);
   const okC = await p.$eval('#ansBox .aw.said', e => getComputedStyle(e).color);
   check(`Mock: dull and dark colours differ (${dimC} vs ${okC})`, dimC !== okC);
@@ -236,7 +237,11 @@ if (await p.isVisible('#dlg')) {
   await p.click('#dYes');
   await wait(900);
 }
-await p.click('#mTypeB');
+await p.click('#ansBox');
+check(
+  'Mock: tapping the box starts typing',
+  await p.evaluate(() => document.getElementById('ansBox').isContentEditable && document.activeElement.id === 'ansBox')
+);
 await p.keyboard.type(' Pakpatan');
 await p.click('#qText');
 await wait(200);

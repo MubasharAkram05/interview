@@ -53,6 +53,7 @@ const last = () => logs.at(-1) || '';
     m.state.prepareFails = 2;
     await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
     await tick();
+    m.emit('bl'); // the banner loads
     return { ads };
   })();
   const start = now;
@@ -177,7 +178,7 @@ const last = () => logs.at(-1) || '';
   // Phone where the plugin did NOT add the inset: banner really at 80 (24px too high, over the header)
   m.state.adLayout = { found: true, visible: true, top: 80, height: 50, width: 320 };
   m.emit('bl');
-  await advance(400);
+  await advance(700); // check after 300 ms, then the rebuild waits 250 ms for Android to remove the old view
   check('E3 wrong position detected and banner rebuilt +24', m.calls.includes('removeBanner') && m.calls.includes('showBanner:104'));
   m.state.adLayout = { found: true, visible: true, top: 104, height: 50, width: 320 };
   m.emit('bl');
@@ -205,7 +206,7 @@ const last = () => logs.at(-1) || '';
   // Next screen change: a fresh banner with its own checks (the limit is per banner, not per session)
   const before = m.calls.filter(c => c.startsWith('showBanner')).length;
   ads.requestBannerRelayout();
-  await advance(400);
+  await advance(700);
   check(
     'E9 screen change: rebuilt and checked again',
     m.calls.filter(c => c.startsWith('showBanner')).length === before + 1 &&
@@ -239,33 +240,38 @@ const last = () => logs.at(-1) || '';
   check('F4 debug state has only Google test IDs', !/ca-app-pub-(?!3940256099942544)/.test(json));
 }
 
-// ---- Scenario P: Mock session page puts the banner at the bottom, other pages at the top
+// ---- Scenario P: one banner, always at the top; it comes back after no fill or a lost request
 {
   m.reset();
   timers = [];
   logs.length = 0;
   const ads = await import(`../../src/services/admob.js?s=${++n}`);
-  await ads.initializeAdMob({ layout: () => ({ headerBottom: 98, safeTop: 24, viewportH: 800, safeBottom: 20 }), onSpace: () => {} });
+  check('P1 no bottom placement any more', typeof ads.setBannerPlacement === 'undefined');
+  await ads.initializeAdMob({ layout: () => ({ headerBottom: 98, safeTop: 24 }), onSpace: () => {} });
   await tick();
+  check('P2 banner at the top', m.calls.includes('pos:TOP_CENTER') && !m.calls.includes('pos:BOTTOM_CENTER'));
+  // No fill while online: retried after 60 s, then 2 min.
+  m.emit('bf', { code: 3 });
+  let shows = m.calls.filter(c => c.startsWith('showBanner')).length;
+  await advance(59000);
+  check('P3 no fill: no new request before 60 s', m.calls.filter(c => c.startsWith('showBanner')).length === shows);
+  await advance(2000);
+  check('P4 no fill: requested again after 60 s', m.calls.filter(c => c.startsWith('showBanner')).length === shows + 1);
+  m.emit('bf', { code: 3 });
+  shows = m.calls.filter(c => c.startsWith('showBanner')).length;
+  await advance(61000);
+  check('P5 second no fill waits longer (2 min)', m.calls.filter(c => c.startsWith('showBanner')).length === shows);
+  await advance(60000);
+  check('P6 ...and then tries again', m.calls.filter(c => c.startsWith('showBanner')).length === shows + 1);
+  // A request that never answers (old native view replaced) counts as failed, then retried.
+  shows = m.calls.filter(c => c.startsWith('showBanner')).length;
+  await advance(61000);
+  check('P7 request with no answer for 60 s counts as failed', ads.getAdsDebugState().banner.state === 'failed');
+  await advance(250000);
+  check('P8 ...and is requested again', m.calls.filter(c => c.startsWith('showBanner')).length > shows);
   m.emit('bl');
   await advance(400);
-  check('P1 banner starts at the top', m.calls.includes('pos:TOP_CENTER') && !m.calls.includes('pos:BOTTOM_CENTER'));
-  ads.setBannerPlacement('bottom');
-  await tick();
-  check('P2 Mock session: rebuilt at BOTTOM_CENTER', m.calls.includes('removeBanner') && m.calls.includes('pos:BOTTOM_CENTER'));
-  check('P3 debug state shows the placement', ads.getAdsDebugState().banner.placement === 'bottom');
-  // Phone where the plugin does not add the gesture-bar inset: banner bottom at 800, wanted 780.
-  m.state.adLayout = { found: true, visible: true, top: 750, height: 50, width: 320 };
-  m.emit('bl');
-  await advance(400);
-  check('P4 bottom banner over the gesture bar is lifted by 20px', m.calls.includes('showBanner:20'));
-  const before = m.calls.filter(c => c.startsWith('showBanner')).length;
-  ads.setBannerPlacement('bottom');
-  await tick();
-  check('P5 same placement again: no rebuild', m.calls.filter(c => c.startsWith('showBanner')).length === before);
-  ads.setBannerPlacement('top');
-  await tick();
-  check('P6 leaving the page restores the top banner', m.calls.filter(c => c === 'pos:TOP_CENTER').length >= 2);
+  check('P9 loaded: state loaded, retries reset', ads.getAdsDebugState().banner.state === 'loaded');
 }
 
 // ---- Scenario E: consent flow (UMP) before any ad request

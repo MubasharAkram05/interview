@@ -143,7 +143,7 @@
 - [x] Practice: expected-text matching (word DP alignment, O(n x m)), saved words written, colours (said, corrected, extra, missed), score, best score per question, Read it / From memory with Hint, intro answer from a template
 - [x] Mock: free dictation with the user's vocabulary, chips (name, My words, question keywords), learned corrections with Undo, interview vocabulary hints
 - [x] Home: compact horizontal hero (<= 140 px), feature cards in a scroll-snap row with dots, skeletons, empty states
-- [x] Mock session page: banner at the bottom (BOTTOM_CENTER, measured), top banner on every other page
+- [x] Mock session page: banner at the bottom (BOTTOM_CENTER, measured), top banner on every other page (later moved back to the top, see below)
 - [x] New logo: `assets/logo/glyph.svg` (IoU 0.94 with the reference), brand gradient tokens, adaptive + monochrome + legacy launcher icons, splash, Play icon, favicon, manifest; CI checks the icon sizes
 - [x] From memory moved from Practice to Mock (Free answer / From memory, Hint, saved words written, score toast); Practice is Read it only
 - [x] Key skill suggestions follow the target role (`ROLE_SKILLS`)
@@ -168,8 +168,11 @@
 - [x] Home hero is a friendly progress card (greeting, day streak, interviews, best score, Start practice / Mock interview); Start practice opens the form first if details are missing
 - [x] versionCode = CI run number, so every build is a new version and the phone refreshes the cached app icon
 - [x] Ads: banner position checked again on every screen and after every rebuild (the 2-correction limit is per banner, not per session); a banner still misplaced after 2 corrections is hidden instead of covering the header; no banner or interstitial over the welcome screen; reading aloud stops when an interstitial opens
+- [x] Banner: one banner under the header on every page, Mock included (the bottom banner sat next to Prev/Next and moved above the keyboard while typing); a banner request with no answer for 60 s counts as failed; no fill is retried after 1, 2, 4, then every 8 minutes; a rebuild waits 250 ms so Android has removed the old view
+- [x] Mock: Type button removed; the mic is a small icon between Hint and Clear; Prev | Next below; tapping the answer box starts typing
+- [x] Debug APK uses the real ad units when RELEASE_ADS=true (the owner's phone is a registered AdMob test device)
+- [x] Tablets: the app fills the height and is up to 720px wide (it was a floating phone-sized card); 320px phones: the two hero buttons stack so "Mock interview" is not cut, smaller header title; the last progress dot no longer shows as a big grey pill (`.dot.sm` clashed with `button.sm`, now `.dot.edge`)
 - [ ] Mock From memory with real speech on a phone (colours while speaking): **NOT CHECKED**
 - [ ] New launcher icon, themed icon and splash seen on a real phone: **NOT CHECKED**
-- [ ] Bottom banner position on a real phone (gesture bar, 3-button bar): **NOT CHECKED**
 - [ ] Practice matching with real speech (voice report: expected, heard, alignment, score): **NOT CHECKED**
 
