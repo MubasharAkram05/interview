@@ -86,12 +86,31 @@ check(
     roleMatches({ roleKey: 'Cloud/DevOps' }, 'it')
 );
 check(
-  'Cloud Data/AI has no family: only its own type matches',
-  roleMatches({ roleKey: 'Cloud Data/AI' }, 'clouddata') && !['cloud', 'data', 'cloudadmin'].some(c => roleMatches({ roleKey: 'Cloud Data/AI' }, c))
+  'Cloud Data/AI is in Data and Analytics only: matches the data roles, not Cloud or AI',
+  ['clouddata', 'data', 'analyst', 'dataeng'].every(c => roleMatches({ roleKey: 'Cloud Data/AI' }, c)) &&
+    !['cloud', 'cloudadmin', 'mleng', 'genai'].some(c => roleMatches({ roleKey: 'Cloud Data/AI' }, c))
 );
 check(
-  'Data/AI has no family: only Data and Analytics matches',
-  roleMatches({ roleKey: 'Data/AI' }, 'data') &&
+  'Data and Analytics family: Data Analyst matches Data Scientist and BI, not Machine Learning Engineer',
+  ['datasci', 'bidev', 'data', 'dataeng', 'clouddata'].every(c => roleMatches({ roleKey: 'Data Analyst' }, c)) &&
+    !['mleng', 'genai', 'sql', 'dbgen'].some(c => roleMatches({ roleKey: 'Data Analyst' }, c))
+);
+check(
+  'AI and ML family: Data Scientist (two families) matches Machine Learning Engineer and Data Analyst',
+  ['mleng', 'genai', 'cv', 'nlp', 'aiml', 'analyst'].every(c => roleMatches({ roleKey: 'Data Scientist' }, c)) &&
+    roleMatches({ roleKey: 'NLP' }, 'genai') &&
+    !roleMatches({ roleKey: 'Generative AI' }, 'analyst')
+);
+check(
+  'Database family: Database Developer matches Database, DBA, ETL and NoSQL, and stays in Software',
+  ['dbgen', 'dba', 'etl', 'nosql', 'sql'].every(c => roleMatches({ roleKey: 'Database Developer' }, c)) &&
+    roleMatches({ roleKey: 'Database Developer' }, 'java') &&
+    !roleMatches({ roleKey: 'Database Administrator' }, 'java') &&
+    !roleMatches({ roleKey: 'ETL Developer' }, 'analyst')
+);
+check(
+  'Data/AI (Data and Analytics, AI and ML): matches data and AI roles, not Software or Cloud',
+  ['data', 'analyst', 'datasci', 'mleng', 'genai'].every(c => roleMatches({ roleKey: 'Data/AI' }, c)) &&
     !['software', 'web', 'sql', 'cloud'].some(c => roleMatches({ roleKey: 'Data/AI' }, c)) &&
     !roleMatches(SW, 'data')
 );

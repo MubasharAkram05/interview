@@ -595,7 +595,7 @@ html{background:var(--bg)}
 .cpop .cc{position:relative;gap:10px;min-height:44px;padding:8px 14px;font-size:15px;background:none}
 .cpop .cc:first-child{border-top:0;border-radius:14px 14px 0 0}.cpop .cc:last-child{border-radius:0 0 14px 14px}.cpop .cc:only-child{border-radius:14px}
 .cpop .cc .pc.sm{width:28px;height:28px}.cpop .cc .pc.sm svg{width:16px;height:16px}
-.cpop .cpt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cpop .cpt{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.25} /* long names wrap to 2 lines */
 .cc{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 14px;border:0;border-top:1px solid var(--line);border-radius:0;background:none;color:var(--ink);text-align:left;font-weight:600}
 .cc:hover{transform:none;background:color-mix(in srgb,var(--accl) 60%,transparent)}.cc:active{transform:none;background:var(--accl)}
 .cc .pc.sm{width:34px;height:34px;flex:none;box-shadow:none}.cc .pc.sm svg{width:19px;height:19px}
