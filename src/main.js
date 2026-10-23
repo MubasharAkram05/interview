@@ -654,7 +654,7 @@ function pFinish1() {
   const wasRecording = isListening();
   const wasTyping = !$('pEdit').classList.contains('hidden') || isTypingNow();
   home();
-  // All questions done: a natural break for an interstitial. admob.js applies every rule (3 minutes
+  // All questions done: a natural break for an interstitial. admob.js applies every rule (10 minutes
   // since the last ad, 60 s after launch, never twice in a row, consent, loaded) and skips silently.
   const name = 'practice_finished';
   if (wasRecording) return skipInterstitialBreak(name, 'recording');

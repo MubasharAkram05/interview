@@ -9,7 +9,7 @@ Do every step, in order, before each production upload. Each line says where the
 - [ ] GitHub > Settings > Secrets and variables > Actions > Variables: `RELEASE_ADS` = `true`.
 - [ ] CI run green. The build fails by itself if a production ID is still a placeholder or a Google test ID.
 - [ ] `verify-report.txt` (build-reports artifact): `AdMob App ID in manifest` is YOUR ID, not `ca-app-pub-3940256099942544`.
-- [ ] Interstitial cooldown: 180 s (3 minutes) in every build. Nothing to edit.
+- [ ] Interstitial cooldown: 600 s (10 minutes) in every build (`INTERSTITIAL_COOLDOWN_MS` in src/config/ads.js). Nothing to edit.
 
 ## 2. Version
 

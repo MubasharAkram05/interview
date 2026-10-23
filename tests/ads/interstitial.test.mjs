@@ -366,10 +366,79 @@ async function freshAds() {
   check(`H3 failed loads stop after the retry cap (${prepares} tries in 30 min)`, prepares <= 1 + 6 && logs.some(l => l.includes('retry limit reached')));
 }
 
+// ---- Scenario I: the 10-minute gap starts only when an interstitial is really shown
+{
+  const start = async () => {
+    m.reset();
+    timers = [];
+    logs.length = 0;
+    const ads = await import(`../../src/services/admob.js?s=${++n}`);
+    await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
+    await tick();
+    m.emit('bl');
+    await advance(MIN_LAUNCH + 1000);
+    return ads;
+  };
+  const gapLeft = ads => ads.getAdsDebugState().interstitial.cooldownLeftS;
+  // A break in between, so the "never twice in a row" rule does not hide the gap rule.
+  const breakWithoutAd = ads => ads.skipInterstitialBreak('practice_question_x', 'typing');
+
+  // Shown: the gap starts and blocks the next ad for 10 minutes, not one second less.
+  let ads = await start();
+  check('I1 ad shown at a break', await ads.showInterstitialAtBreak('interview_finished'));
+  m.emit('id');
+  await tick();
+  check('I2 gap after a shown ad is 600 s', gapLeft(ads) === 600);
+  await advance(INTERSTITIAL_COOLDOWN_MS - 1000);
+  breakWithoutAd(ads);
+  check(
+    'I3 one second before 10 minutes: still blocked by the gap',
+    !(await ads.showInterstitialAtBreak('interview_finished')) && last().includes('cooldown 1s left')
+  );
+  await advance(1000);
+  breakWithoutAd(ads);
+  check('I4 after 10 minutes: shown again', await ads.showInterstitialAtBreak('interview_finished'));
+  m.emit('id');
+  await tick();
+
+  // Show call fails: no gap.
+  ads = await start();
+  m.state.showMode = 'reject';
+  check('I5 show call fails: no ad', !(await ads.showInterstitialAtBreak('interview_finished')));
+  check('I6 show call fails: the gap does not start', gapLeft(ads) === 0);
+
+  // FailedToShow event (the call itself returned): no gap.
+  ads = await start();
+  m.state.showMode = 'failEvent';
+  await ads.showInterstitialAtBreak('interview_finished');
+  await tick();
+  check('I7 FailedToShow event: the gap does not start', gapLeft(ads) === 0 && !ads.getAdsDebugState().interstitial.open);
+  m.state.showMode = null;
+  await advance(1000);
+  breakWithoutAd(ads);
+  check('I8 the next break after a failed show can show an ad', await ads.showInterstitialAtBreak('interview_finished'));
+  m.emit('id');
+  await tick();
+  check('I9 ...and then the gap starts', gapLeft(ads) === 600);
+
+  // Failed load: no ad, no gap.
+  m.reset();
+  timers = [];
+  logs.length = 0;
+  const ads3 = await import(`../../src/services/admob.js?s=${++n}`);
+  m.state.prepareFails = 1;
+  await ads3.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
+  await tick();
+  check('I10 failed load: no ad and no gap', !(await ads3.showInterstitialAtBreak('interview_finished')) && gapLeft(ads3) === 0);
+}
+
 // ---- Scenario G: config rules
 {
   const cfg = await import('../../src/config/ads.js');
-  check('G1 cooldown is 3 minutes in every build', cfg.INTERSTITIAL_COOLDOWN_MS === 180000);
+  check(
+    'G1 gap between interstitials is 10 minutes in every build (one constant, in the config)',
+    cfg.INTERSTITIAL_COOLDOWN_MS === 600000 && cfg.ADS_CONFIG.interstitialCooldownMs === cfg.INTERSTITIAL_COOLDOWN_MS
+  );
   check('G2 tests and default builds use Google test IDs', !cfg.USE_PRODUCTION_ADS && cfg.ADS_CONFIG.isTesting && cfg.ADS_CONFIG.appId === cfg.TEST_IDS.appId);
   check('G3 the real production IDs pass', cfg.productionIdProblems().length === 0);
   check('G3b a placeholder production ID is reported', cfg.productionIdProblems({ ...cfg.PRODUCTION_IDS, bannerAdId: 'BANNER_ID' }).length === 1);
