@@ -115,7 +115,7 @@ export const isLongIntro = question => /\b(2|two) minutes?\b/i.test(String(quest
 const tidy = s =>
   String(s)
     .replace(/[^\S\n]{2,}/g, ' ')
-    .replace(/ +([.,!?])/g, '$1')
+    .replace(/ +([.,!?])(?=\s|$)/gm, '$1') // not before a word: ".NET", ".Result" keep their space
     .replace(/^ +| +$/gm, '')
     .replace(/^•$/gm, '') // a bullet whose sentence was left out
     .replace(/\n{3,}/g, '\n\n')

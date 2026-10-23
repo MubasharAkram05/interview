@@ -200,6 +200,24 @@ check('Data Scientist profile in Machine Learning Engineer: no sheet (AI and ML 
 await asProfile('Database Developer');
 await open('dbgen');
 check('Database Developer profile in Database: no sheet (Database family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await asProfile('Frontend Developer');
+await open('backend');
+check('Frontend profile in Backend: no sheet (Web family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await asProfile('Android Developer');
+await open('flutter');
+check('Android profile in Flutter: no sheet (Mobile family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await asProfile('WordPress Developer');
+await open('fullstack');
+check('WordPress profile in Full Stack: no sheet (Web family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await asProfile('Software Engineer');
+await open('wordpress');
+check('Software Engineer profile in WordPress: the sheet opens', await sheetOpen());
+await p.click('#psSkip');
+await wait(400);
+await open('android');
+check('Software Engineer profile in Android: the sheet opens', await sheetOpen());
+await p.click('#psSkip');
+await wait(400);
 
 check('no page errors', errors.length === 0, errors.join(' | '));
 await b.close();

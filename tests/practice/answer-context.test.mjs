@@ -124,6 +124,32 @@ check(
   'Graphic Designer has no family: only Graphic Design matches',
   roleMatches({ roleKey: 'Graphic Designer' }, 'graphic') && !roleMatches({ roleKey: 'Graphic Designer' }, 'marketing') && !roleMatches(SW, 'graphic')
 );
+check(
+  'Web family: Frontend matches Backend, Full Stack and WordPress; WordPress matches Full Stack but not Python',
+  ['backend', 'fullstack', 'wordpress', 'web'].every(c => roleMatches({ roleKey: 'Frontend Developer' }, c)) &&
+    roleMatches({ roleKey: 'WordPress Developer' }, 'fullstack') &&
+    !roleMatches({ roleKey: 'WordPress Developer' }, 'python')
+);
+check(
+  'Mobile family: Android matches Flutter, React Native, iOS and Mobile, not Software',
+  ['flutter', 'rn', 'ios', 'mobile'].every(c => roleMatches({ roleKey: 'Android Developer' }, c)) && !roleMatches({ roleKey: 'Android Developer' }, 'software')
+);
+check(
+  'Software family grows: Software Engineer matches Python, .NET, Frontend, Backend and Full Stack, not WordPress or Android',
+  ['python', 'dotnet', 'frontend', 'backend', 'fullstack'].every(c => roleMatches(SW, c)) && !['wordpress', 'android', 'mobile'].some(c => roleMatches(SW, c))
+);
+check(
+  'a / an for the new role labels',
+  ['Android Developer', 'iOS Developer'].every(r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be an ${r}.`) &&
+    ['C# and .NET Developer', 'Python Developer', 'WordPress Developer'].every(
+      r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be a ${r}.`
+    ) &&
+    /an Android Developer role/.test(introAnswer(answerContext({}, 'android'))) &&
+    /an iOS Developer role/.test(introAnswer(answerContext({}, 'ios'))) &&
+    /a C# and \.NET Developer role/.test(introAnswer(answerContext({}, 'dotnet'))) &&
+    /a Python Developer role/.test(introAnswer(answerContext({}, 'python'))) &&
+    /a WordPress Developer role/.test(introAnswer(answerContext({}, 'wordpress')))
+);
 check('Software Engineer does not match IT Support or Cyber Security', !roleMatches(SW, 'it') && !roleMatches(SW, 'cyber'));
 check('Fresh Graduate is general: always matches', isGeneric('fresh') && roleMatches({}, 'fresh'));
 {
@@ -236,6 +262,11 @@ check(
   fillTemplate('A NULL value means unknown; in JavaScript, null and undefined differ. I am {name}.', {}) ===
     'A NULL value means unknown; in JavaScript, null and undefined differ.'
 );
+check(
+  'a dot that starts a word keeps its space (".NET", ".Result"); a space before an ending dot or comma goes',
+  fillTemplate('I use C# and .NET, and I avoid .Result in async code . I am {name} .', { name: 'Ali' }) ===
+    'I use C# and .NET, and I avoid .Result in async code. I am Ali.' && fillTemplate('I use {skills}.', { skills: ['C#', '.NET'] }) === 'I use C# and .NET.'
+);
 // ---- a / an by sound for every role label and every profile role in the app (written by hand,
 // so a new label must be added here).
 {
@@ -257,7 +288,9 @@ check(
     'Incident Response',
     'AI and ML',
     'NLP',
-    'Other'
+    'Other',
+    'Android Developer',
+    'iOS Developer'
   ];
   const A = [
     'Software Developer',
@@ -313,7 +346,16 @@ check(
     'Cloud Data and AI',
     'DevOps',
     'Generative AI',
-    'Computer Vision'
+    'Computer Vision',
+    'Python Developer',
+    'C# and .NET Developer',
+    'Frontend Developer',
+    'Backend Developer',
+    'Full Stack Developer',
+    'WordPress Developer',
+    'Mobile App Developer',
+    'Flutter Developer',
+    'React Native Developer'
   ];
   const inApp = [...new Set([...Object.values(ROLE).filter(Boolean), ...ROLES.map(roleText)])];
   const known = new Set([...AN, ...A]);

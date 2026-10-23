@@ -64,7 +64,7 @@ check(
   `every type in exactly one parent (${Object.keys(CATS).length} types)`,
   Object.keys(CATS).every(c => kids.filter(k => k === c).length === 1)
 );
-check('50 types, HR Questions removed', Object.keys(CATS).length === 50 && !CATS.hrq);
+check('61 types, HR Questions removed', Object.keys(CATS).length === 61 && !CATS.hrq);
 const vis = visibleParents();
 check('parents with no children are hidden', vis.every(p => childrenOf(p).length) && PARENTS.filter(p => !childrenOf(p).length).every(p => !vis.includes(p)));
 check('General Interview is first', vis[0].id === 'general');
@@ -73,8 +73,9 @@ check(
   JSON.stringify(Object.fromEntries(vis.map(p => [p.label, childrenOf(p).map(k => k.id)]))) ===
     JSON.stringify({
       'General Interview': ['situational', 'behavioral', 'fresh'],
-      'Software Development': ['software', 'java', 'cpp'],
-      'Web Development': ['web'],
+      'Software Development': ['software', 'java', 'cpp', 'python', 'dotnet'],
+      'Web Development': ['web', 'frontend', 'backend', 'fullstack', 'wordpress'],
+      'Mobile App Development': ['mobile', 'android', 'flutter', 'rn', 'ios'],
       Database: ['dbgen', 'sql', 'dba', 'etl', 'nosql'],
       'Data and Analytics': ['data', 'analyst', 'bidev', 'datasci', 'dataeng'],
       'AI and Machine Learning': ['aiml', 'mleng', 'genai', 'cv', 'nlp'],
@@ -118,7 +119,7 @@ check(
 check(
   'tile names: the parent names (shortened only where a third line would be needed)',
   vis.map(tileLabel).join('|') ===
-    'General Interview|Software Development|Web Development|Database|Data and Analytics|AI and ML|Cloud|DevOps|Cyber Security|IT and Networking|Graphic Design|Human Resources|Operations Management|Finance and Banking|Marketing|Sales and Retail|Customer Service|Embedded Electronics|Civil and Construction|Mechanical and Industrial|Hospitality|Education',
+    'General Interview|Software Development|Web Development|Mobile App Development|Database|Data and Analytics|AI and ML|Cloud|DevOps|Cyber Security|IT and Networking|Graphic Design|Human Resources|Operations Management|Finance and Banking|Marketing|Sales and Retail|Customer Service|Embedded Electronics|Civil and Construction|Mechanical and Industrial|Hospitality|Education',
   vis.map(tileLabel).join('|')
 );
 
@@ -150,9 +151,9 @@ check(
 }
 check(
   'single-child parent shows its child',
-  childrenOf(PARENTS.find(p => p.id === 'web'))
+  childrenOf(PARENTS.find(p => p.id === 'graphic'))
     .map(k => k.label)
-    .join() === 'Web Developer'
+    .join() === 'Graphic Design'
 );
 check('parent of a type', parentOf('java').id === 'software' && parentOf('fresh').id === 'general');
 
@@ -171,6 +172,24 @@ check(
     found('opencv').join() === 'cv' &&
     found('data scientist').join() === 'datasci' &&
     found('machine learning engineer').includes('mleng')
+);
+check(
+  'search: PR D roles by label and keywords (React, Flutter, Kotlin, WordPress, Django, ASP.NET, Swift)',
+  found('react').join() === 'frontend,fullstack,rn' &&
+    found('flutter').join() === 'flutter' &&
+    found('kotlin').join() === 'android' &&
+    found('wordpress').join() === 'wordpress' &&
+    found('django').join() === 'python' &&
+    found('asp.net').join() === 'dotnet' &&
+    found('swift').join() === 'ios' &&
+    found('backend developer').join() === 'backend'
+);
+check(
+  'Software Development 5, Web Development 5, Mobile App Development 5; Mobile first child named like the parent',
+  ['software', 'web', 'mobile'].map(id => childrenOf(PARENTS.find(p => p.id === id)).length).join() === '5,5,5' &&
+    displayLabel('mobile') === 'Mobile App Development' &&
+    parentOf('mobile').id === 'mobile' &&
+    parentOf('wordpress').id === 'web'
 );
 check('search: a parent label keeps all its children (Database)', found('database').join() === 'dbgen,sql,dba,etl,nosql');
 check('search by keyword (call centre)', found('call centre').join() === 'customer');
@@ -199,7 +218,7 @@ check('empty text: no search', searchCats('  ').length === 0);
 // ---- Families (config) and roles
 check(
   'family map is the config object',
-  RESOLVER_FAMILIES === FAMILIES && Object.keys(FAMILIES).join() === 'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database'
+  RESOLVER_FAMILIES === FAMILIES && Object.keys(FAMILIES).join() === 'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile'
 );
 check('Software Engineer still matches Java (family)', roleMatches({ roleKey: 'Software Engineer' }, 'java'));
 check(

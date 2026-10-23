@@ -20,7 +20,7 @@ const list = (c, level) => {
     .concat(extra);
 };
 
-check(`50 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 50 && !CATS.hrq);
+check(`61 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 61 && !CATS.hrq);
 check('tiles follow ORDER (each type next to related ones)', Object.keys(CATS).join() === ORDER.join());
 
 // The four split types keep their ids; each new half gets its own id.
@@ -45,9 +45,12 @@ for (const [c, [label, setupRole, role]] of Object.entries(SPEC))
 check('only one Sales type', Object.values(CATS).filter(l => /sales/i.test(l)).length === 1);
 check('Fresh Graduate is a general type', isGeneric('fresh') && !ROLE.fresh);
 check(
-  'families: Software, Cloud and DevOps, Security, Infra, Data and Analytics, AI and ML, Database; Graphic Designer in none',
-  Object.keys(FAMILIES).join() === 'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database' &&
-    FAMILIES.Software.join() === 'Software Engineer,Web Developer,Java Developer,C/C++ Developer,Database Developer' &&
+  'families: Software, Cloud and DevOps, Security, Infra, Data and Analytics, AI and ML, Database, Web, Mobile; Graphic Designer in none',
+  Object.keys(FAMILIES).join() === 'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile' &&
+    FAMILIES.Software.join() ===
+      'Software Engineer,Web Developer,Java Developer,C/C++ Developer,Database Developer,Python Developer,C#/.NET Developer,Frontend Developer,Backend Developer,Full Stack Developer' &&
+    FAMILIES.Web.join() === 'Web Developer,Frontend Developer,Backend Developer,Full Stack Developer,WordPress Developer' &&
+    FAMILIES.Mobile.join() === 'Mobile App Developer,Android Developer,Flutter Developer,React Native Developer,iOS Developer' &&
     FAMILIES['Cloud and DevOps'].join() === 'Cloud/DevOps,Cloud Administrator,Cloud Architect,DevOps,Platform Engineer' &&
     FAMILIES.Security.join() === 'Cyber Security,SOC Analyst,Penetration Tester,Application Security,GRC Analyst,Incident Response,Cloud Security' &&
     FAMILIES.Infra.join() === 'IT Support,Network Engineer,Cloud/DevOps' &&
@@ -113,6 +116,40 @@ check(
   'PR C roles in the profile role picker with their suggested skills',
   Object.entries(PRC_SKILLS).every(([r, s]) => ROLES.includes(r) && ROLE_SKILLS[r].join() === s)
 );
+// PR D: Software, Web and Mobile roles: id, label, setup role, role in answers.
+const PRD_SPEC = {
+  python: ['Python Developer', 'Python Developer', 'Python Developer'],
+  dotnet: ['C# / .NET Developer', 'C#/.NET Developer', 'C# and .NET Developer'],
+  frontend: ['Frontend Developer', 'Frontend Developer', 'Frontend Developer'],
+  backend: ['Backend Developer', 'Backend Developer', 'Backend Developer'],
+  fullstack: ['Full Stack Developer', 'Full Stack Developer', 'Full Stack Developer'],
+  wordpress: ['WordPress Developer', 'WordPress Developer', 'WordPress Developer'],
+  mobile: ['Mobile App Development', 'Mobile App Developer', 'Mobile App Developer'],
+  android: ['Android Developer', 'Android Developer', 'Android Developer'],
+  flutter: ['Flutter Developer', 'Flutter Developer', 'Flutter Developer'],
+  rn: ['React Native Developer', 'React Native Developer', 'React Native Developer'],
+  ios: ['iOS Developer', 'iOS Developer', 'iOS Developer']
+};
+const PRD = Object.keys(PRD_SPEC);
+for (const [c, [label, setupRole, role]] of Object.entries(PRD_SPEC))
+  check(`${c}: "${label}", setup role ${setupRole}, role in answers ${role}`, CATS[c] === label && catToRole(c) === setupRole && ROLE[c] === role);
+const PRD_SKILLS = {
+  'Python Developer': 'Python,OOP,Django,Flask,FastAPI,REST API,SQL,Git,Pytest,Data structures',
+  'C#/.NET Developer': 'C#,.NET,ASP.NET Core,Entity Framework,LINQ,SQL Server,REST API,OOP,Git,Unit testing',
+  'Frontend Developer': 'HTML,CSS,JavaScript,TypeScript,React,Responsive design,Accessibility,Git,REST API,Testing',
+  'Backend Developer': 'Node.js,Express,REST API,SQL,MongoDB,Authentication,JWT,Caching,Git,Testing',
+  'Full Stack Developer': 'JavaScript,React,Node.js,Express,SQL,MongoDB,REST API,Git,Docker,Authentication',
+  'WordPress Developer': 'WordPress,PHP,Themes,Plugins,WooCommerce,Elementor,SEO,Page speed,MySQL,Security',
+  'Mobile App Developer': 'Android,iOS,Flutter,React Native,UI design,REST API,Firebase,State management,Git,App store publishing',
+  'Android Developer': 'Kotlin,Java,Android Studio,Jetpack Compose,Room,Retrofit,MVVM,Firebase,Play Store publishing',
+  'Flutter Developer': 'Dart,Flutter,Widgets,State management,REST API,Firebase,SQLite,Animations,Testing,Play Store publishing',
+  'React Native Developer': 'JavaScript,TypeScript,React Native,Expo,Navigation,Redux,REST API,Firebase,Native modules,Testing',
+  'iOS Developer': 'Swift,SwiftUI,UIKit,Xcode,Core Data,MVVM,REST API,Firebase,App Store,Testing'
+};
+check(
+  'PR D roles in the profile role picker with their suggested skills',
+  Object.entries(PRD_SKILLS).every(([r, s]) => ROLES.includes(r) && ROLE_SKILLS[r].join() === s)
+);
 const NEW = [
   'it',
   'cyber',
@@ -130,7 +167,8 @@ const NEW = [
   'appsec',
   'grc',
   'ir',
-  ...PRC
+  ...PRC,
+  ...PRD
 ];
 const cols = Object.values(PCI).map(x => x[0].toLowerCase());
 check(
@@ -161,8 +199,8 @@ for (const c of Object.keys(CATS)) {
   );
 }
 
-// PR B and PR C roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
-for (const c of ['cloudadmin', 'cloudarch', 'cloudsec', 'clouddata', 'devops', 'platform', 'soc', 'pentest', 'appsec', 'grc', 'ir', ...PRC])
+// PR B, PR C and PR D roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
+for (const c of ['cloudadmin', 'cloudarch', 'cloudsec', 'clouddata', 'devops', 'platform', 'soc', 'pentest', 'appsec', 'grc', 'ir', ...PRC, ...PRD])
   check(
     `${c}: 10 / 19 / 19 questions`,
     Object.keys(LEVELS)

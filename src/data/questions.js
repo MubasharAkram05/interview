@@ -937,7 +937,18 @@ Object.entries(MORE).forEach(([c, m]) => {
 // half right after the type it came from). Ids never change, so saved data keeps working.
 export const ORDER = [
   'software',
+  'python',
+  'dotnet',
   'web',
+  'frontend',
+  'backend',
+  'fullstack',
+  'wordpress',
+  'mobile',
+  'android',
+  'flutter',
+  'rn',
+  'ios',
   'it',
   'marketing',
   'graphic',

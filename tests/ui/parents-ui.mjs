@@ -91,9 +91,12 @@ if (await p.isVisible('#dlg')) {
 // ---- Home: parent tile grid
 const tilesOf = box => p.$$eval(`${box} .pt2[data-p]`, x => x.map(e => e.dataset.p));
 const parents = await tilesOf('#hPath');
-check(`Home: ${parents.length} parent tiles (hidden ones have no types)`, parents.length === 22 && parents[0] === 'general' && !parents.includes('mobile'));
+check(
+  `Home: ${parents.length} parent tiles (hidden ones have no types)`,
+  parents.length === 23 && parents[0] === 'general' && parents.includes('mobile') && !parents.includes('game')
+);
 const kids = await p.$$eval('#hPath .pt2[data-p]', x => x.flatMap(e => (e.dataset.kids ? e.dataset.kids.split(' ') : [e.dataset.c])));
-check(`Home: 50 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 50 && new Set(kids).size === 50 && !kids.includes('hrq'));
+check(`Home: 61 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 61 && new Set(kids).size === 61 && !kids.includes('hrq'));
 check(
   'tile: readable name under the icon, no count anywhere on the tiles',
   (await p.textContent('#hPath .pt2[data-p=general] .pl2')).trim() === 'General Interview' &&
@@ -102,9 +105,9 @@ check(
 );
 check(
   'single-type tile: its name, no list',
-  (await p.textContent('#hPath .pt2[data-p=web] .pl2')).trim() === 'Web Development' &&
-    (await p.getAttribute('#hPath .pt2[data-p=web]', 'data-c')) === 'web' &&
-    !(await p.getAttribute('#hPath .pt2[data-p=web]', 'aria-expanded'))
+  (await p.textContent('#hPath .pt2[data-p=graphic] .pl2')).trim() === 'Graphic Design' &&
+    (await p.getAttribute('#hPath .pt2[data-p=graphic]', 'data-c')) === 'graphic' &&
+    !(await p.getAttribute('#hPath .pt2[data-p=graphic]', 'aria-expanded'))
 );
 check('no list open at start', !(await p.$('.cpop')) && (await p.locator('#hPath .pt2[aria-expanded=true]').count()) === 0);
 
@@ -155,7 +158,7 @@ await wait(200);
 for (const [name, id] of [
   ['left', 'general'],
   ['middle', 'software'],
-  ['right', 'ai']
+  ['right', 'web']
 ]) {
   // The tile near the top of the screen, so the list has room below it.
   await p.$eval(`#hPath .pt2[data-p=${id}]`, e => e.scrollIntoView({ block: 'start' }));
@@ -255,14 +258,19 @@ check(
   !(await p.$('.cpop')) && (await p.isVisible('#csheet')) && /^Fresh Graduate · /.test(await p.textContent('#csT'))
 );
 await p.evaluate(() => window.closeCS && window.closeCS());
-await p.click('#hPath .pt2[data-p=web]');
+await p.$eval('#hPath .pt2[data-p=graphic]', e => e.scrollIntoView({ block: 'center' }));
+await wait(200);
+await p.click('#hPath .pt2[data-p=graphic]');
 await wait(300);
-check('single-type tile opens the type directly', (await p.isVisible('#csheet')) && /^Web Developer · /.test(await p.textContent('#csT')));
+check('single-type tile opens the type directly', (await p.isVisible('#csheet')) && /^Graphic Design · /.test(await p.textContent('#csT')));
 await p.evaluate(() => window.closeCS && window.closeCS());
 await wait(200);
 
-// PR C: Data and Analytics, AI and ML and Database now hold 5 types each and open a list.
+// PR C and PR D: these parents hold 5 types each and open a list.
 for (const [id, list] of [
+  ['software', 'software,java,cpp,python,dotnet'],
+  ['web', 'web,frontend,backend,fullstack,wordpress'],
+  ['mobile', 'mobile,android,flutter,rn,ios'],
   ['data', 'data,analyst,bidev,datasci,dataeng'],
   ['ai', 'aiml,mleng,genai,cv,nlp'],
   ['database', 'dbgen,sql,dba,etl,nosql']
@@ -286,6 +294,20 @@ for (const [id, list] of [
   await p.keyboard.press('Escape');
   await wait(200);
 }
+check(
+  'Mobile list: first row named like the parent, long names wrap',
+  await (async () => {
+    await p.$eval('#hPath .pt2[data-p=mobile]', e => e.scrollIntoView({ block: 'center' }));
+    await wait(200);
+    await p.click('#hPath .pt2[data-p=mobile]');
+    await wait(300);
+    const first = (await p.textContent('.cpop [data-c=mobile]')).trim();
+    const lines = await p.$eval('.cpop [data-c=mobile] .cpt', e => Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)));
+    await p.keyboard.press('Escape');
+    await wait(200);
+    return first === 'Mobile App Development' && lines >= 1 && lines <= 2;
+  })()
+);
 check(
   'AI and Database lists: first row named like the parent',
   await (async () => {
@@ -348,7 +370,7 @@ check(
   'results: parent name under each type, list above the grid',
   /Finance and Banking/.test(await p.textContent('#hPath .cres .cc[data-c=accounting] small')) &&
     (await p.$eval('#hPath', e => e.firstElementChild.classList.contains('cres'))) &&
-    (await p.locator('#hPath .pgrid2 .pt2[data-p]').count()) === 22
+    (await p.locator('#hPath .pgrid2 .pt2[data-p]').count()) === 23
 );
 await search('sql developer');
 check('single result shows its parent as a subtitle', /Database/.test(await p.textContent('#hPath .cres [data-c=sql] small')));
@@ -359,25 +381,25 @@ await p.evaluate(() => window.closeCS && window.closeCS());
 await search('zzzz qqqq');
 check('no match: "No category found"', (await p.textContent('#hPath .cpe')).trim() === 'No category found');
 await search('');
-check('clear search: list gone, grid stays', !(await p.$('#hPath .cres')) && (await tilesOf('#hPath')).length === 22);
+check('clear search: list gone, grid stays', !(await p.$('#hPath .cres')) && (await tilesOf('#hPath')).length === 23);
 
 // ---- Practice and Mock use the same grid and list
 await p.evaluate(() => window.startPractice());
 await wait(400);
-check('Practice: same grid', (await tilesOf('#pPath')).length === 22);
+check('Practice: same grid', (await tilesOf('#pPath')).length === 23);
 await p.click('#pPath .pt2[data-p=software]');
 await wait(250);
-check('Practice: same floating list', (await p.locator('#pPath .cpop .cc').count()) === 3);
+check('Practice: same floating list', (await p.locator('#pPath .cpop .cc').count()) === 5);
 await p.keyboard.press('Escape');
 await p.evaluate(() => window.startMock());
 await wait(400);
-check('Mock: same grid', (await tilesOf('#mGrid')).length === 22);
+check('Mock: same grid', (await tilesOf('#mGrid')).length === 23);
 const mBefore = await rects('#mGrid');
 await p.click('#mGrid .pt2[data-p=software]');
 await wait(250);
 check(
   'Mock: list opens, no tile moves',
-  (await p.locator('#mGrid .cpop .cc').count()) === 3 && JSON.stringify(mBefore) === JSON.stringify(await rects('#mGrid'))
+  (await p.locator('#mGrid .cpop .cc').count()) === 5 && JSON.stringify(mBefore) === JSON.stringify(await rects('#mGrid'))
 );
 await p.keyboard.press('Escape');
 check('level tabs: only levels with questions (3 today)', (await p.locator('#mSeg button').count()) === 3);
