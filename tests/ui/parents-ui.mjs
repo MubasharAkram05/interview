@@ -85,87 +85,172 @@ check(`Home: ${parents.length} parent tiles (hidden ones have no types)`, parent
 const kids = await p.$$eval('#hPath .pt2[data-p]', x => x.flatMap(e => (e.dataset.kids ? e.dataset.kids.split(' ') : [e.dataset.c])));
 check(`Home: 26 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 26 && new Set(kids).size === 26 && !kids.includes('hrq'));
 check(
-  'tile: short name, full name for screen readers, count badge',
+  'tile: short name, full name only for screen readers, count badge',
   (await p.textContent('#hPath .pt2[data-p=general] .pl2')).trim() === 'General' &&
     /^General Interview, 3 types$/.test(await p.getAttribute('#hPath .pt2[data-p=general]', 'aria-label')) &&
-    (await p.textContent('#hPath .pt2[data-p=general] .pbg')).trim() === '3'
+    (await p.textContent('#hPath .pt2[data-p=general] .pbg')).trim() === '3' &&
+    !/General Interview/.test(await p.textContent('#hPath'))
 );
 check(
-  'single-type tile: the type short name, no badge, no dropdown',
+  'single-type tile: the type short name, no badge, no list',
   (await p.textContent('#hPath .pt2[data-p=cloud] .pl2')).trim() === 'Cloud' &&
     (await p.getAttribute('#hPath .pt2[data-p=cloud]', 'aria-label')) === 'Cloud Engineer' &&
     !(await p.$('#hPath .pt2[data-p=cloud] .pbg')) &&
     !(await p.getAttribute('#hPath .pt2[data-p=cloud]', 'aria-expanded'))
 );
-check('no panel open at start', !(await p.$('#hPath .cpanel')) && (await p.locator('#hPath .pt2[aria-expanded=true]').count()) === 0);
+check('no list open at start', !(await p.$('.cpop')) && (await p.locator('#hPath .pt2[aria-expanded=true]').count()) === 0);
 
-// The panel must sit right after the last tile of the tapped tile's row.
-const panelAt = box =>
-  p.$eval(`${box} .pgrid2`, g => {
-    const cols = getComputedStyle(g).gridTemplateColumns.split(' ').filter(Boolean).length;
-    const items = [...g.children];
-    const panel = g.querySelector('.cpanel');
-    const tiles = items.filter(e => e.classList.contains('pt2'));
-    const before = panel ? items.indexOf(panel) : -1; // tiles before the panel
-    const open = g.querySelector('.pt2[aria-expanded=true]');
-    const i = tiles.indexOf(open);
-    const end = Math.min(Math.floor(i / cols) * cols + cols - 1, tiles.length - 1);
-    const pr = panel && panel.getBoundingClientRect();
-    const tr = open && open.getBoundingClientRect();
+// Tile boxes on the page (relative to the screen content, so a scroll by the test itself is not a
+// shift; any move of a tile inside the content is).
+const rects = box =>
+  p.$$eval(`${box} .pt2`, x => {
+    const m = document.getElementById('main');
+    return x.map(e => {
+      const r = e.getBoundingClientRect();
+      return JSON.stringify([r.left, r.top + m.scrollTop, r.width, r.height].map(v => Math.round(v * 100) / 100));
+    });
+  });
+const popInfo = () =>
+  p.evaluate(() => {
+    const d = document.querySelector('.cpop');
+    if (!d) return null;
+    const r = d.getBoundingClientRect();
+    const view = document.getElementById('main').getBoundingClientRect();
+    const tile = document.querySelector('.pt2[aria-expanded=true]').getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
     return {
-      cols,
-      ok: !!panel && before === end + 1,
-      below: !!panel && pr.top >= tr.bottom - 1,
-      full: !!panel && Math.abs(pr.width - g.getBoundingClientRect().width) < 1
+      w: r.width,
+      inX: r.left >= 0 && r.right <= innerWidth,
+      inGutter: r.left >= 15.5 && r.right <= innerWidth - 15.5,
+      inView: r.top >= view.top - 0.5 && r.bottom <= view.bottom + 0.5,
+      onTop: d.contains(hit),
+      up: d.classList.contains('up'),
+      below: r.top >= tile.bottom,
+      above: r.bottom <= tile.top,
+      text: d.textContent,
+      chev: !!d.querySelector('.cpv'),
+      head: !!d.querySelector('h1,h2,h3,h4,h5,h6'),
+      rows: [...d.querySelectorAll('.cc')].map(b => [
+        b.getBoundingClientRect().height,
+        b.querySelector('.pc').getBoundingClientRect().width,
+        parseFloat(getComputedStyle(b).fontSize)
+      ])
     };
   });
+const scrollTop = () => p.evaluate(() => document.getElementById('hSearch').scrollIntoView());
+await scrollTop();
+await wait(200);
 for (const [name, id] of [
-  ['first row', 'software'],
-  ['middle row', 'itnet'],
-  ['last row', 'finance']
+  ['left', 'general'],
+  ['middle', 'software'],
+  ['right', 'itnet']
 ]) {
+  // Wait until the page is still (the Home cards above finish loading), then measure.
+  let before = await rects('#hPath');
+  for (let n = 0; n < 20; n++) {
+    await wait(150);
+    const again = await rects('#hPath');
+    if (JSON.stringify(again) === JSON.stringify(before)) break;
+    before = again;
+  }
   await p.click(`#hPath .pt2[data-p=${id}]`);
   await wait(300);
-  const r = await panelAt('#hPath');
-  check(`${name}: panel full width, under the row, after its last tile (${r.cols} columns)`, r.ok && r.below && r.full, JSON.stringify(r));
+  const during = await rects('#hPath');
+  const r = await popInfo();
+  check(
+    `${name} tile: opening the list moves no tile`,
+    JSON.stringify(before) === JSON.stringify(during),
+    before.map((b, k) => (b === during[k] ? '' : `${k}: ${b} -> ${during[k]}`)).filter(Boolean)[0]
+  );
+  check(
+    `${name} tile: list under the tile, on top of the rows below, not clipped, inside the gutters, ${Math.round(r.w)}px wide`,
+    r.below && r.onTop && r.inView && r.inX && r.inGutter && r.w >= 180 && r.w <= 260,
+    JSON.stringify(r)
+  );
+  check(
+    `${name} tile: rows 28px icon, 15px text, at least 44px, no chevron, no title, no parent name`,
+    r.rows.every(([h, ic, fs]) => h >= 44 && Math.round(ic) === 28 && fs === 15) &&
+      !r.chev &&
+      !r.head &&
+      !/General Interview|Software Development|IT Support and Networking/.test(r.text),
+    JSON.stringify(r)
+  );
+  await p.keyboard.press('Escape');
+  await wait(200);
+  check(
+    `${name} tile: Escape closes it, focus back on the tile, no tile moved`,
+    !(await p.$('.cpop')) &&
+      (await p.evaluate(() => document.activeElement.dataset.p)) === id &&
+      JSON.stringify(await rects('#hPath')) === JSON.stringify(before)
+  );
 }
-check('only one panel open at a time', (await p.locator('#hPath .cpanel').count()) === 1 && (await p.locator('#hPath .pt2[aria-expanded=true]').count()) === 1);
-check('tapped tile highlighted', await p.$eval('#hPath .pt2[data-p=finance]', e => e.classList.contains('on')));
-check(
-  'panel: full parent name in its header and label',
-  (await p.textContent('#hPath .cpanel h4')).trim() === 'Finance and Banking' &&
-    (await p.getAttribute('#hPath .cpanel', 'aria-label')) === 'Finance and Banking'
-);
-const rows = await p.$$eval('#hPath .cpanel .cc', x =>
-  x.map(e => [e.dataset.c, e.getBoundingClientRect().height, !!e.querySelector('.pc'), !!e.querySelector('.cpv')])
-);
-check('panel rows: icon, name, chevron, at least 48px', rows.length === 2 && rows.every(([, h, ic, ch]) => h >= 48 && ic && ch), JSON.stringify(rows));
-await p.click('#hPath .pt2[data-p=finance]');
-await wait(300);
-check('tap the same tile: panel closes', !(await p.$('#hPath .cpanel')) && (await p.getAttribute('#hPath .pt2[data-p=finance]', 'aria-expanded')) === 'false');
-// Keyboard
-await p.focus('#hPath .pt2[data-p=general]');
-await p.keyboard.press('Enter');
-await wait(300);
-check('keyboard: Enter opens a panel', (await p.getAttribute('#hPath .pt2[data-p=general]', 'aria-expanded')) === 'true');
-await p.focus('#hPath .cpanel .cc');
-await p.keyboard.press('Escape');
-await wait(200);
-check(
-  'keyboard: Escape closes it and focus goes back to the tile',
-  !(await p.$('#hPath .cpanel')) && (await p.evaluate(() => document.activeElement.dataset.p)) === 'general'
-);
+check('a tile with a list: aria-expanded and aria-controls', (await p.getAttribute('#hPath .pt2[data-p=general]', 'aria-controls')) === 'hPath-pop');
 await p.click('#hPath .pt2[data-p=general]');
+await wait(250);
+check(
+  'list has a label (for screen readers) and the tile is highlighted',
+  (await p.getAttribute('.cpop', 'aria-label')) === 'General Interview' &&
+    (await p.$eval('#hPath .pt2[data-p=general]', e => e.classList.contains('on') && e.getAttribute('aria-expanded') === 'true'))
+);
+check('list rows can take focus (first row focused)', await p.evaluate(() => document.activeElement.closest('.cpop') !== null));
+await p.click('#hPath .pt2[data-p=software]');
+await wait(250);
+check(
+  'another tile: this list closes, the other opens (one at a time)',
+  (await p.locator('.cpop').count()) === 1 &&
+    (await p.getAttribute('#hPath .pt2[data-p=general]', 'aria-expanded')) === 'false' &&
+    (await p.getAttribute('#hPath .pt2[data-p=software]', 'aria-expanded')) === 'true'
+);
+await p.click('#hPath .pt2[data-p=software]');
+await wait(200);
+check('tap the same tile: it closes', !(await p.$('.cpop')));
+// Outside tap: only closes (the single-type tile under the tap does not open its type).
+await p.click('#hPath .pt2[data-p=software]');
+await wait(250);
+await p.click('#hPath .pt2[data-p=cloud]');
 await wait(300);
-await p.click('#hPath .cpanel .cc[data-c=fresh]');
+check('outside tap only closes the list (the tile under it does not open)', !(await p.$('.cpop')) && !(await p.isVisible('#csheet')));
+// Back button closes the list first, the screen stays.
+await p.click('#hPath .pt2[data-p=general]');
+await wait(250);
+await p.evaluate(() => window.hwBack());
+await wait(200);
+check('back button closes the list first, still on Home', !(await p.$('.cpop')) && (await p.isVisible('#home')));
+await p.click('#hPath .pt2[data-p=general]');
+await wait(250);
+await p.click('.cpop .cc[data-c=fresh]');
 await wait(300);
-check('panel row opens the type', (await p.isVisible('#csheet')) && /^Fresh Graduate · /.test(await p.textContent('#csT')));
+check(
+  'choosing a type closes the list and opens the type',
+  !(await p.$('.cpop')) && (await p.isVisible('#csheet')) && /^Fresh Graduate · /.test(await p.textContent('#csT'))
+);
 await p.evaluate(() => window.closeCS && window.closeCS());
 await p.click('#hPath .pt2[data-p=cloud]');
 await wait(300);
 check('single-type tile opens the type directly', (await p.isVisible('#csheet')) && /^Cloud Engineer · /.test(await p.textContent('#csT')));
 await p.evaluate(() => window.closeCS && window.closeCS());
 await wait(200);
+
+// A tile near the bottom navigation: the list opens upward and stays fully visible.
+await p.evaluate(() => {
+  const m = document.getElementById('main');
+  const t = document.querySelector('#hPath .pt2[data-p=finance]');
+  m.scrollTop += t.getBoundingClientRect().bottom - m.getBoundingClientRect().bottom + 2;
+});
+await wait(250);
+const nearBefore = await rects('#hPath');
+await p.click('#hPath .pt2[data-p=finance]');
+await wait(300);
+const nb = await popInfo();
+const navTop = await p.evaluate(() => document.querySelector('nav').getBoundingClientRect().top);
+const popBottom = await p.$eval('.cpop', e => e.getBoundingClientRect().bottom);
+check(
+  'near the bottom: opens upward, fully visible, above the bottom navigation',
+  nb.up && nb.above && nb.inView && nb.onTop && popBottom <= navTop,
+  JSON.stringify(nb)
+);
+check('near the bottom: no tile moved', JSON.stringify(nearBefore) === JSON.stringify(await rects('#hPath')));
+await p.keyboard.press('Escape');
 
 // ---- Search: a flat list above the grid
 const search = async q => {
@@ -194,38 +279,43 @@ check('no match: "No category found"', (await p.textContent('#hPath .cpe')).trim
 await search('');
 check('clear search: list gone, grid stays', !(await p.$('#hPath .cres')) && (await tilesOf('#hPath')).length === 20);
 
-// ---- Practice and Mock use the same grid
+// ---- Practice and Mock use the same grid and list
 await p.evaluate(() => window.startPractice());
 await wait(400);
 check('Practice: same grid', (await tilesOf('#pPath')).length === 20);
+await p.click('#pPath .pt2[data-p=software]');
+await wait(250);
+check('Practice: same floating list', (await p.locator('#pPath .cpop .cc').count()) === 3);
+await p.keyboard.press('Escape');
 await p.evaluate(() => window.startMock());
 await wait(400);
 check('Mock: same grid', (await tilesOf('#mGrid')).length === 20);
+const mBefore = await rects('#mGrid');
 await p.click('#mGrid .pt2[data-p=software]');
-await wait(300);
-check('Mock: panel opens under its row', (await panelAt('#mGrid')).ok);
+await wait(250);
+check(
+  'Mock: list opens, no tile moves',
+  (await p.locator('#mGrid .cpop .cc').count()) === 3 && JSON.stringify(mBefore) === JSON.stringify(await rects('#mGrid'))
+);
+await p.keyboard.press('Escape');
 check('level tabs: only levels with questions (3 today)', (await p.locator('#mSeg button').count()) === 3);
 
 // ---- Columns, sizes, labels and resize
 await p.evaluate(() => window.home());
 await wait(300);
-await p.click('#hPath .pt2[data-p=sales]'); // single type: opens the sheet, no panel
-await p.evaluate(() => window.closeCS && window.closeCS());
-await p.click('#hPath .pt2[data-p=itnet]');
-await wait(300);
 // CI and some phones have a wider font than Inter: check the labels with a wide one too.
-const wideFont = process.env.UI_WIDE_FONT !== '0';
-if (wideFont) await p.addStyleTag({ content: '*{font-family:"DejaVu Sans",Verdana,sans-serif !important}' });
+await p.addStyleTag({ content: '*{font-family:"DejaVu Sans",Verdana,sans-serif !important}' });
 for (const [w, h, want] of [
-  [360, 740, 4],
-  [375, 740, 4],
-  [412, 860, 4],
-  [768, 1024, 6],
-  [1024, 768, 8]
+  [360, 740, 3],
+  [375, 740, 3],
+  [412, 860, 3],
+  [768, 1024, 4],
+  [1024, 768, 6]
 ]) {
   await p.setViewportSize({ width: w, height: h });
   await wait(300);
-  const r = await panelAt('#hPath');
+  await scrollTop();
+  const cols = await p.$eval('#hPath .pgrid2', g => getComputedStyle(g).gridTemplateColumns.split(' ').filter(Boolean).length);
   const sw = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   const m = await p.$$eval('#hPath .pt2', x => ({
     minH: Math.min(...x.map(e => e.getBoundingClientRect().height)),
@@ -239,42 +329,48 @@ for (const [w, h, want] of [
       )
       .map(l => l.textContent)
   }));
-  check(`${w}px: ${want} columns (${r.cols}), no horizontal scroll`, r.cols === want && sw <= 0, sw);
-  check(`${w}px: tiles at least 88px (${Math.round(m.minH)}px), no label overflows`, m.minH >= 88 && !m.over.length, m.over.join());
-  check(`${w}px: open panel moved to the end of its row`, r.ok && r.below, JSON.stringify(r));
+  check(`${w}px: ${want} columns (${cols}), no horizontal scroll`, cols === want && sw <= 0, sw);
+  check(`${w}px: tiles at least 96px (${Math.round(m.minH)}px), no label overflows`, m.minH >= 96 && !m.over.length, m.over.join());
+  // Right-column tile: the list stays on screen; then a resize moves it with its tile.
+  const right = await p.evaluate(n => document.querySelectorAll('#hPath .pt2')[n - 1].dataset.p, cols);
+  const multi = await p.$(`#hPath .pt2[data-p=${right}][aria-expanded]`);
+  const id = multi ? right : 'software';
+  await p.click(`#hPath .pt2[data-p=${id}]`);
+  await wait(250);
+  const r = await popInfo();
+  check(`${w}px: list ${Math.round(r.w)}px wide, inside the screen and gutters`, r.inX && r.inGutter && r.w >= 180 && r.w <= 260, JSON.stringify(r));
+  await p.keyboard.press('Escape');
 }
+await p.setViewportSize({ width: 375, height: 740 });
+await wait(200);
+await scrollTop();
+await p.click('#hPath .pt2[data-p=itnet]');
+await wait(250);
+await p.setViewportSize({ width: 768, height: 1024 });
+await wait(300);
+const rz = await popInfo();
+check('rotation or resize: the open list moves with its tile', rz && (rz.below || rz.above) && rz.inX && rz.inGutter, JSON.stringify(rz));
+await p.keyboard.press('Escape');
 await p.setViewportSize({ width: 375, height: 740 });
 await wait(200);
 for (const theme of ['light', 'dark']) {
   await p.evaluate(t => (document.documentElement.dataset.theme = t), theme);
-  await wait(100);
-  const c = await p.$eval('#hPath .cpanel .cc .cpt', e => {
-    const lum = s => {
-      const [r, g, b2] = s
-        .match(/\d+(\.\d+)?/g)
-        .map(Number)
-        .slice(0, 3)
-        .map(v => v / 255)
-        .map(x => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
-      return 0.2126 * r + 0.7152 * g + 0.0722 * b2;
-    };
-    const fg = lum(getComputedStyle(e).color);
-    const bg = lum(getComputedStyle(e.closest('.cpin')).backgroundColor);
-    return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
-  });
-  const t = await p.$eval('#hPath .pt2[data-p=general] .pl2', e => {
-    const lum = s => {
-      const [r, g, b2] = s
-        .match(/\d+(\.\d+)?/g)
-        .map(Number)
-        .slice(0, 3)
-        .map(v => v / 255)
-        .map(x => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
-      return 0.2126 * r + 0.7152 * g + 0.0722 * b2;
-    };
-    return (lum(getComputedStyle(document.querySelector('.app')).backgroundColor) + 0.05) / (lum(getComputedStyle(e).color) + 0.05);
-  });
-  check(`${theme} mode: panel row ${c.toFixed(1)}:1 and tile label ${(t < 1 ? 1 / t : t).toFixed(1)}:1 (at least 4.5)`, c >= 4.5 && (t < 1 ? 1 / t : t) >= 4.5);
+  await scrollTop();
+  await p.click('#hPath .pt2[data-p=general]');
+  await wait(250);
+  const lum = `s => { const [r, g, b2] = s.match(/\\d+(\\.\\d+)?/g).map(Number).slice(0, 3).map(v => v / 255).map(x => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b2; }`;
+  const [c, t] = await p.evaluate(src => {
+    const L = eval(src);
+    const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    const row = document.querySelector('.cpop .cc .cpt');
+    const label = document.querySelector('#hPath .pt2[data-p=web] .pl2');
+    return [
+      ratio(L(getComputedStyle(row).color), L(getComputedStyle(document.querySelector('.cpop')).backgroundColor)),
+      ratio(L(getComputedStyle(label).color), L(getComputedStyle(document.querySelector('.app')).backgroundColor))
+    ];
+  }, lum);
+  check(`${theme} mode: list row ${c.toFixed(1)}:1 and tile label ${t.toFixed(1)}:1 (at least 4.5)`, c >= 4.5 && t >= 4.5);
+  await p.keyboard.press('Escape');
 }
 await p.evaluate(() => (document.documentElement.dataset.theme = 'light'));
 

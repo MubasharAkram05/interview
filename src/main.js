@@ -748,30 +748,36 @@ const favTile = () =>
   `<button class="cp pt2" id="favT" aria-label="Favorite Question"><span class="pc" style="background:#b45309"><svg viewBox="0 0 24 24" style="fill:#fff" aria-hidden="true"><path d="${IC.star}"/></svg></span><span class="pl2">Favorites</span></button>`;
 
 // ---- Parent groups (src/data/parents.js): one picker for Home, Practice and Mock ----
-// A grid of parent tiles (4 / 6 / 8 per row). A tile opens a full-width panel under its row with
-// the parent's types; one panel at a time, kept in memory only. A parent with one type opens that
-// type directly. With a search text, the matching types show first as a list (parent name under
-// each), and the grid stays below.
-const openP = {}; // picker element id -> open parent id
+// A grid of parent tiles (3 / 4 / 6 per row). A tile opens a small floating list of its types,
+// anchored under the tile (or above it when there is no room below). The list floats over the
+// grid, so no tile moves. One list at a time. A parent with one type opens that type directly.
+// With a search text, the matching types show first as a list (parent name under each).
 const pickers = {}; // picker element id -> onPick
+let pop = null; // the open list: { box, id, el, tile, off }
 const CHEVR = '<svg class="cpv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const pIcon = (p, badge = '') =>
   `<span class="pc" style="background:${p.color}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${p.icon}"/></svg>${badge}</span>`;
-// A type's own icon and colour (questions.js), for the rows inside a panel and the search list.
+// A type's own icon and colour (questions.js), for the floating list and the search list.
 const cIcon = c => {
   const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
   return `<span class="pc sm" style="background:${col}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg></span>`;
 };
-const cRow = (k, sub = '') =>
-  `<button class="cc" data-c="${k.id}">${cIcon(k.id)}<span class="cpt">${esc(k.label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>${CHEVR}</button>`;
 
 function renderPicker(box, onPick, query = '', after = '') {
   const el = $(box);
   if (!el) return;
+  if (pop && pop.box === box) closePop(false);
   pickers[box] = onPick;
   const q = String(query || '').trim();
-  const found = q ? searchCats(q).flatMap(g => g.children.map(k => cRow(k, g.parent.label))) : [];
+  const found = q
+    ? searchCats(q).flatMap(g =>
+        g.children.map(
+          k =>
+            `<button class="cc" data-c="${k.id}">${cIcon(k.id)}<span class="cpt">${esc(k.label)}<small>${esc(g.parent.label)}</small></span>${CHEVR}</button>`
+        )
+      )
+    : [];
   const list = q ? (found.length ? `<div class="cres">${found.join('')}</div>` : '<p class="cpe" role="status">No category found</p>') : '';
   const tiles = visibleParents()
     .map(p => {
@@ -780,19 +786,21 @@ function renderPicker(box, onPick, query = '', after = '') {
       if (kids.length === 1) {
         return `<button class="cp pt2 cc1" data-c="${kids[0].id}" data-p="${p.id}" aria-label="${esc(kids[0].label)}">${pIcon(p)}<span class="pl2" aria-hidden="true">${name}</span></button>`;
       }
-      return `<button class="cp pt2" data-p="${p.id}" data-kids="${kids.map(k => k.id).join(' ')}" aria-expanded="false" aria-controls="${box}-panel" aria-label="${esc(p.label)}, ${kids.length} types">${pIcon(p, `<i class="pbg" aria-hidden="true">${kids.length}</i>`)}<span class="pl2" aria-hidden="true">${name}</span></button>`;
+      return `<button class="cp pt2" data-p="${p.id}" data-kids="${kids.map(k => k.id).join(' ')}" aria-expanded="false" aria-controls="${box}-pop" aria-label="${esc(p.label)}, ${kids.length} types">${pIcon(p, `<i class="pbg" aria-hidden="true">${kids.length}</i>`)}<span class="pl2" aria-hidden="true">${name}</span></button>`;
     })
     .join('');
+  el.classList.add('cpick');
   el.innerHTML = `${list}<div class="pgrid2">${tiles}${after}</div>`;
   el.querySelectorAll('.pt2[aria-expanded]').forEach(b =>
     b.addEventListener('click', () => {
       playTapSound();
-      openPanel(box, openP[box] === b.dataset.p ? '' : b.dataset.p, true);
+      const same = pop && pop.tile === b;
+      closePop(false);
+      if (!same) openPop(box, b);
     })
   );
   el.querySelectorAll('.cc1[data-c], .cres [data-c]').forEach(b => b.addEventListener('click', () => onPick(b.dataset.c)));
-  if (openP[box]) openPanel(box, openP[box], false); // the open parent stays open after a redraw
-  // A hidden screen has no size yet: fit names and the panel when the grid gets its size.
+  // A hidden screen has no size yet: fit the names when the grid gets its size.
   const g = el.querySelector('.pgrid2');
   if (window.ResizeObserver) new ResizeObserver(() => fitGrid(box)).observe(g);
   fitGrid(box);
@@ -806,76 +814,106 @@ function fitGrid(box) {
   g.querySelectorAll('.pl2').forEach(l => {
     l.style.fontSize = '';
     let fs = parseFloat(getComputedStyle(l).fontSize);
-    while (l.scrollWidth > l.clientWidth + 0.5 && fs > 10.5) {
+    while (l.scrollWidth > l.clientWidth + 0.5 && fs > 11) {
       fs -= 0.5;
       l.style.fontSize = `${fs}px`;
     }
   });
-  if (openP[box]) placePanel(box);
+  if (pop && pop.box === box) placePop();
 }
 
-// Columns of the grid as laid out now (4, 6 or 8).
-const gridCols = g => getComputedStyle(g).gridTemplateColumns.split(' ').filter(Boolean).length || 4;
+// Columns of the grid as laid out now (3, 4 or 6).
+const gridCols = g => getComputedStyle(g).gridTemplateColumns.split(' ').filter(Boolean).length || 3;
 
-// Put the open panel right after the last tile of the tapped tile's row, pointer under the tile.
-function placePanel(box) {
+function openPop(box, tile) {
   const el = $(box);
-  const g = el && el.querySelector('.pgrid2');
-  const panel = g && g.querySelector('.cpanel');
-  const tile = panel && g.querySelector(`.pt2[data-p="${openP[box]}"]`);
-  if (!tile) return;
-  const tiles = [...g.querySelectorAll('.pt2')];
-  const cols = gridCols(g);
-  const i = tiles.indexOf(tile);
-  const end = tiles[Math.min(Math.floor(i / cols) * cols + cols - 1, tiles.length - 1)];
-  if (end.nextElementSibling !== panel) end.after(panel);
-  panel.style.setProperty('--px', `${tile.offsetLeft + tile.offsetWidth / 2}px`);
-}
-
-function openPanel(box, id, animate) {
-  const el = $(box);
-  const g = el && el.querySelector('.pgrid2');
-  if (!g) return;
-  const old = g.querySelector('.cpanel');
-  if (old) old.remove();
-  g.querySelectorAll('.pt2[aria-expanded]').forEach(t => {
-    t.setAttribute('aria-expanded', String(t.dataset.p === id));
-    t.classList.toggle('on', t.dataset.p === id);
-  });
-  const p = visibleParents().find(x => x.id === id);
-  openP[box] = p ? id : '';
-  if (!p) return;
-  const panel = document.createElement('div');
-  panel.className = 'cpanel';
-  panel.id = `${box}-panel`;
-  panel.setAttribute('role', 'region');
-  panel.setAttribute('aria-label', p.label);
-  panel.innerHTML = `<div><div class="cpin"><h4>${esc(p.label)}</h4>${childrenOf(p)
-    .map(k => cRow(k))
-    .join('')}</div></div>`;
-  g.appendChild(panel);
-  placePanel(box);
-  panel.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => pickers[box](b.dataset.c)));
-  panel.addEventListener('keydown', e => {
-    if (e.key !== 'Escape') return;
-    const t = g.querySelector(`.pt2[data-p="${id}"]`);
-    openPanel(box, '', false);
-    t && t.focus();
-  });
-  if (animate && !reduceMotion()) void panel.offsetHeight; // start the height and fade from closed
-  panel.classList.add('open');
-  // Below the fold: bring the whole panel into view.
-  setTimeout(
-    () => {
-      const r = panel.getBoundingClientRect();
-      const bottom = ($('main') || document.documentElement).getBoundingClientRect().bottom;
-      if (panel.isConnected && r.bottom > bottom) panel.scrollIntoView({ block: 'nearest', behavior: reduceMotion() ? 'auto' : 'smooth' });
-    },
-    animate && !reduceMotion() ? 200 : 0
+  const p = visibleParents().find(x => x.id === tile.dataset.p);
+  if (!el || !p) return;
+  const d = document.createElement('div');
+  d.className = 'cpop';
+  d.id = `${box}-pop`;
+  d.setAttribute('role', 'group');
+  d.setAttribute('aria-label', p.label); // for screen readers only: the list shows no title
+  d.innerHTML = childrenOf(p)
+    .map(k => `<button class="cc" data-c="${k.id}">${cIcon(k.id)}<span class="cpt">${esc(k.label)}</span></button>`)
+    .join('');
+  el.appendChild(d);
+  d.querySelectorAll('[data-c]').forEach(b =>
+    b.addEventListener('click', () => {
+      closePop(false);
+      pickers[box](b.dataset.c);
+    })
   );
+  tile.setAttribute('aria-expanded', 'true');
+  tile.classList.add('on');
+  // A tap outside only closes the list (the tap does not reach what is under it). Another
+  // parent tile of this grid closes it and opens its own list.
+  const off = e => {
+    if (!pop) return;
+    if (e.type === 'keydown') {
+      if (e.key === 'Escape') closePop(true);
+      return;
+    }
+    if (d.contains(e.target)) return;
+    const t = e.target.closest && e.target.closest('.pt2[aria-expanded]');
+    if (t && el.contains(t)) return;
+    e.stopPropagation();
+    e.preventDefault();
+    closePop(true);
+  };
+  document.addEventListener('click', off, true);
+  document.addEventListener('keydown', off, true);
+  pop = { box, id: p.id, el: d, tile, off };
+  placePop();
+  if (!reduceMotion()) void d.offsetHeight; // start the fade and scale from closed
+  d.classList.add('open');
+  d.querySelector('.cc')?.focus({ preventScroll: true });
 }
 
-// Rotation or a new window size can change the column count: move each open panel to its row.
+function closePop(refocus) {
+  if (!pop) return;
+  const { el, tile, off } = pop;
+  pop = null;
+  document.removeEventListener('click', off, true);
+  document.removeEventListener('keydown', off, true);
+  el.remove();
+  tile.setAttribute('aria-expanded', 'false');
+  tile.classList.remove('on');
+  if (refocus && tile.isConnected) tile.focus({ preventScroll: true });
+}
+
+// Place the open list under its tile (above it when there is no room below), aligned to the
+// tile's column (left column: left edge, right column: right edge, else centred), inside the
+// picker's width (the 16px gutters) and inside the visible part of the scrolling screen.
+function placePop() {
+  if (!pop) return;
+  const { el: d, tile, box } = pop;
+  const host = $(box);
+  const g = host.querySelector('.pgrid2');
+  const hr = host.getBoundingClientRect();
+  const tr = tile.getBoundingClientRect();
+  const cols = gridCols(g);
+  const col = [...g.querySelectorAll('.pt2')].indexOf(tile) % cols;
+  const w = d.offsetWidth;
+  const h = d.offsetHeight;
+  const tl = tr.left - hr.left;
+  let left = col === 0 ? tl : col === cols - 1 ? tl + tr.width - w : tl + (tr.width - w) / 2;
+  left = Math.max(0, Math.min(left, hr.width - w));
+  const view = ($('main') || document.documentElement).getBoundingClientRect();
+  const gap = 8;
+  const below = view.bottom - tr.bottom - gap;
+  const above = tr.top - view.top - gap;
+  const up = below < h + gap && above > below;
+  const top = up ? tr.top - hr.top - gap - h : tr.bottom - hr.top + gap;
+  d.classList.toggle('up', up);
+  d.style.left = `${left}px`;
+  d.style.top = `${top}px`;
+  d.style.setProperty('--px', `${tl + tr.width / 2 - left}px`);
+  // Taller than the space on both sides (very small screens): bring it into view.
+  if (Math.max(below, above) < h + gap) d.scrollIntoView({ block: 'nearest' });
+}
+
+// Rotation or a new window size can change the columns: fit the names and move the open list.
 addEventListener('resize', () => Object.keys(pickers).forEach(fitGrid));
 
 function homeLevel(v) {
@@ -2920,6 +2958,56 @@ function initEventListeners() {
   });
 }
 
+// Android back button (also used by the browser tests): closes the open layer first.
+function hwBack() {
+  // 1. Close open modal if active
+  if (!$('dlg').classList.contains('hidden') && dlgRes) {
+    dlgRes(false);
+    return;
+  }
+  if (!$('csheet').classList.contains('hidden')) {
+    closeCS();
+    return;
+  }
+  // Open category list (Home, Practice, Mock): close it first.
+  if (pop) {
+    closePop(true);
+    return;
+  }
+  // 2. Mock interview leave confirmation
+  if (cs === 'interview') {
+    ask('Leaving already?', 'Your answers so far will be lost. Want to keep going?', 'Leave', 'Stay', '🥺', true).then(y => {
+      if (y) {
+        leaveOK = true;
+        history.back();
+      }
+    });
+    return;
+  }
+  // 3. Cancel active edits
+  if (cs === 'practice' && !$('pEdit').classList.contains('hidden')) {
+    cancelA();
+    return;
+  }
+  // 4. Setup form step 2: back to step 1 (keeps what was typed)
+  if (cs === 'setup' && sStep > 0) {
+    setupStep(-1);
+    return;
+  }
+  // 5. Back in navigation stack
+  if (cs !== 'home') {
+    history.back();
+    return;
+  }
+  // 6. On home screen: double-tap back to exit
+  if (Date.now() < exitArm) {
+    App.exitApp();
+  } else {
+    exitArm = Date.now() + 2000;
+    toast('Press back again to exit');
+  }
+}
+
 function loadPreferences() {
   const o = getItem('is_pf', {}) || {};
   document.querySelectorAll('.pf').forEach(e => {
@@ -3065,49 +3153,7 @@ async function initAppMain() {
     }
 
     // Android hardware back button handling via @capacitor/app
-    App.addListener('backButton', () => {
-      // 1. Close open modal if active
-      if (!$('dlg').classList.contains('hidden') && dlgRes) {
-        dlgRes(false);
-        return;
-      }
-      if (!$('csheet').classList.contains('hidden')) {
-        closeCS();
-        return;
-      }
-      // 2. Mock interview leave confirmation
-      if (cs === 'interview') {
-        ask('Leaving already?', 'Your answers so far will be lost. Want to keep going?', 'Leave', 'Stay', '🥺', true).then(y => {
-          if (y) {
-            leaveOK = true;
-            history.back();
-          }
-        });
-        return;
-      }
-      // 3. Cancel active edits
-      if (cs === 'practice' && !$('pEdit').classList.contains('hidden')) {
-        cancelA();
-        return;
-      }
-      // 4. Setup form step 2: back to step 1 (keeps what was typed)
-      if (cs === 'setup' && sStep > 0) {
-        setupStep(-1);
-        return;
-      }
-      // 5. Back in navigation stack
-      if (cs !== 'home') {
-        history.back();
-        return;
-      }
-      // 6. On home screen: double-tap back to exit
-      if (Date.now() < exitArm) {
-        App.exitApp();
-      } else {
-        exitArm = Date.now() + 2000;
-        toast('Press back again to exit');
-      }
-    });
+    App.addListener('backButton', hwBack);
 
     // Pause / Resume: stop sound, speech, and timers when app goes to background
     App.addListener('pause', () => {
@@ -3190,6 +3236,7 @@ Object.assign(window, {
   setActive,
   restoreQ,
   openPrivacyPolicy,
+  hwBack,
   viewOnlinePolicy,
   adPrivacyChoices,
   startPractice,
