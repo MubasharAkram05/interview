@@ -331,7 +331,7 @@ check('level tabs: only levels with questions (3 today)', (await p.locator('#mSe
 // ---- Columns, sizes, labels and resize
 await p.evaluate(() => window.home());
 await wait(300);
-// Every tile name of the config (shown or not yet shown), at 15px in a real tile: at most 2 lines,
+// Every tile name of the config (shown or not yet shown), at 13px in a real tile: at most 2 lines,
 // no word cut or clipped, no ellipsis; icons at least 76px.
 const ALL = PARENTS.map(x => x.tileLabel);
 for (const w of [360, 375, 412]) {
@@ -344,8 +344,8 @@ for (const w of [360, 375, 412]) {
     g.appendChild(probe);
     const l = probe.querySelector('.pl2');
     // Inter (when the phone has it) and Liberation Sans (Arial / Roboto-like widths, on every test
-    // machine): the names must fit at 15px with both.
-    const fonts = ['Liberation Sans', ...(document.fonts.check('600 15px Inter') ? ['Inter'] : [])];
+    // machine): the names must fit at 13px with both.
+    const fonts = ['Liberation Sans', ...(document.fonts.check('600 13px Inter') ? ['Inter'] : [])];
     const bad = fonts.flatMap(f =>
       names
         .filter(n => {
@@ -354,7 +354,7 @@ for (const w of [360, 375, 412]) {
           l.textContent = n;
           const lh = parseFloat(getComputedStyle(l).lineHeight);
           const lines = Math.round(l.scrollHeight / lh);
-          return lines > 2 || l.scrollWidth > l.clientWidth + 1 || l.scrollHeight > l.clientHeight + 1 || getComputedStyle(l).fontSize !== '15px';
+          return lines > 2 || l.scrollWidth > l.clientWidth + 1 || l.scrollHeight > l.clientHeight + 1 || getComputedStyle(l).fontSize !== '13px';
         })
         .map(n => `${n} (${f})`)
     );
@@ -362,7 +362,7 @@ for (const w of [360, 375, 412]) {
     return { icon, bad };
   }, ALL);
   check(`${w}px: icons at least 76px (${Math.round(r.icon)}px)`, r.icon >= 76);
-  check(`${w}px: all ${ALL.length} tile names fit in 2 lines at 15px, no cut word`, !r.bad.length, r.bad.join(', '));
+  check(`${w}px: all ${ALL.length} tile names fit in 2 lines at 13px, no cut word`, !r.bad.length, r.bad.join(', '));
 }
 // CI and some phones have a wider font than Inter: check the labels with a wide one too.
 await p.addStyleTag({ content: '*{font-family:"DejaVu Sans",Verdana,sans-serif !important}' });
