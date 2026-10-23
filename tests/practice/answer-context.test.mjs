@@ -13,7 +13,7 @@ import {
   FAMILIES
 } from '../../src/services/answer-context.js';
 import { catToRole, ROLES } from '../../src/services/setup.js';
-import { article, roleText } from '../../src/services/expected.js';
+import { article, roleText, expandDegree } from '../../src/services/expected.js';
 
 const out = [];
 const check = (name, ok, got) => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok || got === undefined ? '' : `\n      got: ${got}`}`);
@@ -359,6 +359,61 @@ check(
   check(
     'the intro uses it: "an NLP Engineer role", "a SOC Analyst role"',
     /an NLP Engineer role/.test(introAnswer(answerContext({}, 'nlp'))) && /a SOC Analyst role/.test(introAnswer(answerContext({}, 'soc')))
+  );
+}
+// ---- a / an for every degree form the degree helper can give (typed -> written out, article),
+// written by hand. Intermediate forms (ICS, FSc, FA, I.Com) are kept as typed, in any case.
+{
+  const DEG = [
+    ['BS IT', 'a BS in Information Technology'],
+    ['BSIT', 'a BS in Information Technology'],
+    ['BSCS', 'a BS in Computer Science'],
+    ['BS SE', 'a BS in Software Engineering'],
+    ['BSAI', 'a BS in Artificial Intelligence'],
+    ['BS DS', 'a BS in Data Science'],
+    ['BBA', 'a Bachelor of Business Administration (BBA)'],
+    ['MBA', 'a Master of Business Administration (MBA)'],
+    ['B.Com', 'a Bachelor of Commerce'],
+    ['M.Com', 'a Master of Commerce'],
+    ['MCS', 'a Master of Computer Science (MCS)'],
+    ['MIT', 'a Master of Information Technology (MIT)'],
+    ['B.Ed', 'a Bachelor of Education (B.Ed)'],
+    ['M.Ed', 'a Master of Education (M.Ed)'],
+    ['ICS', 'an ICS'],
+    ['ics', 'an ics'],
+    ['FSc', 'an FSc'],
+    ['Fsc', 'an Fsc'],
+    ['fsc', 'an fsc'],
+    ['F.Sc', 'an F.Sc'],
+    ['FA', 'an FA'],
+    ['fa', 'an fa'],
+    ['I.Com', 'an I.Com'],
+    ['i.com', 'an i.com'],
+    ['MS', 'an MS'],
+    ['MSc', 'an MSc'],
+    ['MA', 'an MA'],
+    ['M.Phil', 'an M.Phil'],
+    ['m.phil', 'an m.phil'],
+    ['MPhil', 'an MPhil'],
+    ['PhD', 'a PhD'],
+    ['Matric', 'a Matric'],
+    ['Fine Arts', 'a Fine Arts']
+  ];
+  const bad = DEG.filter(([typed, want]) => {
+    const d = expandDegree(typed).degree;
+    return `${article(d)} ${d}` !== want;
+  }).map(([typed, want]) => `${typed}: want "${want}", got "${article(expandDegree(typed).degree)} ${expandDegree(typed).degree}"`);
+  check(`a / an for ${DEG.length} degree forms`, !bad.length, bad.join('; '));
+  const SHORT = {
+    an: ['FSc', 'FA', 'ICS', 'I.Com', 'MBA', 'M.Com', 'MCS', 'MIT', 'MS', 'MSc', 'MA', 'M.Phil'],
+    a: ['BS in Computer Science', 'BBA', 'B.Com', 'PhD']
+  };
+  const off = Object.entries(SHORT).flatMap(([art, l]) => l.filter(x => article(x) !== art).map(x => `${article(x)} ${x}`));
+  check('a / an for degree short forms as written', !off.length, off.join(', '));
+  check(
+    'the intro uses it: "I hold an FSc", "pursuing an FA"',
+    /I hold an FSc/.test(introAnswer(answerContext({ edu: 'FSc' }, 'fresh'))) &&
+      /pursuing an FA/.test(introAnswer(answerContext({ edu: 'FA student' }, 'fresh')))
   );
 }
 check('bullet lines keep their line breaks', fillTemplate('• One.\n\n• Two {name}.\n\n• Three.', {}) === '• One.\n\n• Three.');
