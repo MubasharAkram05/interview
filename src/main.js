@@ -792,6 +792,26 @@ function renderPicker(box, onPick, query = '', after = '') {
   );
   el.querySelectorAll('.cc1[data-c], .cres [data-c]').forEach(b => b.addEventListener('click', () => onPick(b.dataset.c)));
   if (openP[box]) openPanel(box, openP[box], false); // the open parent stays open after a redraw
+  // A hidden screen has no size yet: fit names and the panel when the grid gets its size.
+  const g = el.querySelector('.pgrid2');
+  if (window.ResizeObserver) new ResizeObserver(() => fitGrid(box)).observe(g);
+  fitGrid(box);
+}
+
+// A long one-word name (Electronics) on a narrow tile with a wide phone font: make the name a
+// little smaller instead of cutting it.
+function fitGrid(box) {
+  const g = $(box)?.querySelector('.pgrid2');
+  if (!g || !g.offsetWidth) return;
+  g.querySelectorAll('.pl2').forEach(l => {
+    l.style.fontSize = '';
+    let fs = parseFloat(getComputedStyle(l).fontSize);
+    while (l.scrollWidth > l.clientWidth + 0.5 && fs > 10.5) {
+      fs -= 0.5;
+      l.style.fontSize = `${fs}px`;
+    }
+  });
+  if (openP[box]) placePanel(box);
 }
 
 // Columns of the grid as laid out now (4, 6 or 8).
@@ -856,7 +876,7 @@ function openPanel(box, id, animate) {
 }
 
 // Rotation or a new window size can change the column count: move each open panel to its row.
-addEventListener('resize', () => Object.keys(openP).forEach(b => openP[b] && placePanel(b)));
+addEventListener('resize', () => Object.keys(pickers).forEach(fitGrid));
 
 function homeLevel(v) {
   pcLv = v;

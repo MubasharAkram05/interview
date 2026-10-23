@@ -213,6 +213,9 @@ await p.click('#hPath .pt2[data-p=sales]'); // single type: opens the sheet, no 
 await p.evaluate(() => window.closeCS && window.closeCS());
 await p.click('#hPath .pt2[data-p=itnet]');
 await wait(300);
+// CI and some phones have a wider font than Inter: check the labels with a wide one too.
+const wideFont = process.env.UI_WIDE_FONT !== '0';
+if (wideFont) await p.addStyleTag({ content: '*{font-family:"DejaVu Sans",Verdana,sans-serif !important}' });
 for (const [w, h, want] of [
   [360, 740, 4],
   [375, 740, 4],
