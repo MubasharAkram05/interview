@@ -197,12 +197,15 @@ const SAID_AS_WORD = /^(SOC|MERN|MEAN|NASA|NATO|SAAS)$/;
 const LETTER_AN = /^[AEFHILMNORSX]/;
 const VOWEL_LETTER_A = /^(u(i|x)\b|uni(?!n)|us[aeiu]|ut[io]|ur[aeiou]|eu|ewe|one\b|once\b)/i; // 'you' and 'w' sounds
 const SILENT_H = /^(hour|honest|honou?r|heir)/i;
+// Degree short forms as typed, in any case: an FSc, an F.Sc, an FA, an M.Com, an M.Phil (I.Com, ICS and the
+// capital forms are already covered above).
+const DEGREE_AN = /^(f\.?\s*sc|f\.?\s*a|m\.\s*(com|phil|ed|sc|a|s))\b/i;
 export const article = w => {
   const s = String(w ?? '').trim();
   const caps = s.match(ACRONYM);
   if (caps && !SAID_AS_WORD.test(caps[0])) return LETTER_AN.test(caps[0]) ? 'an' : 'a';
   if (VOWEL_LETTER_A.test(s)) return 'a';
-  return SILENT_H.test(s) || /^([aeiou]|(mba|mbbs|ms|msc|mcs|mphil|ma|mit|hr|seo|sql)\b)/i.test(s) ? 'an' : 'a';
+  return SILENT_H.test(s) || /^([aeiou]|(mba|mbbs|ms|msc|mcs|mphil|ma|mit|hr|seo|sql)\b)/i.test(s) || DEGREE_AN.test(s) ? 'an' : 'a';
 };
 
 // Common Pakistani degree short forms, written out for a professional answer.
