@@ -31,7 +31,8 @@ let interstitialReady = false;
 let interstitialLoading = false;
 let interstitialOpen = false;
 let interstitialShownAt = 0;
-let lastInterstitialAt = 0; // when the last interstitial was shown (0 = never)
+let lastInterstitialAt = 0; // when the last interstitial was actually shown (0 = never)
+let shownThisOpen = false; // the open interstitial reached the screen (Showed or Dismissed event)
 let lastBreakShowedAd = false; // never show at two breaks in a row
 let retryIndex = 0;
 let retryTimer = null;
@@ -158,9 +159,11 @@ function addListeners() {
     });
     AdMob.addListener(InterstitialAdPluginEvents.Showed, () => {
       adsLog('showed');
+      markInterstitialShown();
     });
     AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => {
       adsLog('dismissed');
+      markInterstitialShown(); // dismissed means it was on screen, even if Showed was missed
       interstitialClosed();
     });
     AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, err => {
@@ -456,11 +459,18 @@ function interstitialClosed() {
   preloadInterstitial();
 }
 
+/** The gap between interstitials starts here: only once the ad is really on screen. */
+function markInterstitialShown() {
+  if (!interstitialOpen || shownThisOpen) return;
+  shownThisOpen = true;
+  lastInterstitialAt = Date.now();
+}
+
 async function openInterstitial() {
   interstitialReady = false;
   interstitialOpen = true;
+  shownThisOpen = false;
   interstitialShownAt = Date.now();
-  lastInterstitialAt = interstitialShownAt;
   istats.shown++;
   setBannerSuppressed('interstitial', true);
   clearTimeout(openTimer);

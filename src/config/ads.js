@@ -48,9 +48,10 @@ export const USE_PRODUCTION_ADS = typeof __RELEASE_ADS__ !== 'undefined' && __RE
 
 const IDS = USE_PRODUCTION_ADS ? PRODUCTION_IDS : TEST_IDS;
 
-// Minimum time between two interstitials: 3 minutes in every build (release and debug APK).
+// Minimum time between two interstitials: 10 minutes in every build (release and debug APK).
+// The gap starts only when an interstitial is actually shown (not when one fails to load or show).
 // The debug panel's "Force interstitial test" button can still show one at once for testing.
-export const INTERSTITIAL_COOLDOWN_MS = 180000;
+export const INTERSTITIAL_COOLDOWN_MS = 600000;
 
 // Never show an interstitial in the first 60 seconds after the app opens.
 export const INTERSTITIAL_MIN_AFTER_LAUNCH_MS = 60000;

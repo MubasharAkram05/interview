@@ -8,12 +8,22 @@ export const state = {
   online: true,
   adLayout: null, // what BuildInfo.getAdLayout returns
   consent: null, // requestConsentInfo result (null = not required); 'throw' = offline / UMP error
-  formResult: null // showConsentForm result
+  formResult: null, // showConsentForm result
+  showMode: null // showInterstitial: null = shown, 'reject' = call fails, 'failEvent' = FailedToShow event
 };
 export function reset() {
   calls.length = 0;
   listeners = {};
-  Object.assign(state, { prepareFails: 0, prepareHangs: false, prepareSilentLoad: false, online: true, adLayout: null, consent: null, formResult: null });
+  Object.assign(state, {
+    prepareFails: 0,
+    prepareHangs: false,
+    prepareSilentLoad: false,
+    online: true,
+    adLayout: null,
+    consent: null,
+    formResult: null,
+    showMode: null
+  });
 }
 export const Capacitor = { isNativePlatform: () => true };
 export const registerPlugin = () => ({
@@ -71,6 +81,8 @@ export const AdMob = {
   },
   showInterstitial: async () => {
     calls.push('show');
+    if (state.showMode === 'reject') throw new Error('show failed');
+    if (state.showMode === 'failEvent') return emit('ifs', { code: 1 });
     emit('ish');
   },
   showPrivacyOptionsForm: async () => {}
