@@ -8,7 +8,7 @@
 //   children: type ids in order; { id, label } gives the child its own display label inside this
 //             parent (for example a first child named exactly like the parent)
 //   keywords: extra words that find the parent in search
-import { CATS, ROLE } from './questions.js';
+import { CATS, ROLE, KEYWORDS } from './questions.js';
 import { catToRole, ROLE_SKILLS } from '../services/setup.js';
 
 export const PARENTS = [
@@ -99,7 +99,7 @@ export const PARENTS = [
     order: 9,
     color: '#15803d',
     icon: 'M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 9.5 4 4 0 0 1 17.5 18zM12 12v4M10 14h4',
-    children: ['cloud'],
+    children: ['cloud', 'cloudadmin', 'cloudarch', 'cloudsec', 'clouddata'],
     keywords: ['aws', 'azure']
   },
   {
@@ -109,7 +109,7 @@ export const PARENTS = [
     order: 10,
     color: '#047857',
     icon: 'M7 8a4 4 0 1 0 0 8c2.5 0 4-2 5-4s2.5-4 5-4a4 4 0 1 1 0 8c-2.5 0-4-2-5-4S9.5 8 7 8z',
-    children: [],
+    children: ['devops', 'platform'],
     keywords: ['ci/cd', 'docker', 'kubernetes']
   },
   {
@@ -119,7 +119,7 @@ export const PARENTS = [
     order: 11,
     color: '#0f766e',
     icon: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12h6v4H9zM10 12v-2a2 2 0 0 1 4 0v2',
-    children: ['cyber'],
+    children: ['cyber', 'soc', 'pentest', 'appsec', 'grc', 'ir'],
     keywords: ['security', 'infosec']
   },
   {
@@ -345,10 +345,13 @@ export const PARENTS = [
 ];
 
 // Profile roles that count as a match for each other's types (answer-context.js). Config only:
-// a later PR adds a role to a family here. Data/AI and Graphic Designer have no family.
+// a role can be in more than one family (Cloud/DevOps). Data/AI, Cloud Data/AI and Graphic
+// Designer have no family.
 export const FAMILIES = {
   Software: ['Software Engineer', 'Web Developer', 'Java Developer', 'C/C++ Developer', 'Database Developer'],
-  Infra: ['Cloud/DevOps', 'IT Support', 'Network Engineer', 'Cyber Security']
+  'Cloud and DevOps': ['Cloud/DevOps', 'Cloud Administrator', 'Cloud Architect', 'DevOps', 'Platform Engineer'],
+  Security: ['Cyber Security', 'SOC Analyst', 'Penetration Tester', 'Application Security', 'GRC Analyst', 'Incident Response', 'Cloud Security'],
+  Infra: ['IT Support', 'Network Engineer', 'Cloud/DevOps']
 };
 
 const kid = x => (typeof x === 'string' ? { id: x } : x);
@@ -397,7 +400,7 @@ export function searchCats(query) {
       const own = childrenOf(p).filter(k => {
         const role = catToRole(k.id);
         const skills = withSkills ? ROLE_SKILLS[role] || [] : [];
-        return hit(norm([k.label, CATS[k.id], ROLE[k.id], role, pText, ...skills].join(' ')));
+        return hit(norm([k.label, CATS[k.id], ROLE[k.id], role, pText, ...(KEYWORDS[k.id] || []), ...skills].join(' ')));
       });
       if (own.length) out.push({ parent: p, children: own });
     }

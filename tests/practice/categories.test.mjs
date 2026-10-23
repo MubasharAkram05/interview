@@ -20,7 +20,7 @@ const list = (c, level) => {
     .concat(extra);
 };
 
-check(`26 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 26 && !CATS.hrq);
+check(`37 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 37 && !CATS.hrq);
 check('tiles follow ORDER (each type next to related ones)', Object.keys(CATS).join() === ORDER.join());
 
 // The four split types keep their ids; each new half gets its own id.
@@ -45,12 +45,14 @@ for (const [c, [label, setupRole, role]] of Object.entries(SPEC))
 check('only one Sales type', Object.values(CATS).filter(l => /sales/i.test(l)).length === 1);
 check('Fresh Graduate is a general type', isGeneric('fresh') && !ROLE.fresh);
 check(
-  'families: Web in Software; Cyber Security in Infra; Data/AI and Graphic Designer in none',
+  'families: Software, Cloud and DevOps, Security, Infra; Data/AI, Cloud Data/AI and Graphic Designer in none',
   FAMILIES.Software.includes('Web Developer') &&
-    FAMILIES.Infra.join() === 'Cloud/DevOps,IT Support,Network Engineer,Cyber Security' &&
+    FAMILIES['Cloud and DevOps'].join() === 'Cloud/DevOps,Cloud Administrator,Cloud Architect,DevOps,Platform Engineer' &&
+    FAMILIES.Security.join() === 'Cyber Security,SOC Analyst,Penetration Tester,Application Security,GRC Analyst,Incident Response,Cloud Security' &&
+    FAMILIES.Infra.join() === 'IT Support,Network Engineer,Cloud/DevOps' &&
     !Object.values(FAMILIES)
       .flat()
-      .some(r => r === 'Data/AI' || r === 'Graphic Designer')
+      .some(r => r === 'Data/AI' || r === 'Cloud Data/AI' || r === 'Graphic Designer')
 );
 check(
   'Graphic Designer skills',
@@ -65,7 +67,24 @@ check(
       'Network security,Firewalls,SIEM,Vulnerability assessment,Incident response,Linux,IAM,Wireshark,OWASP,Cloud security'
 );
 check('no role twice in the setup list', new Set(ROLES).size === ROLES.length);
-const NEW = ['it', 'cyber', 'web', 'data', 'graphic'];
+const NEW = [
+  'it',
+  'cyber',
+  'web',
+  'data',
+  'graphic',
+  'cloudadmin',
+  'cloudarch',
+  'cloudsec',
+  'clouddata',
+  'devops',
+  'platform',
+  'soc',
+  'pentest',
+  'appsec',
+  'grc',
+  'ir'
+];
 const cols = Object.values(PCI).map(x => x[0].toLowerCase());
 check(
   'new types: own tile colour (not used by any other type)',
@@ -94,6 +113,15 @@ for (const c of Object.keys(CATS)) {
       sizes.every(s => new Set(s.map(x => x[0])).size === s.length)
   );
 }
+
+// PR B roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
+for (const c of ['cloudadmin', 'cloudarch', 'cloudsec', 'clouddata', 'devops', 'platform', 'soc', 'pentest', 'appsec', 'grc', 'ir'])
+  check(
+    `${c}: 10 / 19 / 19 questions`,
+    Object.keys(LEVELS)
+      .map(l => list(c, l).length)
+      .join() === '10,19,19'
+  );
 
 // Fresh Graduate: the list that shipped before is unchanged; new questions only at the end.
 {

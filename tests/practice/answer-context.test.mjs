@@ -73,8 +73,21 @@ check(
 );
 check('Software family: Software Engineer matches Web Development', roleMatches(SW, 'web') && roleMatches({ roleKey: 'Web Developer' }, 'software'));
 check(
-  'Infra family: Cyber Security matches Cloud, IT Support and Networking (and back)',
-  ['cloud', 'it', 'network', 'cyber'].every(c => roleMatches({ roleKey: 'Cyber Security' }, c)) && roleMatches({ roleKey: 'IT Support' }, 'cyber')
+  'Security family: Cyber Security matches the 5 security roles and Cloud Security, not IT Support or Networking',
+  ['cyber', 'soc', 'pentest', 'appsec', 'grc', 'ir', 'cloudsec'].every(c => roleMatches({ roleKey: 'Cyber Security' }, c)) &&
+    !['it', 'network', 'cloud'].some(c => roleMatches({ roleKey: 'Cyber Security' }, c)) &&
+    !roleMatches({ roleKey: 'IT Support' }, 'cyber')
+);
+check(
+  'Cloud and DevOps family: Cloud/DevOps matches Cloud Administrator, Architect, DevOps and Platform, not SOC Analyst',
+  ['cloud', 'cloudadmin', 'cloudarch', 'devops', 'platform'].every(c => roleMatches({ roleKey: 'Cloud/DevOps' }, c)) &&
+    !roleMatches({ roleKey: 'Cloud/DevOps' }, 'soc') &&
+    roleMatches({ roleKey: 'DevOps' }, 'cloud') &&
+    roleMatches({ roleKey: 'Cloud/DevOps' }, 'it')
+);
+check(
+  'Cloud Data/AI has no family: only its own type matches',
+  roleMatches({ roleKey: 'Cloud Data/AI' }, 'clouddata') && !['cloud', 'data', 'cloudadmin'].some(c => roleMatches({ roleKey: 'Cloud Data/AI' }, c))
 );
 check(
   'Data/AI has no family: only Data and Analytics matches',

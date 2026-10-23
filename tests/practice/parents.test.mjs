@@ -64,7 +64,7 @@ check(
   `every type in exactly one parent (${Object.keys(CATS).length} types)`,
   Object.keys(CATS).every(c => kids.filter(k => k === c).length === 1)
 );
-check('26 types, HR Questions removed', Object.keys(CATS).length === 26 && !CATS.hrq);
+check('37 types, HR Questions removed', Object.keys(CATS).length === 37 && !CATS.hrq);
 const vis = visibleParents();
 check('parents with no children are hidden', vis.every(p => childrenOf(p).length) && PARENTS.filter(p => !childrenOf(p).length).every(p => !vis.includes(p)));
 check('General Interview is first', vis[0].id === 'general');
@@ -77,8 +77,9 @@ check(
       'Web Development': ['web'],
       Database: ['sql'],
       'Data and Analytics': ['data'],
-      Cloud: ['cloud'],
-      'Cyber Security': ['cyber'],
+      Cloud: ['cloud', 'cloudadmin', 'cloudarch', 'cloudsec', 'clouddata'],
+      DevOps: ['devops', 'platform'],
+      'Cyber Security': ['cyber', 'soc', 'pentest', 'appsec', 'grc', 'ir'],
       'IT Support and Networking': ['it', 'network'],
       'Graphic Design': ['graphic'],
       'Human Resources': ['hr'],
@@ -116,7 +117,7 @@ check(
 check(
   'tile names: the parent names (shortened only where a third line would be needed)',
   vis.map(tileLabel).join('|') ===
-    'General Interview|Software Development|Web Development|Database|Data and Analytics|Cloud|Cyber Security|IT and Networking|Graphic Design|Human Resources|Operations Management|Finance and Banking|Marketing|Sales and Retail|Customer Service|Embedded Electronics|Civil and Construction|Mechanical and Industrial|Hospitality|Education',
+    'General Interview|Software Development|Web Development|Database|Data and Analytics|Cloud|DevOps|Cyber Security|IT and Networking|Graphic Design|Human Resources|Operations Management|Finance and Banking|Marketing|Sales and Retail|Customer Service|Embedded Electronics|Civil and Construction|Mechanical and Industrial|Hospitality|Education',
   vis.map(tileLabel).join('|')
 );
 
@@ -148,9 +149,9 @@ check(
 }
 check(
   'single-child parent shows its child',
-  childrenOf(PARENTS.find(p => p.id === 'cloud'))
+  childrenOf(PARENTS.find(p => p.id === 'web'))
     .map(k => k.label)
-    .join() === 'Cloud Engineer'
+    .join() === 'Web Developer'
 );
 check('parent of a type', parentOf('java').id === 'software' && parentOf('fresh').id === 'general');
 
@@ -162,11 +163,20 @@ check('search by parent label (Finance and Banking)', found('banking').join() ==
 check('search by keyword (call centre)', found('call centre').join() === 'customer');
 check('search by skill keyword (AWS)', found('aws').includes('cloud'));
 check('search result keeps its parent (for the subtitle)', searchCats('java')[0].parent.id === 'software');
+check(
+  'search: new roles by label and keywords (SIEM, Kubernetes, pentest, GRC Analyst)',
+  found('siem').includes('soc') &&
+    found('kubernetes').includes('devops') &&
+    found('kubernetes').includes('platform') &&
+    found('pentest').join() === 'pentest' &&
+    found('grc analyst').join() === 'grc'
+);
+check('Cloud 5, DevOps 2, Cyber Security 6', ['cloud', 'devops', 'cyber'].map(id => childrenOf(PARENTS.find(p => p.id === id)).length).join() === '5,2,6');
 check('no match: empty list', searchCats('zzzz qqqq').length === 0);
 check('empty text: no search', searchCats('  ').length === 0);
 
 // ---- Families (config) and roles
-check('family map is the config object (no new families)', RESOLVER_FAMILIES === FAMILIES && Object.keys(FAMILIES).join() === 'Software,Infra');
+check('family map is the config object', RESOLVER_FAMILIES === FAMILIES && Object.keys(FAMILIES).join() === 'Software,Cloud and DevOps,Security,Infra');
 check('Software Engineer still matches Java (family)', roleMatches({ roleKey: 'Software Engineer' }, 'java'));
 check(
   'every setup role still in the role list',

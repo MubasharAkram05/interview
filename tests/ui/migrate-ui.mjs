@@ -1,5 +1,5 @@
 // Browser check of the data version 2 move (src/services/migrate.js) on a phone that has version 1
-// data: the answer of a question that moved to a new type shows there, the 26 types are listed.
+// data: the answer of a question that moved to a new type shows there, the 37 types are listed.
 //   npm run build && npx vite preview --port 4173 &   then  node tests/ui/migrate-ui.mjs
 const { chromium } = await import('playwright').catch(() => import('/opt/node-tools/node_modules/playwright/index.mjs'));
 const URL = process.env.UI_URL || 'http://localhost:4173/';
@@ -79,13 +79,13 @@ check('Practice: the question is the S3 question', /S3 bucket/.test(await p.text
 await p.waitForFunction(() => [...document.querySelectorAll('#pA .c')].every(c => c.classList.contains('in')), null, { timeout: 30000 }).catch(() => {});
 check('Practice: the saved answer shows', /My saved S3 answer/.test(await p.textContent('#pA')));
 
-// Mock picker: 26 types grouped by parent
+// Mock picker: 37 types grouped by parent
 await p.evaluate(() => window.home());
 await wait(300);
 await p.evaluate(() => window.startMock && window.startMock());
 await wait(500);
 const tiles = await p.$$eval('#mGrid .pt2[data-p]', x => x.flatMap(e => (e.dataset.kids ? e.dataset.kids.split(' ') : [e.dataset.c])));
-check(`Mock: 26 types in the picker (${tiles.length})`, tiles.length === 26 && !tiles.includes('hrq'));
+check(`Mock: 37 types in the picker (${tiles.length})`, tiles.length === 37 && !tiles.includes('hrq'));
 const groups = await p.$$eval('#mGrid .pt2[data-p]', x => x.map(e => e.dataset.p));
 check('Mock: grouped by parent, General Interview first', groups.slice(0, 3).join() === 'general,software,web');
 

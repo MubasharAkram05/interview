@@ -27,7 +27,7 @@ Pick an interview type and your experience level, read sample answers, and then 
 WHAT YOU CAN DO
 • Practice mode: go through common interview questions with sample answers you can edit and make your own
 • Mock interview: answer questions one by one by typing or by voice, then get a simple score and tips
-• 26 interview types in 20 groups: General Interview (Situational, Behavioral, Fresh Graduate), Software Developer, Java, C / C++, Web Developer, SQL Developer, Data and Analytics, Cloud Engineer, Cyber Security, IT Support, Networking, Graphic Design, HR Generalist, Operations Manager, Accounting, Finance, Marketing, Sales Associate, Customer Service, Microprocessor / Electronics, Civil and Mechanical Engineering, Waiter / Restaurant and Teaching
+• 37 interview types in 21 groups: General Interview (Situational, Behavioral, Fresh Graduate), Software Developer, Java, C / C++, Web Developer, SQL Developer, Data and Analytics, Cloud (Cloud Engineer, Cloud Administrator, Cloud Solutions Architect, Cloud Security Engineer, Cloud Data Engineer / AI), DevOps (DevOps Engineer, Platform Engineer), Cyber Security (Cyber Security, SOC Analyst, Penetration Tester, Application Security, GRC Analyst, Incident Response), IT Support, Networking, Graphic Design, HR Generalist, Operations Manager, Accounting, Finance, Marketing, Sales Associate, Customer Service, Microprocessor / Electronics, Civil and Mechanical Engineering, Waiter / Restaurant and Teaching
 • Three levels: Fresher, Junior and Senior
 • Profile: add your degree, skills and target role, and sample answers fill in your details
 • Add your own questions, edit questions and answers, and mark favorites
