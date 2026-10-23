@@ -27,7 +27,8 @@ const norm = s =>
   String(s ?? '')
     .trim()
     .toLowerCase();
-const familyOf = r => Object.keys(FAMILIES).find(f => FAMILIES[f].some(x => norm(x) === norm(r)));
+// Families of a role (a role can be in more than one, for example Cloud/DevOps).
+const familiesOf = r => Object.keys(FAMILIES).filter(f => FAMILIES[f].some(x => norm(x) === norm(r)));
 
 // Text from the profile or the user, safe inside an answer: no braces or brackets (they would read
 // as placeholders), no "undefined" / "null", single spaces, no trailing full stop.
@@ -56,8 +57,8 @@ export function roleMatches(p, cat) {
   const have = profileRoleKey(p);
   if (!have) return false;
   if (norm(have) === norm(want)) return true;
-  const f = familyOf(have);
-  return !!f && f === familyOf(want);
+  const theirs = familiesOf(want);
+  return familiesOf(have).some(f => theirs.includes(f));
 }
 
 /** The profile role as words for an answer, or '' for none / "Other" / "Fresher/General". */

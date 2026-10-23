@@ -162,6 +162,32 @@ await wait(400);
 await open('customer');
 check('after a restart session values are gone (sheet asks again)', (await sheetOpen()) && (await p.inputValue('#psSkills')) === '');
 
+// Families (src/data/parents.js): a profile in the same family gets no sheet.
+const asProfile = async role => {
+  await p.evaluate(r => {
+    const all = JSON.parse(localStorage.getItem('is_profiles'));
+    const me = all['Sara Ahmed'];
+    me.role = me.roleKey = r;
+    localStorage.setItem('is_profiles', JSON.stringify(all));
+  }, role);
+  await p.reload();
+  await wait(1500);
+  if (await p.isVisible('#iGo')) {
+    await p.click('#iGo');
+    await wait(600);
+  }
+};
+await asProfile('Cloud/DevOps');
+await open('cloudadmin');
+check('Cloud/DevOps profile in Cloud Administrator: no sheet (Cloud and DevOps family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('soc');
+check('Cloud/DevOps profile in SOC Analyst: the sheet opens', await sheetOpen());
+await p.click('#psSkip');
+await wait(400);
+await asProfile('Cyber Security');
+await open('cloudsec');
+check('Cyber Security profile in Cloud Security: no sheet (Security family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+
 check('no page errors', errors.length === 0, errors.join(' | '));
 await b.close();
 console.log(out.join('\n'));

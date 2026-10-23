@@ -907,6 +907,8 @@ export const PCI = {
 // Levels that have questions, per type. Missing: all levels. A type with fewer levels (for example
 // Fresher only) sets levels: ['fresher'] in more-questions.js.
 export const CAT_LEVELS = {};
+// Extra search words of a type (Home search), from more-questions.js keywords.
+export const KEYWORDS = {};
 export const levelsOf = c => CAT_LEVELS[c] || Object.keys(LEVELS);
 /** The level to use for a type: the asked one if the type has it, else its first level. */
 export const fitLevel = (c, l) => (levelsOf(c).includes(l) ? l : levelsOf(c)[0]);
@@ -927,6 +929,7 @@ Object.entries(MORE).forEach(([c, m]) => {
   LVX.senior[c] = m.senior;
   PCI[c] = [m.color, m.icon];
   if (m.levels) CAT_LEVELS[c] = m.levels.filter(l => LEVELS[l]);
+  if (m.keywords) KEYWORDS[c] = m.keywords;
   buildLK(c);
 });
 
@@ -942,7 +945,18 @@ export const ORDER = [
   'teaching',
   'fresh',
   'cloud',
+  'cloudadmin',
+  'cloudarch',
+  'cloudsec',
+  'clouddata',
+  'devops',
+  'platform',
   'cyber',
+  'soc',
+  'pentest',
+  'appsec',
+  'grc',
+  'ir',
   'data',
   'situational',
   'behavioral',

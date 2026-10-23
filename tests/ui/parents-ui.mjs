@@ -91,9 +91,9 @@ if (await p.isVisible('#dlg')) {
 // ---- Home: parent tile grid
 const tilesOf = box => p.$$eval(`${box} .pt2[data-p]`, x => x.map(e => e.dataset.p));
 const parents = await tilesOf('#hPath');
-check(`Home: ${parents.length} parent tiles (hidden ones have no types)`, parents.length === 20 && parents[0] === 'general' && !parents.includes('mobile'));
+check(`Home: ${parents.length} parent tiles (hidden ones have no types)`, parents.length === 21 && parents[0] === 'general' && !parents.includes('mobile'));
 const kids = await p.$$eval('#hPath .pt2[data-p]', x => x.flatMap(e => (e.dataset.kids ? e.dataset.kids.split(' ') : [e.dataset.c])));
-check(`Home: 26 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 26 && new Set(kids).size === 26 && !kids.includes('hrq'));
+check(`Home: 37 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 37 && new Set(kids).size === 37 && !kids.includes('hrq'));
 check(
   'tile: readable name under the icon, no count anywhere on the tiles',
   (await p.textContent('#hPath .pt2[data-p=general] .pl2')).trim() === 'General Interview' &&
@@ -102,9 +102,9 @@ check(
 );
 check(
   'single-type tile: its name, no list',
-  (await p.textContent('#hPath .pt2[data-p=cloud] .pl2')).trim() === 'Cloud' &&
-    (await p.getAttribute('#hPath .pt2[data-p=cloud]', 'data-c')) === 'cloud' &&
-    !(await p.getAttribute('#hPath .pt2[data-p=cloud]', 'aria-expanded'))
+  (await p.textContent('#hPath .pt2[data-p=web] .pl2')).trim() === 'Web Development' &&
+    (await p.getAttribute('#hPath .pt2[data-p=web]', 'data-c')) === 'web' &&
+    !(await p.getAttribute('#hPath .pt2[data-p=web]', 'aria-expanded'))
 );
 check('no list open at start', !(await p.$('.cpop')) && (await p.locator('#hPath .pt2[aria-expanded=true]').count()) === 0);
 
@@ -139,6 +139,7 @@ const popInfo = () =>
       dr: Math.round(r.right - tile.right),
       dc: Math.round(r.left + r.width / 2 - (tile.left + tile.width / 2)),
       text: d.textContent,
+      rowTexts: [...d.querySelectorAll('.cc')].map(b => b.textContent.trim()),
       chev: !!d.querySelector('.cpv'),
       head: !!d.querySelector('h1,h2,h3,h4,h5,h6'),
       rows: [...d.querySelectorAll('.cc')].map(b => [
@@ -154,7 +155,7 @@ await wait(200);
 for (const [name, id] of [
   ['left', 'general'],
   ['middle', 'software'],
-  ['right', 'finance']
+  ['right', 'cloud']
 ]) {
   // The tile near the top of the screen, so the list has room below it.
   await p.$eval(`#hPath .pt2[data-p=${id}]`, e => e.scrollIntoView({ block: 'start' }));
@@ -187,7 +188,8 @@ for (const [name, id] of [
     r.rows.every(([h, ic, fs]) => h >= 44 && Math.round(ic) === 28 && fs === 15) &&
       !r.chev &&
       !r.head &&
-      !/General Interview|Software Development|Finance and Banking/.test(r.text),
+      !/General Interview|Software Development/.test(r.text) &&
+      !r.rowTexts.some(t => ['General Interview', 'Software Development', 'Cloud'].includes(t)),
     JSON.stringify(r)
   );
   await p.keyboard.press('Escape');
@@ -253,9 +255,9 @@ check(
   !(await p.$('.cpop')) && (await p.isVisible('#csheet')) && /^Fresh Graduate · /.test(await p.textContent('#csT'))
 );
 await p.evaluate(() => window.closeCS && window.closeCS());
-await p.click('#hPath .pt2[data-p=cloud]');
+await p.click('#hPath .pt2[data-p=web]');
 await wait(300);
-check('single-type tile opens the type directly', (await p.isVisible('#csheet')) && /^Cloud Engineer · /.test(await p.textContent('#csT')));
+check('single-type tile opens the type directly', (await p.isVisible('#csheet')) && /^Web Developer · /.test(await p.textContent('#csT')));
 await p.evaluate(() => window.closeCS && window.closeCS());
 await wait(200);
 
@@ -294,7 +296,7 @@ check(
   'results: parent name under each type, list above the grid',
   /Finance and Banking/.test(await p.textContent('#hPath .cres .cc[data-c=accounting] small')) &&
     (await p.$eval('#hPath', e => e.firstElementChild.classList.contains('cres'))) &&
-    (await p.locator('#hPath .pgrid2 .pt2[data-p]').count()) === 20
+    (await p.locator('#hPath .pgrid2 .pt2[data-p]').count()) === 21
 );
 await search('sql developer');
 check('single result shows its parent as a subtitle', /Database/.test(await p.textContent('#hPath .cres [data-c=sql] small')));
@@ -305,19 +307,19 @@ await p.evaluate(() => window.closeCS && window.closeCS());
 await search('zzzz qqqq');
 check('no match: "No category found"', (await p.textContent('#hPath .cpe')).trim() === 'No category found');
 await search('');
-check('clear search: list gone, grid stays', !(await p.$('#hPath .cres')) && (await tilesOf('#hPath')).length === 20);
+check('clear search: list gone, grid stays', !(await p.$('#hPath .cres')) && (await tilesOf('#hPath')).length === 21);
 
 // ---- Practice and Mock use the same grid and list
 await p.evaluate(() => window.startPractice());
 await wait(400);
-check('Practice: same grid', (await tilesOf('#pPath')).length === 20);
+check('Practice: same grid', (await tilesOf('#pPath')).length === 21);
 await p.click('#pPath .pt2[data-p=software]');
 await wait(250);
 check('Practice: same floating list', (await p.locator('#pPath .cpop .cc').count()) === 3);
 await p.keyboard.press('Escape');
 await p.evaluate(() => window.startMock());
 await wait(400);
-check('Mock: same grid', (await tilesOf('#mGrid')).length === 20);
+check('Mock: same grid', (await tilesOf('#mGrid')).length === 21);
 const mBefore = await rects('#mGrid');
 await p.click('#mGrid .pt2[data-p=software]');
 await wait(250);
@@ -449,7 +451,11 @@ check('current role still selected', (await p.inputValue('#sRole')) === 'HR');
 await p.fill('#sRoleQ', 'cyber');
 await wait(200);
 const opts = await p.$$eval('#sRole option', x => x.map(e => e.value).filter(Boolean));
-check('typing filters the roles (current one kept)', opts.includes('Cyber Security') && opts.length <= 2, opts.join());
+check(
+  'typing filters the roles (matching group and the current one kept)',
+  opts.includes('Cyber Security') && opts.includes('SOC Analyst') && opts.includes('HR') && !opts.includes('Software Engineer'),
+  opts.join()
+);
 await p.fill('#sRoleQ', 'graphic');
 await wait(200);
 check('one match: picked', (await p.inputValue('#sRole')) === 'Graphic Designer');
