@@ -102,7 +102,9 @@ await shot('2-practice');
 await p.evaluate(() => window.startMock());
 await shot('3-mock-setup');
 
-await p.click('#mGrid .mt[data-c="software"]');
+await p.click('#mGrid .cp[data-p="software"]'); // open the Software Development group
+await p.waitForTimeout(300);
+await p.click('#mGrid [data-c="software"]');
 await p.waitForTimeout(1200);
 const showPhoneMic = () =>
   p.evaluate(() => {

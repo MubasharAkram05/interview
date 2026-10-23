@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # ubuntu-latest moved to 26.04, which Playwright 1.56 (UI tests) does not support yet
     timeout-minutes: 45
     env:
       BUILD_TOOLS: "36.0.0"

@@ -571,3 +571,38 @@ html{background:var(--bg)}
 /* Touch targets: the 36px favourite and edit icons get a 44x44 tap area without changing how they look
    (the progress dots already have one, see .dot::after). */
 #pQ .eb::after{content:"";position:absolute;inset:-4px}
+.csrch{position:relative;margin-top:14px}.csrch svg{position:absolute;left:14px;top:50%;width:20px;height:20px;transform:translateY(-50%);fill:none;stroke:var(--mute);stroke-width:2;stroke-linecap:round;pointer-events:none}
+.csrch input{width:100%;min-height:48px;padding:0 14px 0 44px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);font:inherit;font-size:16px;box-shadow:var(--sh);transition:border-color .15s,box-shadow .15s}
+.csrch input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 22%,transparent)}
+/* Parent groups (Home, Practice, Mock): tile grid, 3 / 4 / 6 per row; a small list floats under
+   the tapped tile (absolute inside the picker, so it scrolls with it and no tile moves) */
+.cpick{position:relative}
+.pgrid2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+@media(min-width:600px){.pgrid2{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(min-width:1024px){.pgrid2{grid-template-columns:repeat(6,minmax(0,1fr))}}
+.pt2{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;min-width:0;min-height:128px;padding:8px 2px 8px;border:1px solid transparent;border-radius:16px;background:none;color:var(--ink);font-weight:600;text-align:center}
+.pt2:hover{transform:none;background:color-mix(in srgb,var(--card) 70%,transparent)}
+.pt2:active .pc{transform:scale(.92)}
+.pt2.on{background:var(--card);border-color:color-mix(in srgb,var(--acc) 45%,var(--line));box-shadow:0 4px 14px rgba(79,70,229,.14)}
+.pt2:focus-visible,.cc:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.pt2 .pc{position:relative;width:clamp(76px,78%,84px);height:auto;aspect-ratio:1;flex:none;transition:transform .15s;box-shadow:0 6px 14px rgba(0,0,0,.22)}.pt2 .pc svg{width:46%;height:46%}
+.pl2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;width:calc(100% + 6px);margin:0 -3px;font-size:13px;line-height:1.25;font-weight:600;overflow-wrap:normal;word-break:normal;hyphens:none;text-overflow:clip}
+.cpop{position:absolute;z-index:30;width:max-content;min-width:180px;max-width:260px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 34px rgba(15,23,42,.22),0 2px 6px rgba(15,23,42,.12);opacity:0;transform:scale(.96);transform-origin:var(--px,50%) 0;transition:opacity .14s ease,transform .14s ease}
+.cpop.up{transform-origin:var(--px,50%) 100%}
+.cpop.open{opacity:1;transform:none}
+.cpop::before{content:"";position:absolute;top:-7px;left:calc(var(--px,50%) - 6px);width:12px;height:12px;background:var(--card);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
+.cpop.up::before{top:auto;bottom:-7px;transform:rotate(225deg)}
+.cpop .cc{position:relative;gap:10px;min-height:44px;padding:8px 14px;font-size:15px;background:none}
+.cpop .cc:first-child{border-top:0;border-radius:14px 14px 0 0}.cpop .cc:last-child{border-radius:0 0 14px 14px}.cpop .cc:only-child{border-radius:14px}
+.cpop .cc .pc.sm{width:28px;height:28px}.cpop .cc .pc.sm svg{width:16px;height:16px}
+.cpop .cpt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 14px;border:0;border-top:1px solid var(--line);border-radius:0;background:none;color:var(--ink);text-align:left;font-weight:600}
+.cc:hover{transform:none;background:color-mix(in srgb,var(--accl) 60%,transparent)}.cc:active{transform:none;background:var(--accl)}
+.cc .pc.sm{width:34px;height:34px;flex:none;box-shadow:none}.cc .pc.sm svg{width:19px;height:19px}
+.cpt{flex:1;min-width:0;line-height:1.3}.cpt small{display:block;font-size:12px;font-weight:500;color:var(--mute);margin-top:2px}
+.cpv{width:20px;height:20px;flex:none;fill:none;stroke:var(--mute);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.cres{margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--sh)}.cres .cc:first-child{border-top:0}
+.cpe{margin:16px 0 0;text-align:center;color:var(--mute);font-size:15px}
+#favT.on .pc{box-shadow:0 0 0 3px rgba(245,158,11,.45)}
+@media(prefers-reduced-motion:reduce){.cpop,.pt2 .pc{transition:none}}
+.srq{width:100%;min-height:48px;margin-bottom:8px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--fill);color:var(--ink);font:inherit;font-size:16px}

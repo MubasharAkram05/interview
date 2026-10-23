@@ -1,5 +1,5 @@
 // Browser check of the data version 2 move (src/services/migrate.js) on a phone that has version 1
-// data: the answer of a question that moved to a new type shows there, the 27 tiles are listed.
+// data: the answer of a question that moved to a new type shows there, the 26 types are listed.
 //   npm run build && npx vite preview --port 4173 &   then  node tests/ui/migrate-ui.mjs
 const { chromium } = await import('playwright').catch(() => import('/opt/node-tools/node_modules/playwright/index.mjs'));
 const URL = process.env.UI_URL || 'http://localhost:4173/';
@@ -62,7 +62,7 @@ const st = await p.evaluate(() => ({
   e: JSON.parse(localStorage.getItem('is_edits')),
   f: JSON.parse(localStorage.getItem('is_fav'))
 }));
-check('version marker written', st.dv === '2');
+check('version marker written', st.dv === '3');
 check('S3 answer moved to Cyber Security', st.e['Sara Ahmed|cyber@junior|9'] === 'My saved S3 answer that must follow the question.', JSON.stringify(st.e));
 check('CI/CD answer moved up one place in Cloud', st.e['Sara Ahmed|cloud@junior|8'] === 'My saved CI/CD answer.');
 check('Fresh Graduate answer stays in its place', st.e['Sara Ahmed|fresh@junior|12'] === 'My saved conflict answer.');
@@ -79,14 +79,15 @@ check('Practice: the question is the S3 question', /S3 bucket/.test(await p.text
 await p.waitForFunction(() => [...document.querySelectorAll('#pA .c')].every(c => c.classList.contains('in')), null, { timeout: 30000 }).catch(() => {});
 check('Practice: the saved answer shows', /My saved S3 answer/.test(await p.textContent('#pA')));
 
-// 27 tiles in Mock and Practice, new ones next to related ones
+// Mock picker: 26 types grouped by parent
 await p.evaluate(() => window.home());
 await wait(300);
 await p.evaluate(() => window.startMock && window.startMock());
 await wait(500);
-const tiles = await p.$$eval('#mGrid .mt', x => x.map(e => e.dataset.c));
-check(`Mock: 27 tiles (${tiles.length})`, tiles.length === 27);
-check('Mock: Web and IT Support after Software Developer', tiles.slice(0, 3).join() === 'software,web,it');
+const tiles = await p.$$eval('#mGrid .pt2[data-p]', x => x.flatMap(e => (e.dataset.kids ? e.dataset.kids.split(' ') : [e.dataset.c])));
+check(`Mock: 26 types in the picker (${tiles.length})`, tiles.length === 26 && !tiles.includes('hrq'));
+const groups = await p.$$eval('#mGrid .pt2[data-p]', x => x.map(e => e.dataset.p));
+check('Mock: grouped by parent, General Interview first', groups.slice(0, 3).join() === 'general,software,web');
 
 // A second start does not move anything again
 await p.reload();

@@ -1,4 +1,4 @@
-// One-time move of saved per-question data when interview types change (data version 2).
+// One-time moves of saved per-question data when interview types change (data versions 2 and 3).
 //
 // Saved data points at a question by its position in the type's list (index i): answers and
 // question edits (is_edits, is_qedits), best scores (is_pbest), hidden questions (is_hidden),
@@ -13,9 +13,9 @@
 // Pure: reads through get(key), returns the new values; nothing is written here. main.js writes
 // them together with the version marker, so a second run does nothing. If anything goes wrong the
 // caller writes nothing: old data is kept, never deleted. Tested in tests/storage/migrate.test.mjs.
-import { HEAD, TAIL, MID, LVH, LVT, LVX, MYEX, LVEX } from '../data/questions.js';
+import { HEAD, TAIL, MID, LVH, LVT, LVX, MYEX, LVEX, LK } from '../data/questions.js';
 
-export const DATA_VERSION = 2;
+export const DATA_VERSION = 3;
 export const VERSION_KEY = 'is_dv';
 
 // Field questions of version 1 for the types whose list changed (texts only).
@@ -198,17 +198,228 @@ export function migrateV2(get) {
   return { writes, report };
 }
 
+// ---- Data version 3: the HR Questions type (hrq) was removed. Its questions are in Fresh
+// Graduate (fresh): the same text, the Fresh Graduate question with the same meaning, or a new
+// question added at the END of a Fresh Graduate level list. Saved data moves by question text.
+
+// HR Questions of version 2 (texts only): field questions (every level) and level extras.
+const HRQ_V2 = {
+  mid: [
+    'What do you know about our company?',
+    'Are you willing to relocate or travel for this job?',
+    'Why did you leave your last job, or why do you want to change?',
+    'What is your notice period, and when can you join?',
+    'How do you handle stress and pressure at work?',
+    'Are you comfortable working overtime or on weekends when needed?',
+    'Do you have any questions for us?'
+  ],
+  junior: ['What did you like most and least about your current job?', 'How do you take criticism from your manager?'],
+  senior: ['Why are you looking for a change at this stage of your career?', 'What kind of culture do you build in your team?']
+};
+// HR Questions that Fresh Graduate already had with the same meaning (dropped, data goes there).
+export const HRQ_SAME = {
+  'What do you know about our company?': 'What have you learned about our company before this interview?',
+  'How do you handle stress and pressure at work?': 'How do you handle stress or pressure?',
+  'Are you comfortable working overtime or on weekends when needed?': 'Are you willing to learn new skills and work flexible hours?',
+  'Do you have any questions for us?': 'What would you like to ask us about this job?',
+  'How do you take criticism from your manager?': 'How do you handle feedback from seniors?'
+};
+
+/** Question texts of HR Questions as shipped in version 2 (same i as its old bank). */
+export function hrqList(level) {
+  const L = level === 'fresher' ? [...HEAD, ...HRQ_V2.mid, ...TAIL] : [...(LVH[level] || []), ...HRQ_V2.mid, ...(HRQ_V2[level] || []), ...(LVT[level] || [])];
+  return L.map(q0);
+}
+
 /**
- * Run the migration once. get(key) / set(key, value) read and write storage. The moved data and the
- * version marker are written together; with the marker already set nothing happens, so running it
- * again is safe. On any error nothing is written and the old data stays as it was.
- * Returns true when it ran.
+ * Place in Fresh Graduate of HR Questions question i at a level: { l, i } (the level can change
+ * when the question was added to one Fresh Graduate level only), or null when unknown. Own added
+ * questions ("u..." ids) keep their id.
+ */
+export function mapHrq(level, i) {
+  if (!LEVELS.includes(level)) return null;
+  if (typeof i === 'string' && /^u/.test(i)) return { l: level, i };
+  const n = Number(i);
+  if (!Number.isInteger(n) || n < 0 || (typeof i === 'string' && !/^\d+$/.test(i))) return null;
+  const old = hrqList(level)[n];
+  if (old == null) return null;
+  const text = HRQ_SAME[old] || old;
+  for (const l of [level, ...LEVELS.filter(x => x !== level)]) {
+    const j = rawList('fresh', l).indexOf(text);
+    if (j >= 0) return { l, i: j };
+  }
+  return null;
+}
+
+// "name|hrq@junior|7" -> "name|fresh@<level>|<i>", or null.
+function hrqKey(k) {
+  const s = String(k);
+  const a = s.lastIndexOf('|');
+  const b = s.lastIndexOf('|', a - 1);
+  if (a < 0 || b < 0) return null;
+  const [c, l] = splitCK(s.slice(b + 1, a));
+  if (c !== 'hrq') return null;
+  const m = mapHrq(l, s.slice(a + 1));
+  return m ? `${s.slice(0, b)}|${joinCK('fresh', m.l)}|${m.i}` : null;
+}
+
+// Keyed stores. An entry whose new place already holds data stays under its old key (kept, never
+// overwritten or deleted). Entries that stay on their level go first, so a question added to one
+// Fresh Graduate level gets the answer saved at that level.
+const lvOf = k => (String(k).split('|').slice(-2, -1)[0] || '').split('@')[1] || 'fresher';
+function hrqKeyed(o, report, name) {
+  if (!isObj(o)) return null;
+  const out = { ...o };
+  let changed = false;
+  const moves = Object.keys(o)
+    .map(k => [k, hrqKey(k)])
+    .filter(([, nk]) => nk)
+    .sort(([a, na], [b, nb]) => (lvOf(a) === lvOf(na) ? 0 : 1) - (lvOf(b) === lvOf(nb) ? 0 : 1));
+  for (const [k, nk] of moves) {
+    if (nk in out) {
+      report.push(`${name}: ${k} kept (place taken)`);
+      continue;
+    }
+    out[nk] = o[k];
+    delete out[k];
+    changed = true;
+    report.push(`${name}: ${k} -> ${nk}`);
+  }
+  return changed ? out : null;
+}
+
+function hrqHidden(o, report) {
+  if (!isObj(o)) return null;
+  const out = { ...o };
+  let changed = false;
+  for (const [ck, list] of Object.entries(o)) {
+    const [c, l] = splitCK(ck);
+    if (c !== 'hrq' || !Array.isArray(list)) continue;
+    const keep = [];
+    list.forEach(i => {
+      const m = mapHrq(l, i);
+      if (!m) return keep.push(i);
+      const t = joinCK('fresh', m.l);
+      out[t] = [...(out[t] || [])];
+      if (!out[t].includes(m.i)) out[t].push(m.i);
+      changed = true;
+      report.push(`is_hidden: ${ck} ${i} -> ${t} ${m.i}`);
+    });
+    if (keep.length) out[ck] = keep;
+    else delete out[ck];
+  }
+  return changed ? out : null;
+}
+
+// is_custom: { ck: [{ i: "u...", q, a }] }: own questions move to the same level of Fresh Graduate.
+function hrqCustom(o, report) {
+  if (!isObj(o)) return null;
+  const out = { ...o };
+  let changed = false;
+  for (const [ck, list] of Object.entries(o)) {
+    const [c, l] = splitCK(ck);
+    if (c !== 'hrq' || !Array.isArray(list)) continue;
+    const t = joinCK('fresh', l);
+    const have = new Set((out[t] || []).map(x => x && x.i));
+    out[t] = [...(out[t] || []), ...list.filter(x => !have.has(x && x.i))];
+    delete out[ck];
+    changed = true;
+    report.push(`is_custom: ${ck} -> ${t} (${list.length})`);
+  }
+  return changed ? out : null;
+}
+
+function hrqFav(a, report) {
+  if (!Array.isArray(a)) return null;
+  let changed = false;
+  const seen = new Set();
+  const out = [];
+  a.forEach(f => {
+    let g = f;
+    if (isObj(f) && f.c === 'hrq') {
+      const m = mapHrq(f.l || 'fresher', f.i);
+      if (m) {
+        g = { ...f, c: 'fresh', l: m.l, i: m.i, k: `${f.n}|fresh|${m.l}|${m.i}` };
+        changed = true;
+        report.push(`is_fav: hrq ${f.l} ${f.i} -> fresh ${m.l} ${m.i}`);
+      }
+    }
+    const key = isObj(g) ? g.k : JSON.stringify(g);
+    if (seen.has(key)) return; // the same favourite twice: keep one
+    seen.add(key);
+    out.push(g);
+  });
+  return changed ? out : null;
+}
+
+function hrqQotd(o, report) {
+  if (!isObj(o) || o.c !== 'hrq') return null;
+  const lv = o.lv || 'fresher';
+  const i = hrqList(lv).indexOf(o.q);
+  const m = i >= 0 ? mapHrq(lv, i) : null;
+  report.push('is_qotd: hrq -> fresh');
+  if (!m) return { ...o, c: 'fresh' };
+  const raw = rawList('fresh', m.l)[m.i];
+  const shown = m.l === 'fresher' && LK.fresh?.[raw] ? LK.fresh[raw][0] : raw;
+  return { ...o, c: 'fresh', lv: m.l, q: shown };
+}
+
+function hrqScr(o, report) {
+  if (!isObj(o) || o.cat !== 'hrq') return null;
+  report.push(`is_scr: ${o.s} hrq -> fresh`);
+  if (o.s === 'practice' && o.one != null) {
+    const m = mapHrq(o.lv || 'fresher', o.one);
+    if (m) return { ...o, cat: 'fresh', lv: m.l, one: m.i, i: 0 };
+  }
+  return { ...o, cat: 'fresh' };
+}
+
+function hrqHist(a, report) {
+  if (!Array.isArray(a) || !a.some(h => isObj(h) && h.ck === 'hrq')) return null;
+  report.push('is_hist: hrq -> fresh');
+  return a.map(h => (isObj(h) && h.ck === 'hrq' ? { ...h, ck: 'fresh' } : h));
+}
+
+// is_pf: saved form values; the hidden Interview type picker may hold "hrq".
+function hrqPf(o, report) {
+  if (!isObj(o) || o.cat !== 'hrq') return null;
+  report.push('is_pf: cat hrq -> fresh');
+  return { ...o, cat: 'fresh' };
+}
+
+/** Compute the version 3 data (HR Questions -> Fresh Graduate). Same contract as migrateV2. */
+export function migrateV3(get) {
+  const report = [];
+  const writes = {};
+  const put = (k, v) => v && (writes[k] = v);
+  put('is_edits', hrqKeyed(get('is_edits'), report, 'is_edits'));
+  put('is_qedits', hrqKeyed(get('is_qedits'), report, 'is_qedits'));
+  put('is_pbest', hrqKeyed(get('is_pbest'), report, 'is_pbest'));
+  put('is_hidden', hrqHidden(get('is_hidden'), report));
+  put('is_custom', hrqCustom(get('is_custom'), report));
+  put('is_fav', hrqFav(get('is_fav'), report));
+  put('is_qotd', hrqQotd(get('is_qotd'), report));
+  put('is_scr', hrqScr(get('is_scr'), report));
+  put('is_hist', hrqHist(get('is_hist'), report));
+  put('is_pf', hrqPf(get('is_pf'), report));
+  return { writes, report };
+}
+
+/**
+ * Run the migrations that this phone has not run yet (version 2, then 3). get(key) / set(key,
+ * value) read and write storage. All moved data and the version marker are written together; with
+ * the marker already set nothing happens, so running it again is safe. On any error nothing is
+ * written and the old data stays as it was. Returns true when it ran.
  */
 export function runMigration(get, set) {
   try {
-    if ((Number(get(VERSION_KEY)) || 0) >= DATA_VERSION) return false;
-    const { writes } = migrateV2(get);
-    Object.entries(writes).forEach(([k, v]) => set(k, v));
+    const v = Number(get(VERSION_KEY)) || 0;
+    if (v >= DATA_VERSION) return false;
+    const writes = {};
+    const read = k => (k in writes ? writes[k] : get(k));
+    if (v < 2) Object.assign(writes, migrateV2(read).writes);
+    if (v < 3) Object.assign(writes, migrateV3(read).writes);
+    Object.entries(writes).forEach(([k, val]) => set(k, val));
     set(VERSION_KEY, DATA_VERSION);
     return true;
   } catch {

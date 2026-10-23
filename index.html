@@ -97,6 +97,7 @@
     <div class="hcard skel"><i></i><i></i><i></i></div>
   </div>
   <div class="pseg" id="hSeg" style="margin-top:14px"></div>
+  <div class="csrch"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zM20 20l-4-4"/></svg><input type="search" id="hSearch" placeholder="Search interview types" aria-label="Search interview types" autocomplete="off" enterkeyhint="search"></div>
   <div id="hPath"></div>
   <div id="favList"></div>
   <div class="sec hidden"><h4>Select interview</h4><label class="l" for="cat" style="margin-top:0">Interview type</label><select id="cat" class="pf"></select><label class="l" for="lvl">Experience level</label><select id="lvl" class="pf"></select></div>
@@ -139,6 +140,7 @@
     </div>
     <div class="sstp hidden" data-step="1">
       <label class="l" for="sRole">Target role</label>
+      <input type="search" id="sRoleQ" class="srq" placeholder="Search roles" aria-label="Search target roles" aria-controls="sRole" autocomplete="off">
       <select id="sRole"></select>
       <input type="text" id="sRoleOther" class="hidden" maxlength="40" placeholder="Type your target role" aria-label="Your target role">
       <span class="l" id="sExpL">Experience level</span>
@@ -182,7 +184,7 @@
   <button class="linkb" onclick="editDetails()">Edit my details</button>
   <div class="hidden"><select id="mcat" onchange="mSync()" aria-label="Interview type"></select><select id="mlvl" onchange="mSync()" aria-label="Experience level"></select></div>
   <div class="pseg mseg" id="mSeg" role="tablist" aria-label="Experience level"></div>
-  <div class="mgrid" id="mGrid"></div>
+  <div id="mGrid"></div>
   <div class="sec mtipc"><h4><span aria-hidden="true">💡</span> Interview tip</h4><div id="mtip"></div></div>
 </section>
 
