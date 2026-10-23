@@ -29,7 +29,7 @@ export const PARENTS = [
     order: 2,
     color: '#1f3cff',
     icon: 'M8 6l-6 6 6 6M16 6l6 6-6 6M14 4l-4 16',
-    children: ['software', 'java', 'cpp'],
+    children: ['software', 'java', 'cpp', 'python', 'dotnet'],
     keywords: ['programming', 'coding', 'developer']
   },
   {
@@ -39,8 +39,8 @@ export const PARENTS = [
     order: 3,
     color: '#0369a1',
     icon: 'M3 5h18v14H3zM3 9h18M10 12l-2 2.5 2 2.5M14 12l2 2.5-2 2.5',
-    children: ['web'],
-    keywords: ['frontend', 'website']
+    children: ['web', 'frontend', 'backend', 'fullstack', 'wordpress'],
+    keywords: ['website', 'web app']
   },
   {
     id: 'mobile',
@@ -49,8 +49,8 @@ export const PARENTS = [
     order: 4,
     color: '#0e7490',
     icon: 'M7 2h10v20H7zM11 18h2',
-    children: [],
-    keywords: ['android', 'ios', 'flutter']
+    children: ['mobile', 'android', 'flutter', 'rn', 'ios'],
+    keywords: ['app development', 'smartphone']
   },
   {
     id: 'game',
@@ -346,15 +346,29 @@ export const PARENTS = [
 
 // Profile roles that count as a match for each other's types (answer-context.js). Config only:
 // a role can be in more than one family (Cloud/DevOps, Data/AI, Data Scientist, Database
-// Developer). Graphic Designer has no family.
+// Developer, Web Developer and the frontend, backend and full stack roles). Graphic Designer has
+// no family.
 export const FAMILIES = {
-  Software: ['Software Engineer', 'Web Developer', 'Java Developer', 'C/C++ Developer', 'Database Developer'],
+  Software: [
+    'Software Engineer',
+    'Web Developer',
+    'Java Developer',
+    'C/C++ Developer',
+    'Database Developer',
+    'Python Developer',
+    'C#/.NET Developer',
+    'Frontend Developer',
+    'Backend Developer',
+    'Full Stack Developer'
+  ],
   'Cloud and DevOps': ['Cloud/DevOps', 'Cloud Administrator', 'Cloud Architect', 'DevOps', 'Platform Engineer'],
   Security: ['Cyber Security', 'SOC Analyst', 'Penetration Tester', 'Application Security', 'GRC Analyst', 'Incident Response', 'Cloud Security'],
   Infra: ['IT Support', 'Network Engineer', 'Cloud/DevOps'],
   'Data and Analytics': ['Data/AI', 'Data Analyst', 'BI Developer', 'Data Scientist', 'Data Engineer', 'Cloud Data/AI'],
   'AI and ML': ['Data/AI', 'AI/ML', 'Machine Learning Engineer', 'Generative AI', 'Computer Vision', 'NLP', 'Data Scientist'],
-  Database: ['Database Developer', 'Database Engineer', 'Database Administrator', 'ETL Developer', 'NoSQL Developer']
+  Database: ['Database Developer', 'Database Engineer', 'Database Administrator', 'ETL Developer', 'NoSQL Developer'],
+  Web: ['Web Developer', 'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'WordPress Developer'],
+  Mobile: ['Mobile App Developer', 'Android Developer', 'Flutter Developer', 'React Native Developer', 'iOS Developer']
 };
 
 const kid = x => (typeof x === 'string' ? { id: x } : x);
