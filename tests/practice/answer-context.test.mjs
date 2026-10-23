@@ -1,6 +1,6 @@
 // Personalised answers (src/services/answer-context.js): the shared resolver, the intro answer, the
 // {placeholder} filler and the "Personalize" sheet validation. Run: npm run test:practice
-import { CATS, LEVELS, HEAD, TAIL, MID, LVH, LVT, LVX, LK, MYEX, LVEX } from '../../src/data/questions.js';
+import { CATS, LEVELS, HEAD, TAIL, MID, LVH, LVT, LVX, LK, MYEX, LVEX, ROLE } from '../../src/data/questions.js';
 import {
   answerContext,
   introAnswer,
@@ -12,7 +12,8 @@ import {
   parseSessionInput,
   FAMILIES
 } from '../../src/services/answer-context.js';
-import { catToRole } from '../../src/services/setup.js';
+import { catToRole, ROLES } from '../../src/services/setup.js';
+import { article, roleText } from '../../src/services/expected.js';
 
 const out = [];
 const check = (name, ok, got) => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok || got === undefined ? '' : `\n      got: ${got}`}`);
@@ -235,6 +236,131 @@ check(
   fillTemplate('A NULL value means unknown; in JavaScript, null and undefined differ. I am {name}.', {}) ===
     'A NULL value means unknown; in JavaScript, null and undefined differ.'
 );
+// ---- a / an by sound for every role label and every profile role in the app (written by hand,
+// so a new label must be added here).
+{
+  const AN = [
+    'Electronics Engineer',
+    'Accountant',
+    'HR Officer',
+    'Operations Manager',
+    'IT Support Specialist',
+    'Application Security Engineer',
+    'Incident Response Analyst',
+    'AI Engineer',
+    'NLP Engineer',
+    'ETL Developer',
+    'IT Support',
+    'Electronics and Embedded',
+    'HR',
+    'Application Security',
+    'Incident Response',
+    'AI and ML',
+    'NLP',
+    'Other'
+  ];
+  const A = [
+    'Software Developer',
+    'Marketing Executive',
+    'Customer Service Representative',
+    'Teacher',
+    'Cloud and DevOps Engineer',
+    'Sales Associate',
+    'Waiter',
+    'Database Developer',
+    'C/C++ Developer',
+    'Java Developer',
+    'Network Engineer',
+    'Civil Engineer',
+    'Mechanical Engineer',
+    'Finance Officer',
+    'Cyber Security Analyst',
+    'Web Developer',
+    'Data and AI Engineer',
+    'Graphic Designer',
+    'Cloud Administrator',
+    'Cloud Solutions Architect',
+    'Cloud Security Engineer',
+    'Cloud Data Engineer',
+    'DevOps Engineer',
+    'Platform Engineer',
+    'SOC Analyst',
+    'Penetration Tester',
+    'GRC Analyst',
+    'Data Analyst',
+    'BI Developer',
+    'Data Scientist',
+    'Data Engineer',
+    'Machine Learning Engineer',
+    'Generative AI Engineer',
+    'Computer Vision Engineer',
+    'Database Engineer',
+    'Database Administrator',
+    'NoSQL Developer',
+    'Software Engineer',
+    'Cloud and DevOps',
+    'Cyber Security',
+    'Data and AI',
+    'Marketing and Sales',
+    'Customer Service',
+    'Teaching',
+    'Fresher and General',
+    'Waiter and Restaurant Staff',
+    'C and C++ Developer',
+    'Finance',
+    'Cloud Architect',
+    'Cloud Security',
+    'Cloud Data and AI',
+    'DevOps',
+    'Generative AI',
+    'Computer Vision'
+  ];
+  const inApp = [...new Set([...Object.values(ROLE).filter(Boolean), ...ROLES.map(roleText)])];
+  const known = new Set([...AN, ...A]);
+  check(
+    'a / an: every role label and profile role has a written expectation',
+    inApp.every(r => known.has(r)),
+    inApp.filter(r => !known.has(r)).join(', ')
+  );
+  const wrong = [...AN.filter(r => article(r) !== 'an'), ...A.filter(r => article(r) !== 'a')];
+  check(`a / an by sound for all ${known.size} role labels and profile roles`, !wrong.length, wrong.map(r => `${article(r)} ${r}`).join(', '));
+  const MORE = {
+    an: [
+      'ML Engineer',
+      'HR Generalist',
+      'iOS Developer',
+      'Android Developer',
+      'MBA',
+      'MSc',
+      'MPhil',
+      'SEO Specialist',
+      'R Developer',
+      'HTML Developer',
+      'hour'
+    ],
+    a: [
+      'UI/UX Designer',
+      'Python Developer',
+      'C# and .NET Developer',
+      'WordPress Developer',
+      'QA Engineer',
+      'BS in Computer Science',
+      'BSc',
+      'PhD',
+      'Unity Developer',
+      'user',
+      'one-year diploma',
+      'MERN Stack Developer',
+      'LAWYER'
+    ]
+  };
+  const off = Object.entries(MORE).flatMap(([art, l]) => l.filter(r => article(r) !== art).map(r => `${article(r)} ${r}`));
+  check('a / an: acronyms read letter by letter, "you" sound, silent h', !off.length, off.join(', '));
+  check(
+    'the intro uses it: "an NLP Engineer role", "a SOC Analyst role"',
+    /an NLP Engineer role/.test(introAnswer(answerContext({}, 'nlp'))) && /a SOC Analyst role/.test(introAnswer(answerContext({}, 'soc')))
+  );
+}
 check('bullet lines keep their line breaks', fillTemplate('• One.\n\n• Two {name}.\n\n• Three.', {}) === '• One.\n\n• Three.');
 
 // ---- Every category, every level, every question, every profile

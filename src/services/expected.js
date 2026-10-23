@@ -187,8 +187,23 @@ export function wordDetail(r) {
 }
 
 export const list = a => (a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
-// 'an' before a vowel sound: 'an IT Support', 'an MBA', 'a BS in ...'.
-export const article = w => (/^([aeiou]|(mba|mbbs|ms|msc|mcs|mphil|ma|mit|hr|seo|sql)\b)/i.test(w) ? 'an' : 'a');
+// 'a' or 'an' by the sound of the first word, not only its first letter: 'an IT Support',
+// 'an MBA', 'an NLP Engineer', 'an ML Engineer', 'an hour', but 'a BS in ...', 'a UI/UX Designer',
+// 'a user', 'a SOC Analyst'. A short all-capital word (1 to 4 letters) is read letter by letter,
+// so it takes 'an' when its first letter name starts with a vowel sound (A E F H I L M N O R S X),
+// unless it is said as a word (SOC, MERN).
+const ACRONYM = /^[A-Z][A-Z0-9]{0,3}(?![A-Za-z])/;
+const SAID_AS_WORD = /^(SOC|MERN|MEAN|NASA|NATO|SAAS)$/;
+const LETTER_AN = /^[AEFHILMNORSX]/;
+const VOWEL_LETTER_A = /^(u(i|x)\b|uni(?!n)|us[aeiu]|ut[io]|ur[aeiou]|eu|ewe|one\b|once\b)/i; // 'you' and 'w' sounds
+const SILENT_H = /^(hour|honest|honou?r|heir)/i;
+export const article = w => {
+  const s = String(w ?? '').trim();
+  const caps = s.match(ACRONYM);
+  if (caps && !SAID_AS_WORD.test(caps[0])) return LETTER_AN.test(caps[0]) ? 'an' : 'a';
+  if (VOWEL_LETTER_A.test(s)) return 'a';
+  return SILENT_H.test(s) || /^([aeiou]|(mba|mbbs|ms|msc|mcs|mphil|ma|mit|hr|seo|sql)\b)/i.test(s) ? 'an' : 'a';
+};
 
 // Common Pakistani degree short forms, written out for a professional answer.
 const DEGREES = [
