@@ -45,7 +45,12 @@ const questions = (c, level) => {
   const extra = (fr ? MYEX[c] : LVEX[level]?.[c]) || [];
   return [...L.map(([q, a]) => (fr && LK[c]?.[q] ? LK[c][q] : [q, a])), ...extra];
 };
-const BAD = /[{}[\]]|undefined|null| {2}/;
+// Leftovers of the filler: unfilled placeholders, braces, brackets, double spaces. The words "null"
+// and "undefined" are allowed in authored text (SQL NULL, null hypothesis, JavaScript); the filler
+// itself must never add them (checked below by count, and by filling with missing values).
+const LEFT = /[{}[\]]| {2}/;
+const MISSING_WORD = /\b(?:undefined|null)\b/gi;
+const words = t => (String(t).match(MISSING_WORD) || []).length;
 const SOFTWARE_CATS = Object.keys(CATS).filter(c => FAMILIES.Software.includes(catToRole(c)));
 
 // ---- The bug: a Software Engineer profile opening Customer Service
@@ -196,6 +201,40 @@ check('no skills: neutral words', fillTemplate('I will deepen {skills}.', {}) ==
 check('neutral defaults still used', fillTemplate('My strength is {strength}.', {}) === 'My strength is solving problems and learning new tools quickly.');
 check('skills joined as words', fillTemplate('I use {skills}.', { skills: ['A', 'B', 'C'] }) === 'I use A, B and C.');
 check('no university: "at {uni}" removed', fillTemplate('I study {degree} at {uni}.', { degree: 'BS' }) === 'I study BS.');
+// Missing values (empty, null, undefined) never print as "null" or "undefined".
+{
+  const ALL =
+    'I am {name} from {city}. I study {degree} at {uni}. I want a {role} job. I use {skills}. I built {project}. I hold {certs}. My strength is {strength}. My weakness is {weakness}. I am proud of {achievement}. Thank you.';
+  const KEYS = ['name', 'city', 'degree', 'uni', 'role', 'skills', 'project', 'certs', 'strength', 'weakness', 'achievement', 'studying'];
+  let bad = '';
+  for (const v of ['', null, undefined]) {
+    const ctx = Object.fromEntries(KEYS.map(k => [k, v]));
+    const prof = { name: v, city: v, edu: v, role: v, roleKey: v, skillTags: v, skills: v, project: v, setup: 1 };
+    const outs = [
+      fillTemplate(ALL, ctx),
+      fillTemplate(ALL, {}),
+      fillTemplate(ALL, undefined),
+      fillTemplate(ALL, null),
+      introAnswer(ctx, true),
+      introAnswer(ctx, false),
+      introAnswer(undefined, true),
+      ...['software', 'situational', 'nosql', 'datasci'].flatMap(c => {
+        const x = answerContext(prof, c);
+        return [introAnswer(x, true), fillTemplate(ALL, x), ...Object.values(x).filter(y => typeof y === 'string')];
+      })
+    ];
+    outs.forEach(t => {
+      if (MISSING_WORD.test(t) || LEFT.test(t)) bad ||= `${String(v)}: ${t}`;
+      MISSING_WORD.lastIndex = 0;
+    });
+  }
+  check('missing values (empty, null, undefined): no "undefined", "null", braces, brackets or double spaces', !bad, bad);
+}
+check(
+  'authored "null" and "undefined" stay as written',
+  fillTemplate('A NULL value means unknown; in JavaScript, null and undefined differ. I am {name}.', {}) ===
+    'A NULL value means unknown; in JavaScript, null and undefined differ.'
+);
 check('bullet lines keep their line breaks', fillTemplate('• One.\n\n• Two {name}.\n\n• Three.', {}) === '• One.\n\n• Three.');
 
 // ---- Every category, every level, every question, every profile
@@ -206,12 +245,16 @@ for (const [pn, prof] of Object.entries(P)) {
     for (const l of Object.keys(LEVELS))
       for (const [q, a] of questions(c, l)) {
         const t = sampleAnswer(q, a, answerContext(prof, c));
-        if (!t || BAD.test(t)) bad ||= `${c}/${l}: ${t}`;
+        if (!t || LEFT.test(t) || words(t) > words(a)) bad ||= `${c}/${l}: ${t}`;
         const typedHere = isGeneric(c) || roleMatches(prof, c);
         if (prof === SW && !typedHere && !SOFTWARE_CATS.includes(c) && /Software Engineer|Python/.test(t) && !defaultSkills(c).includes('Python'))
           leak ||= `${c}/${l}: ${t}`;
       }
-  check(`profile "${pn}": all ${Object.keys(CATS).length} categories, no braces, brackets, undefined, null or double spaces`, !bad, bad);
+  check(
+    `profile "${pn}": all ${Object.keys(CATS).length} categories, no leftover braces, brackets or double spaces, no "undefined" or "null" added by the filler`,
+    !bad,
+    bad
+  );
   if (prof === SW) check('Software profile: no "Software Engineer" or "Python" in non-software role categories', !leak, leak);
 }
 check(

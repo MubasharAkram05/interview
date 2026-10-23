@@ -126,7 +126,8 @@ const tidy = s =>
  * details are empty are left out; the result never has braces, brackets or "undefined".
  */
 export function introAnswer(ctx, long = false) {
-  const { name, city, degree, studying, uni, role, skills = [], project } = ctx || {};
+  const { name, city, degree, studying, uni, role, project } = ctx || {};
+  const skills = (ctx && ctx.skills) || [];
   const S = ['Good morning, and thank you for this opportunity.'];
   if (name) S.push(`My name is ${name}${city ? `, and I am from ${city}` : ''}.`);
   else if (city) S.push(`I am from ${city}.`);

@@ -2096,7 +2096,7 @@ export const MORE = {
       ],
       [
         'How do you check that your numbers are correct before you share a report?',
-        'I compare totals with the source system or an earlier trusted report. I check row counts after every join and filter, because a wrong join can double or drop rows. I look for values that do not make sense, such as negative quantities. When possible, a colleague reviews the logic before the report goes out.'
+        'I compare totals with the source system or an earlier trusted report. I check row counts after every join and filter, because a wrong join can double or drop rows, and an inner join silently drops rows whose key is NULL. I look for values that do not make sense, such as negative quantities. When possible, a colleague reviews the logic before the report goes out.'
       ],
       [
         'What is the difference between correlation and causation?',
@@ -2231,7 +2231,7 @@ export const MORE = {
       ],
       [
         'What does a p-value tell you?',
-        'A p-value is the probability of seeing a result at least as extreme as the one observed, assuming there is no real effect. A small p-value, often below 0.05, suggests the result is unlikely to be due to chance alone. It does not show how large or important the effect is, and it is not the probability that the effect is real. So I also report the effect size and a confidence interval.'
+        'A p-value is the probability of seeing a result at least as extreme as the one observed, if the null hypothesis is true. A small p-value, often below 0.05, suggests the result is unlikely to be due to chance alone. It does not show how large or important the effect is, and it is not the probability that the hypothesis is true. So I also report the effect size and a confidence interval.'
       ],
       [
         'How does k-fold cross-validation work?',
@@ -2303,7 +2303,7 @@ export const MORE = {
       ],
       [
         'How do you add data quality checks to a pipeline?',
-        'I check the data at each stage: row counts, required columns not empty, unique keys, valid ranges and allowed values. I also compare totals with the source. Critical failures stop the pipeline and alert the team, while small warnings are logged for review. This stops bad data from reaching reports.'
+        'I check the data at each stage: row counts, required columns not NULL, unique keys, valid ranges and allowed values. I also compare totals with the source. Critical failures stop the pipeline and alert the team, while small warnings are logged for review. This stops bad data from reaching reports.'
       ],
       [
         'What is change data capture?',
@@ -2696,7 +2696,7 @@ export const MORE = {
       ],
       [
         'What are candidate, composite and surrogate keys?',
-        'A candidate key is any column, or set of columns, that can uniquely identify a row; one of them is chosen as the primary key. A composite key uses two or more columns together, such as student ID and course ID in an enrolment table. A surrogate key is an artificial value, such as an auto-generated number, with no business meaning. I often use a surrogate key as the primary key and keep a unique constraint on the natural key.'
+        'A candidate key is any column, or set of columns, that can uniquely identify a row; one of them is chosen as the primary key, which can never be NULL. A composite key uses two or more columns together, such as student ID and course ID in an enrolment table. A surrogate key is an artificial value, such as an auto-generated number, with no business meaning. I often use a surrogate key as the primary key and keep a unique constraint on the natural key.'
       ],
       [
         'What is the difference between the first, second and third normal forms?',
@@ -2704,7 +2704,7 @@ export const MORE = {
       ],
       [
         'What are database constraints, and why are they important?',
-        'Constraints are rules the database enforces on the data. NOT NULL makes a value required, UNIQUE stops duplicates, CHECK limits values to a valid range, and PRIMARY KEY and FOREIGN KEY keep rows identifiable and correctly linked. They protect data quality even when application code has a bug, because the database itself rejects bad data.'
+        'Constraints are rules the database enforces on the data. NOT NULL makes a value required, UNIQUE stops duplicates, CHECK limits values to a valid range, and PRIMARY KEY and FOREIGN KEY keep rows identifiable and correctly linked. NULL means a value is unknown, so it is not equal to anything, not even another NULL. Constraints protect data quality even when application code has a bug, because the database itself rejects bad data.'
       ],
       [
         'What is the difference between a clustered and a non-clustered index?',
@@ -2851,7 +2851,7 @@ export const MORE = {
       ],
       [
         'How do you use dbt in a data warehouse?',
-        'dbt lets me write transformations as SQL select statements, called models, that build tables and views inside the warehouse. It works out the order between models, and I add tests for missing values, unique keys and valid links between tables. It also creates documentation and lineage. All the code lives in Git, so every change goes through review.'
+        'dbt lets me write transformations as SQL select statements, called models, that build tables and views inside the warehouse. It works out the order between models, and I add tests such as not null, unique and relationships between tables. It also creates documentation and lineage. All the code lives in Git, so every change goes through review.'
       ],
       [
         'How do you handle records that fail validation during a load?',
@@ -2866,11 +2866,11 @@ export const MORE = {
     junior: [
       [
         'How do you test an ETL job before it goes to production?',
-        'I compare row counts and totals between the source and the target. I test edge cases such as empty values, duplicates, late records and special characters. I check that running the job twice gives the same result. Business users review a sample of the output before release.'
+        'I compare row counts and totals between the source and the target. I test edge cases such as NULL values, duplicates, late records and special characters. I check that running the job twice gives the same result. Business users review a sample of the output before release.'
       ],
       [
         'How do you load a fact table so it links to the right dimension rows?',
-        'I load the dimensions first, so every key exists. When I load the facts, I look up each business key, such as a customer code, in the dimension and store its surrogate key. For Type 2 dimensions, I pick the row that was valid on the transaction date. If no match is found, I link the fact to an unknown member row and report it, instead of dropping the fact.'
+        'I load the dimensions first, so every key exists. When I load the facts, I look up each business key, such as a customer code, in the dimension and store its surrogate key. For Type 2 dimensions, I pick the row that was valid on the transaction date. If the business key is NULL or has no match, I link the fact to an unknown member row and report it, instead of dropping the fact.'
       ]
     ],
     senior: [

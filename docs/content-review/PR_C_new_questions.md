@@ -40,7 +40,7 @@ Every category also has the shared opening and closing questions (not repeated h
 3. **What is the difference between mean, median and mode?**
    The mean is the average: the sum of the values divided by how many there are. The median is the middle value when the values are sorted, and the mode is the value that appears most often. When the data has outliers, such as a few very large salaries, I report the median, because a few extreme values can pull the mean up.
 4. **How do you check that your numbers are correct before you share a report?**
-   I compare totals with the source system or an earlier trusted report. I check row counts after every join and filter, because a wrong join can double or drop rows. I look for values that do not make sense, such as negative quantities. When possible, a colleague reviews the logic before the report goes out.
+   I compare totals with the source system or an earlier trusted report. I check row counts after every join and filter, because a wrong join can double or drop rows, and an inner join silently drops rows whose key is NULL. I look for values that do not make sense, such as negative quantities. When possible, a colleague reviews the logic before the report goes out.
 5. **What is the difference between correlation and causation?**
    Correlation means two values move together, for example ice cream sales and sunburn cases both rise in summer. Causation means one thing actually causes the other. Correlation alone does not prove causation, because a third factor, here hot weather, can drive both. To show a cause, a controlled test such as an A/B test is much stronger.
 6. **How do you choose the right chart for your data?**
@@ -134,7 +134,7 @@ Every category also has the shared opening and closing questions (not repeated h
 2. **What is feature engineering? Give an example.**
    Feature engineering means creating input values that help a model learn the pattern. For example, from a purchase date I can make the day of the week, the month and the days since the last purchase. I also encode categories, scale numbers when the model needs it and combine columns into ratios. Good features often help more than a more complex algorithm.
 3. **What does a p-value tell you?**
-   A p-value is the probability of seeing a result at least as extreme as the one observed, assuming there is no real effect. A small p-value, often below 0.05, suggests the result is unlikely to be due to chance alone. It does not show how large or important the effect is, and it is not the probability that the effect is real. So I also report the effect size and a confidence interval.
+   A p-value is the probability of seeing a result at least as extreme as the one observed, if the null hypothesis is true. A small p-value, often below 0.05, suggests the result is unlikely to be due to chance alone. It does not show how large or important the effect is, and it is not the probability that the hypothesis is true. So I also report the effect size and a confidence interval.
 4. **How does k-fold cross-validation work?**
    I split the data into k parts, for example five. The model trains on four parts and is tested on the fifth, and this repeats until every part has been the test part once. The average score is a more reliable estimate than a single split. For time series data I use time-based splits instead, so the model never trains on the future.
 5. **How do you handle an imbalanced dataset?**
@@ -186,7 +186,7 @@ Every category also has the shared opening and closing questions (not repeated h
 4. **What is a DAG in Apache Airflow?**
    A DAG, or directed acyclic graph, is how Airflow defines a workflow. Each task is a step, such as extracting a file or loading a table, and the arrows show which tasks must finish first. Acyclic means there are no loops, so the workflow always has a clear end. The DAG also sets the schedule, retries and alerts.
 5. **How do you add data quality checks to a pipeline?**
-   I check the data at each stage: row counts, required columns not empty, unique keys, valid ranges and allowed values. I also compare totals with the source. Critical failures stop the pipeline and alert the team, while small warnings are logged for review. This stops bad data from reaching reports.
+   I check the data at each stage: row counts, required columns not NULL, unique keys, valid ranges and allowed values. I also compare totals with the source. Critical failures stop the pipeline and alert the team, while small warnings are logged for review. This stops bad data from reaching reports.
 6. **What is change data capture?**
    Change data capture, or CDC, reads only the rows that were inserted, updated or deleted in a source database, often from its transaction log. The pipeline then applies just these changes to the target instead of copying the full table again. This reduces the load on the source and keeps the target close to real time.
 7. **What is schema evolution, and how do you handle it?**
@@ -472,11 +472,11 @@ Every category also has the shared opening and closing questions (not repeated h
 1. **What is a database management system, and why use one instead of files?**
    A database management system, or DBMS, is software that stores, organises and protects data and lets many users work with it at the same time. Compared with plain files, it prevents duplicate and inconsistent data, controls who can see what and supports backup and recovery. It also lets us query the data quickly with a language such as SQL.
 2. **What are candidate, composite and surrogate keys?**
-   A candidate key is any column, or set of columns, that can uniquely identify a row; one of them is chosen as the primary key. A composite key uses two or more columns together, such as student ID and course ID in an enrolment table. A surrogate key is an artificial value, such as an auto-generated number, with no business meaning. I often use a surrogate key as the primary key and keep a unique constraint on the natural key.
+   A candidate key is any column, or set of columns, that can uniquely identify a row; one of them is chosen as the primary key, which can never be NULL. A composite key uses two or more columns together, such as student ID and course ID in an enrolment table. A surrogate key is an artificial value, such as an auto-generated number, with no business meaning. I often use a surrogate key as the primary key and keep a unique constraint on the natural key.
 3. **What is the difference between the first, second and third normal forms?**
    First normal form means each column holds a single value and there are no repeating groups. Second normal form also requires every non-key column to depend on the whole primary key, not on part of a composite key. Third normal form also removes columns that depend on other non-key columns, such as a city name that depends on a postcode in the same table.
 4. **What are database constraints, and why are they important?**
-   Constraints are rules the database enforces on the data. NOT NULL makes a value required, UNIQUE stops duplicates, CHECK limits values to a valid range, and PRIMARY KEY and FOREIGN KEY keep rows identifiable and correctly linked. They protect data quality even when application code has a bug, because the database itself rejects bad data.
+   Constraints are rules the database enforces on the data. NOT NULL makes a value required, UNIQUE stops duplicates, CHECK limits values to a valid range, and PRIMARY KEY and FOREIGN KEY keep rows identifiable and correctly linked. NULL means a value is unknown, so it is not equal to anything, not even another NULL. Constraints protect data quality even when application code has a bug, because the database itself rejects bad data.
 5. **What is the difference between a clustered and a non-clustered index?**
    A clustered index decides the order in which the table rows are stored, so a table can have only one. A non-clustered index is a separate structure that holds the indexed columns and a pointer to the full row, and a table can have many. I usually put the clustered index on a narrow, increasing key, such as an ID. The details differ between database systems.
 6. **What is an ER diagram?**
@@ -576,7 +576,7 @@ Every category also has the shared opening and closing questions (not repeated h
 5. **What is the difference between a full load and an incremental load?**
    A full load copies all the data from the source every time, which is simple but slow for big tables. An incremental load copies only new or changed rows since the last run, often by using a last-updated date or an increasing ID. Incremental loads are faster but need care with updates, deletes and late records. I often run a full load the first time and incremental loads after that.
 6. **How do you use dbt in a data warehouse?**
-   dbt lets me write transformations as SQL select statements, called models, that build tables and views inside the warehouse. It works out the order between models, and I add tests for missing values, unique keys and valid links between tables. It also creates documentation and lineage. All the code lives in Git, so every change goes through review.
+   dbt lets me write transformations as SQL select statements, called models, that build tables and views inside the warehouse. It works out the order between models, and I add tests such as not null, unique and relationships between tables. It also creates documentation and lineage. All the code lives in Git, so every change goes through review.
 7. **How do you handle records that fail validation during a load?**
    I do not let one bad record stop the whole load unless it is critical. Rows that fail checks, such as a missing customer code or an invalid date, go to an error table with the reason. I report them to the source owner and load them once they are fixed. I track the error count over time, and a sudden rise triggers an alert.
 
@@ -592,9 +592,9 @@ Every category also has the shared opening and closing questions (not repeated h
 ### Junior extra questions
 
 1. **How do you test an ETL job before it goes to production?**
-   I compare row counts and totals between the source and the target. I test edge cases such as empty values, duplicates, late records and special characters. I check that running the job twice gives the same result. Business users review a sample of the output before release.
+   I compare row counts and totals between the source and the target. I test edge cases such as NULL values, duplicates, late records and special characters. I check that running the job twice gives the same result. Business users review a sample of the output before release.
 2. **How do you load a fact table so it links to the right dimension rows?**
-   I load the dimensions first, so every key exists. When I load the facts, I look up each business key, such as a customer code, in the dimension and store its surrogate key. For Type 2 dimensions, I pick the row that was valid on the transaction date. If no match is found, I link the fact to an unknown member row and report it, instead of dropping the fact.
+   I load the dimensions first, so every key exists. When I load the facts, I look up each business key, such as a customer code, in the dimension and store its surrogate key. For Type 2 dimensions, I pick the row that was valid on the transaction date. If the business key is NULL or has no match, I link the fact to an unknown member row and report it, instead of dropping the fact.
 
 ### Senior extra questions
 
@@ -670,3 +670,7 @@ No question text is repeated in any two categories (checked by `tests/practice/c
 | BI Developer: star schema | Data Warehouse / ETL: grain of a fact table, load a fact table | Reporting model vs warehouse loading |
 | NoSQL / MongoDB: main types of NoSQL databases | Software Developer: SQL vs NoSQL | Types inside NoSQL vs the comparison |
 | Machine Learning Engineer and Generative AI: control cost | Cloud Data Engineer / AI: cost of warehouse queries | Different systems |
+
+# Note on NULL
+
+The words "null" and "undefined" are allowed in answers (SQL NULL, the null hypothesis). The test checks instead that the placeholder filler never prints them for a missing value.
