@@ -77,7 +77,7 @@ check(
   ['cloud', 'it', 'network', 'cyber'].every(c => roleMatches({ roleKey: 'Cyber Security' }, c)) && roleMatches({ roleKey: 'IT Support' }, 'cyber')
 );
 check(
-  'Data/AI has no family: only Data / AI matches',
+  'Data/AI has no family: only Data and Analytics matches',
   roleMatches({ roleKey: 'Data/AI' }, 'data') &&
     !['software', 'web', 'sql', 'cloud'].some(c => roleMatches({ roleKey: 'Data/AI' }, c)) &&
     !roleMatches(SW, 'data')
@@ -96,14 +96,14 @@ check('Fresh Graduate is general: always matches', isGeneric('fresh') && roleMat
     g
   );
   const d = introAnswer(answerContext({ roleKey: 'Data/AI', role: 'Data/AI', skillTags: ['Python', 'SQL'] }, 'data'), true);
-  check('Data / AI intro: profile skills when the role matches', /Data and AI Engineer role/.test(d) && /Python and SQL/.test(d), d);
+  check('Data and Analytics intro: profile skills when the role matches', /Data and AI Engineer role/.test(d) && /Python and SQL/.test(d), d);
   check('IT Support intro uses "an"', /an IT Support Specialist role/.test(introAnswer(answerContext(SW, 'it'))));
 }
 check('different family does not match', !roleMatches(SW, 'network') && !roleMatches(SW, 'customer') && !roleMatches(SW, 'accounting'));
 check('case-insensitive', roleMatches({ roleKey: 'customer service' }, 'customer'));
 check(
   'generic categories always match',
-  ['hrq', 'situational', 'behavioral', 'fresh'].every(c => isGeneric(c) && roleMatches({}, c) && roleMatches(SW, c))
+  ['situational', 'behavioral', 'fresh'].every(c => isGeneric(c) && roleMatches({}, c) && roleMatches(SW, c))
 );
 check('empty profile role does not match a role category', !roleMatches({}, 'customer'));
 
@@ -132,9 +132,9 @@ check('empty profile role does not match a role category', !roleMatches({}, 'cus
       'Good morning, and thank you for this opportunity. My name is Sara Ahmed, and I am from Lahore. I am currently pursuing a BS in Computer Science, and I am applying for the Software Developer role. My key skills include JavaScript, React, Node.js, Python and SQL. I built a school management website, which taught me how to solve real problems and learn from feedback. I enjoy learning new tools quickly and working well with others. I am now looking for a Software Developer role where I can use these skills, grow and add value to the team. Thank you.',
     long
   );
-  const hr = introAnswer(answerContext(SW, 'hrq'), false);
-  check('HR Questions (generic) keeps the profile role and skills', /Software Engineer role/.test(hr) && /JavaScript/.test(hr), hr);
-  const gen = introAnswer(answerContext(P.general, 'hrq'), true);
+  const hr = introAnswer(answerContext(SW, 'situational'), false);
+  check('Situational (generic) keeps the profile role and skills', /Software Engineer role/.test(hr) && /JavaScript/.test(hr), hr);
+  const gen = introAnswer(answerContext(P.general, 'situational'), true);
   check('generic with role "Fresher/General": no role sentence', !/role/.test(gen) && /Communication and Teamwork/.test(gen), gen);
   const oth = introAnswer(answerContext(P.other, 'behavioral'), false);
   check('generic with role "Other": no role sentence', !/role/.test(oth), oth);

@@ -571,3 +571,26 @@ html{background:var(--bg)}
 /* Touch targets: the 36px favourite and edit icons get a 44x44 tap area without changing how they look
    (the progress dots already have one, see .dot::after). */
 #pQ .eb::after{content:"";position:absolute;inset:-4px}
+/* Parent groups (Home, Practice, Mock): accordion list, one parent open at a time */
+.csrch{position:relative;margin-top:14px}.csrch svg{position:absolute;left:14px;top:50%;width:20px;height:20px;transform:translateY(-50%);fill:none;stroke:var(--mute);stroke-width:2;stroke-linecap:round;pointer-events:none}
+.csrch input{width:100%;min-height:48px;padding:0 14px 0 44px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);font:inherit;font-size:16px;box-shadow:var(--sh);transition:border-color .15s,box-shadow .15s}
+.csrch input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 22%,transparent)}
+.cpk{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.cpg{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--sh)}
+.cp{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:10px 14px;border:0;border-radius:0;background:none;color:var(--ink);text-align:left;font-weight:650}
+.cp:hover{transform:none;background:color-mix(in srgb,var(--fill) 70%,transparent)}
+.cp:focus-visible,.cc:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+.cp .pc{width:40px;height:40px;flex:none;box-shadow:0 3px 8px rgba(0,0,0,.18)}.cp .pc svg{width:22px;height:22px}
+.cpt{flex:1;min-width:0;line-height:1.3}.cpt small,.cc small{display:block;font-size:12px;font-weight:500;color:var(--mute);margin-top:2px}.cpn{color:var(--mute);font-weight:600}
+.cpv{width:20px;height:20px;flex:none;fill:none;stroke:var(--mute);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .18s ease}
+.cp[aria-expanded=true] .cpv{transform:rotate(180deg)}
+.cpl{display:grid;grid-template-rows:0fr;transition:grid-template-rows .18s ease}
+.cpl>div{overflow:hidden;min-height:0;visibility:hidden;transition:visibility .18s}
+.cpg.open .cpl{grid-template-rows:1fr}.cpg.open .cpl>div{visibility:visible}
+.cc{display:block;width:100%;min-height:48px;padding:10px 14px 10px 66px;border:0;border-top:1px solid var(--line);border-radius:0;background:var(--fill);color:var(--ink);text-align:left;font-weight:550}
+.cc:hover{transform:none;background:color-mix(in srgb,var(--accl) 60%,var(--fill))}
+.cc:active,.cp:active{transform:none;background:var(--accl)}
+.cpe{margin:18px 0 0;text-align:center;color:var(--mute);font-size:15px}
+#favT.on .pc{box-shadow:0 0 0 3px rgba(245,158,11,.45)}
+.srq{width:100%;min-height:48px;margin-bottom:8px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--fill);color:var(--ink);font:inherit;font-size:16px}
+@media(prefers-reduced-motion:reduce){.cpl,.cpl>div,.cpv{transition:none}}

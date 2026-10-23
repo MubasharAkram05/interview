@@ -1,4 +1,5 @@
-import { CATS, LEVELS, HEAD, TAIL, MID, OV, MYEX, LVEX, LK, LVH, LVT, LVX, TIPS, PCI } from './data/questions.js';
+import { CATS, LEVELS, HEAD, TAIL, MID, OV, MYEX, LVEX, LK, LVH, LVT, LVX, TIPS, levelsOf, fitLevel, usedLevels, catId } from './data/questions.js';
+import { visibleParents, childrenOf, displayLabel, searchCats } from './data/parents.js';
 
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
@@ -149,7 +150,7 @@ let pSpoken = []; // practice read-along: final text of each listening session o
 let pMicOn = false; // read-along wants to keep listening (auto-restarts after a pause)
 
 const CK = (c, l) => (!l || l === 'fresher' ? c : `${c}@${l}`);
-const CL = (c, l) => `${CATS[c]} · ${LEVELS[l || 'fresher']}`;
+const CL = (c, l) => `${displayLabel(catId(c))} · ${LEVELS[l || 'fresher']}`;
 const FKEEP = (n, m) => {
   const s = new Set();
   for (let i = 0; i < 4; i++) s.add(i);
@@ -158,7 +159,9 @@ const FKEEP = (n, m) => {
   return s;
 };
 
-const bank = (c, level = 'fresher') => {
+const bank = (c0, level = 'fresher') => {
+  const c = catId(c0); // an old id (for example hrq) opens the type that took its questions
+  if (!CATS[c] || !levelsOf(c).includes(level)) return []; // a type may have fewer levels
   const k0 = CK(c, level);
   const fr = level === 'fresher';
   const L = fr ? [...HEAD, ...MID[c], ...TAIL] : [...LVH[level], ...MID[c], ...(LVX[level]?.[c] || []), ...LVT[level]];
@@ -220,8 +223,9 @@ function openPers(c, then = null) {
   persThen = then;
   const role = (profiles[active] && profiles[active].role) || 'another role';
   const v = persVals[persKey(c)] || {};
-  $('psT').textContent = `Personalize for ${CATS[c]}`;
-  $('psM').textContent = `Your profile is set for ${role}. Add your skills for ${CATS[c]} to get a better sample answer. This will not change your profile.`;
+  $('psT').textContent = `Personalize for ${displayLabel(c)}`;
+  $('psM').textContent =
+    `Your profile is set for ${role}. Add your skills for ${displayLabel(c)} to get a better sample answer. This will not change your profile.`;
   $('psSkills').value = (v.skills || []).join(', ');
   $('psProj').value = v.project || '';
   $('psErr').classList.add('hidden');
@@ -708,9 +712,7 @@ function openFav(c, l, i) {
 
 function fillHomeGrid() {
   if (!LEVELS[pcLv]) pcLv = 'fresher';
-  $('hSeg').innerHTML = Object.entries(LEVELS)
-    .map(([k, v]) => `<button class="${k === pcLv ? 'on' : ''}" data-lvl="${k}">${esc(v)}</button>`)
-    .join('');
+  $('hSeg').innerHTML = levelTabs(pcLv);
 
   $('hSeg')
     .querySelectorAll('button')
@@ -721,29 +723,77 @@ function fillHomeGrid() {
       });
     });
 
-  $('hPath').innerHTML =
-    '<div class="pgrid">' +
-    Object.keys(CATS)
-      .map(c => {
-        const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
-        return `<button class="pt" data-c="${c}"><span class="pc" style="background:${col}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg></span><span class="pl">${esc(CATS[c])}</span></button>`;
-      })
-      .join('') +
-    `<button class="pt" id="favT" aria-label="Favorite Question"><span class="pc" style="background:#f59e0b"><svg viewBox="0 0 24 24" style="fill:#fff"><path d="${IC.star}"/></svg></span><span class="pl">Favorite Question</span></button></div>`;
-
-  $('hPath')
-    .querySelectorAll('.pt[data-c]')
-    .forEach(btn => {
-      btn.addEventListener('click', () => {
-        playTapSound();
-        openCS(btn.dataset.c);
-      });
-    });
-
+  renderPicker(
+    'hPath',
+    c => {
+      playTapSound();
+      openCS(c);
+    },
+    $('hSearch').value,
+    favTile()
+  );
   $('favT')?.addEventListener('click', () => {
     playTapSound();
     toggleFavList();
   });
+}
+
+// Level tabs: only levels that have questions in at least one type.
+const levelTabs = (on, extra = () => '') =>
+  usedLevels()
+    .map(k => `<button class="${k === on ? 'on' : ''}" data-lvl="${k}"${extra(k)}>${esc(LEVELS[k])}</button>`)
+    .join('');
+
+const favTile = () =>
+  `<div class="cpg"><button class="cp" id="favT" aria-label="Favorite Question"><span class="pc" style="background:#f59e0b"><svg viewBox="0 0 24 24" style="fill:#fff"><path d="${IC.star}"/></svg></span><span class="cpt">Favorite Question</span></button></div>`;
+
+// ---- Parent groups (src/data/parents.js): one picker for Home, Practice and Mock ----
+// A parent opens a dropdown with its types (one parent open at a time, kept in memory only); a
+// parent with one type shows that type and opens it directly. With a search text, the matching
+// types show under their parents, all open, with the parent name under each type.
+const openP = {}; // picker element id -> open parent id
+const CHEV = '<svg class="cpv" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+const CHEVR = '<svg class="cpv r" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+
+function renderPicker(box, onPick, query = '', after = '') {
+  const el = $(box);
+  if (!el) return;
+  const q = String(query || '').trim();
+  const groups = q ? searchCats(q) : visibleParents().map(p => ({ parent: p, children: childrenOf(p) }));
+  const icon = p => `<span class="pc" style="background:${p.color}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${p.icon}"/></svg></span>`;
+  const sub = p => (q ? `<small>${esc(p.label)}</small>` : '');
+  el.innerHTML = groups.length
+    ? '<div class="cpk">' +
+      groups
+        .map(({ parent: p, children: kids }) => {
+          const all = childrenOf(p);
+          if (all.length === 1) {
+            const k = all[0];
+            return `<div class="cpg"><button class="cp cc1" data-c="${k.id}" data-p="${p.id}">${icon(p)}<span class="cpt">${esc(k.label)}${sub(p)}</span>${CHEVR}</button></div>`;
+          }
+          const open = q ? true : openP[box] === p.id;
+          const id = `${box}-${p.id}`;
+          return `<div class="cpg${open ? ' open' : ''}"><button class="cp" data-p="${p.id}" aria-expanded="${open}" aria-controls="${id}">${icon(p)}<span class="cpt">${esc(p.label)} <span class="cpn">(${all.length})</span></span>${CHEV}</button><div class="cpl" id="${id}" role="group" aria-label="${esc(p.label)}"><div>${kids
+            .map(k => `<button class="cc" data-c="${k.id}" data-p="${p.id}">${esc(k.label)}${sub(p)}</button>`)
+            .join('')}</div></div></div>`;
+        })
+        .join('') +
+      after +
+      '</div>'
+    : `<p class="cpe" role="status">No category found</p><div class="cpk">${after}</div>`;
+  el.querySelectorAll('.cp[aria-expanded]').forEach(b =>
+    b.addEventListener('click', () => {
+      playTapSound();
+      const id = b.dataset.p;
+      openP[box] = openP[box] === id ? '' : id;
+      el.querySelectorAll('.cp[aria-expanded]').forEach(x => {
+        const on = !q && x.dataset.p === openP[box];
+        x.setAttribute('aria-expanded', String(on));
+        x.parentElement.classList.toggle('open', on);
+      });
+    })
+  );
+  el.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => onPick(b.dataset.c)));
 }
 
 function homeLevel(v) {
@@ -755,7 +805,7 @@ function homeLevel(v) {
 
 function openCS(c) {
   csC = c;
-  $('csT').textContent = `${CATS[c]} · ${LEVELS[pcLv]}`;
+  $('csT').textContent = `${displayLabel(c)} · ${LEVELS[fitLevel(c, pcLv)]}`;
   setBannerSuppressed('sheet', true);
   $('csheet').classList.remove('hidden');
 }
@@ -774,7 +824,7 @@ function csGo(m, c0) {
     return;
   }
   $('cat').value = c;
-  $('lvl').value = pcLv;
+  $('lvl').value = fitLevel(c, pcLv);
   $('cat').dispatchEvent(new Event('change', { bubbles: true }));
   startInterview();
 }
@@ -823,11 +873,15 @@ function streakToast() {
 function retryLast() {
   playTapSound();
   const x = (getItem('is_hist', []) || [])[0];
-  if (x && x.ck && CATS[x.ck] && LEVELS[x.lk]) {
-    $('cat').value = x.ck;
+  if (x && x.ck && CATS[catId(x.ck)] && LEVELS[x.lk]) {
+    $('cat').value = catId(x.ck);
     $('lvl').value = x.lk;
   }
   startInterview();
+}
+
+function initHomeSearch() {
+  $('hSearch').addEventListener('input', () => fillHomeGrid());
 }
 
 function fillHome() {
@@ -983,8 +1037,8 @@ function renderSetup() {
   $('sName').value = sData.name;
   $('sEdu').value = sData.edu;
   $('sCity').value = sData.city;
-  $('sRole').innerHTML =
-    '<option value="">Choose your target role</option>' + ROLES.map(r => `<option${r === sData.role ? ' selected' : ''}>${esc(r)}</option>`).join('');
+  $('sRoleQ').value = '';
+  renderRoles(sData.role);
   $('sRoleOther').value = sData.roleOther;
   $('sRoleOther').classList.toggle('hidden', sData.role !== 'Other');
   $('sExp').innerHTML = Object.entries(EXPERIENCE)
@@ -1119,7 +1173,46 @@ function renderSuggestions() {
     sData.skills.length >= MAX_SKILLS ? '' : list.map(x => `<button type="button" class="sg" data-s="${esc(x)}">+ ${esc(x)}</button>`).join('');
 }
 
+// Target roles grouped by parent (src/data/parents.js), filtered by the search box. Role values are
+// the same strings as before; a role used by several parents shows under the first one.
+function roleGroups() {
+  const seen = new Set();
+  const groups = visibleParents()
+    .map(p => ({
+      label: p.label,
+      roles: [...new Set(childrenOf(p).map(k => catToRole(k.id)))].filter(r => ROLES.includes(r) && !seen.has(r) && seen.add(r))
+    }))
+    .filter(g => g.roles.length);
+  const rest = ROLES.filter(r => !seen.has(r));
+  return rest.length ? [...groups, { label: 'More roles', roles: rest }] : groups;
+}
+
+function renderRoles(sel) {
+  const q = $('sRoleQ').value.trim().toLowerCase();
+  const fits = (r, g) => !q || r.toLowerCase().includes(q) || g.toLowerCase().includes(q) || r === sel;
+  const groups = roleGroups()
+    .map(g => ({ ...g, roles: g.roles.filter(r => fits(r, g.label)) }))
+    .filter(g => g.roles.length);
+  $('sRole').innerHTML =
+    '<option value="">' +
+    (q && !groups.length ? 'No role found' : 'Choose your target role') +
+    '</option>' +
+    groups
+      .map(g => `<optgroup label="${esc(g.label)}">${g.roles.map(r => `<option${r === sel ? ' selected' : ''}>${esc(r)}</option>`).join('')}</optgroup>`)
+      .join('');
+}
+
 function initSetup() {
+  $('sRoleQ').addEventListener('input', () => {
+    renderRoles($('sRole').value);
+    // One role matches the text: pick it, so typing a role is enough.
+    const q = $('sRoleQ').value.trim().toLowerCase();
+    const opts = [...$('sRole').options].filter(o => o.value && q && (o.value.toLowerCase().includes(q) || o.parentElement.label.toLowerCase().includes(q)));
+    if (opts.length === 1 && $('sRole').value !== opts[0].value) {
+      $('sRole').value = opts[0].value;
+      $('sRole').dispatchEvent(new Event('change'));
+    }
+  });
   $('sName').addEventListener('input', () => nameCheck(true));
   $('sName').addEventListener('blur', () => nameCheck(true));
   $('sRole').addEventListener('change', () => {
@@ -1211,30 +1304,18 @@ function fillMock() {
 function renderMockPicker() {
   const c0 = $('mcat').value;
   const l0 = $('mlvl').value;
-  $('mSeg').innerHTML = Object.entries(LEVELS)
-    .map(([k, v]) => `<button class="${k === l0 ? 'on' : ''}" data-lvl="${k}" role="tab" aria-selected="${k === l0}">${esc(v)}</button>`)
-    .join('');
+  $('mSeg').innerHTML = levelTabs(l0, k => ` role="tab" aria-selected="${k === l0}"`);
   $('mSeg')
     .querySelectorAll('button')
     .forEach(btn => {
       btn.addEventListener('click', () => mPick(c0, btn.dataset.lvl));
     });
 
-  $('mGrid').innerHTML = Object.keys(CATS)
-    .map(c => {
-      const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
-      // No tile is pre-selected: tapping one starts the interview.
-      return `<button class="mt" data-c="${c}" style="--c:${col}"><span class="mc"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><i class="mck" aria-hidden="true"></i></span><span class="pl">${esc(CATS[c])}</span></button>`;
-    })
-    .join('');
-  $('mGrid')
-    .querySelectorAll('.mt')
-    .forEach(btn => {
-      btn.addEventListener('click', () => {
-        mPick(btn.dataset.c, $('mlvl').value);
-        startInterview();
-      });
-    });
+  // No type is pre-selected: tapping one starts the interview.
+  renderPicker('mGrid', c => {
+    mPick(c, $('mlvl').value);
+    startInterview();
+  });
 }
 
 function mPick(c, l) {
@@ -1263,11 +1344,12 @@ function pcLevel(v) {
   fillPcat();
 }
 
-function pcGo(c, i, lv, one = null) {
+function pcGo(c0, i, lv, one = null) {
   playTapSound();
+  const c = catId(c0);
   if (!need(() => pcGo(c, i, lv, one), c)) return;
   if (!personalized(c, () => pcGo(c, i, lv, one))) return;
-  const v = LEVELS[lv] ? lv : pcLv;
+  const v = fitLevel(c, LEVELS[lv] ? lv : pcLv); // a type may have fewer levels
   P = { cat: c, lv: v, list: [], i: 0, one };
   const l = (P.list = plist());
   if (!l.length) {
@@ -1280,9 +1362,7 @@ function pcGo(c, i, lv, one = null) {
 
 function fillPcat() {
   if (!LEVELS[pcLv]) pcLv = 'fresher';
-  $('pSeg').innerHTML = Object.entries(LEVELS)
-    .map(([k, v]) => `<button class="${k === pcLv ? 'on' : ''}" data-lvl="${k}">${esc(v)}</button>`)
-    .join('');
+  $('pSeg').innerHTML = levelTabs(pcLv);
 
   $('pSeg')
     .querySelectorAll('button')
@@ -1290,21 +1370,7 @@ function fillPcat() {
       btn.addEventListener('click', () => pcLevel(btn.dataset.lvl));
     });
 
-  $('pPath').innerHTML =
-    '<div class="pgrid">' +
-    Object.keys(CATS)
-      .map(c => {
-        const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
-        return `<button class="pt" data-c="${c}"><span class="pc" style="background:${col}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg></span><span class="pl">${esc(CATS[c])}</span></button>`;
-      })
-      .join('') +
-    '</div>';
-
-  $('pPath')
-    .querySelectorAll('.pt')
-    .forEach(btn => {
-      btn.addEventListener('click', () => pcGo(btn.dataset.c, 0));
-    });
+  renderPicker('pPath', c => pcGo(c, 0));
 }
 
 function saveA() {
@@ -1999,8 +2065,8 @@ function startInterview() {
   playTapSound();
   if (!need(() => startInterview(), $('cat').value)) return;
   if (!personalized($('cat').value, () => startInterview())) return;
-  cat = $('cat').value;
-  lv = $('lvl').value;
+  cat = catId($('cat').value);
+  lv = fitLevel(cat, $('lvl').value); // a type may have fewer levels
   timerOn = false;
   cur = $('shuf').checked ? shuffle(bank(cat, lv)) : bank(cat, lv);
   if (!cur.length) {
@@ -2777,7 +2843,7 @@ function loadPreferences() {
   document.querySelectorAll('.pf').forEach(e => {
     if (e.id in o) {
       if (e.type === 'checkbox') e.checked = o[e.id];
-      else e.value = o[e.id];
+      else e.value = e.id === 'cat' ? catId(o[e.id]) : o[e.id]; // a removed type id opens its new type
     }
   });
 }
@@ -2789,6 +2855,7 @@ async function initAppMain() {
   await initStorage();
   setVoiceAccent(voiceAccent());
   initSetup();
+  initHomeSearch();
   onSpeakingChange(on => $('hMute').classList.toggle('hidden', !on));
   $('hLogo').innerHTML = logoSvg();
 
@@ -2855,7 +2922,7 @@ async function initAppMain() {
   if (o && active && profiles[active]) {
     try {
       if (o.s === 'practice') {
-        P = { cat: o.cat, lv: o.lv || 'fresher', list: [], i: 0, one: o.one ?? null };
+        P = { cat: catId(o.cat), lv: o.lv || 'fresher', list: [], i: 0, one: o.one ?? null };
         const l = (P.list = plist());
         if (l.length) {
           P.i = Math.min(o.i || 0, l.length - 1);
@@ -2864,7 +2931,7 @@ async function initAppMain() {
       } else if (o.s === 'form') {
         showProfile();
       } else if (o.s === 'interview' && o.cur && o.cur.length) {
-        cat = o.cat;
+        cat = catId(o.cat);
         lv = o.lv;
         cur = o.cur;
         // Older or damaged saved sessions: missing fields fall back to an empty answer.

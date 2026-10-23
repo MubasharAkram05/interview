@@ -8,18 +8,15 @@
 // (kept in memory only, never in the profile) or the category's default skills.
 // Pure functions, no storage, no network: unit tested in tests/practice/answer-context.test.mjs.
 import { ROLE, DEF } from '../data/questions.js';
+import { FAMILIES } from '../data/parents.js';
 import { catToRole, ROLE_SKILLS } from './setup.js';
 import { expandDegree, roleText, article, list, isIntroQuestion } from './expected.js';
 
 /** setupRole of the general categories (HR Questions, Situational, Behavioral, Fresh Graduate). */
 export const GENERIC_ROLE = 'Fresher/General';
 
-/** Profile roles that count as a match for each other's categories. */
-export const FAMILIES = {
-  Software: ['Software Engineer', 'Web Developer', 'Java Developer', 'C/C++ Developer', 'Database Developer'],
-  Infra: ['Cloud/DevOps', 'IT Support', 'Network Engineer', 'Cyber Security']
-  // Data/AI and Graphic Designer have no family: only their own categories match.
-};
+/** Profile roles that count as a match for each other's categories (config: src/data/parents.js). */
+export { FAMILIES };
 
 export const MAX_SKILLS = 5;
 export const MAX_SKILL_LEN = 30;

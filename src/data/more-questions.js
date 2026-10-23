@@ -10,69 +10,6 @@
 // other {fields} are filled from the user's details.
 
 export const MORE = {
-  hrq: {
-    label: 'HR Questions',
-    role: null, // general questions: answers use the user's own target role
-    color: '#e11d48',
-    icon: 'M12 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM5 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2M12 14l-1 3 1 2 1-2z',
-    setupRole: 'Fresher/General',
-    mid: [
-      [
-        'What do you know about our company?',
-        'Before this interview I read about your company, your main products and services and your recent news. I like your focus on quality and on developing your people, and I would be proud to contribute to that.'
-      ],
-      [
-        'Are you willing to relocate or travel for this job?',
-        'Yes. I am open to relocating or travelling when the role needs it. I would like to know how often travel is expected so I can plan well, but it will not stop me from doing the job properly.'
-      ],
-      [
-        'Why did you leave your last job, or why do you want to change?',
-        'I learned a lot in my last role, and I am thankful for it. Now I want a role with more responsibility and growth, and this position matches my skills and the direction I want my career to take.'
-      ],
-      [
-        'What is your notice period, and when can you join?',
-        'My notice period is one month, and I will complete it properly so my current team is not left with open work. If you need me earlier, I can ask my employer whether an earlier release is possible.'
-      ],
-      [
-        'How do you handle stress and pressure at work?',
-        'I stay calm by breaking the work into small steps and doing the most important task first. I communicate early if a deadline is at risk, and outside work I keep a healthy routine so stress does not build up.'
-      ],
-      [
-        'Are you comfortable working overtime or on weekends when needed?',
-        'Yes, when the work really needs it, for example near a deadline, I am happy to give extra time. I also plan my work well so that overtime is the exception, not the routine.'
-      ],
-      [
-        'Do you have any questions for us?',
-        'Yes. What does success look like in this role after the first six months? And how does the team support new people while they learn? I would also like to know the next steps in the hiring process.'
-      ]
-    ],
-    fresher: [
-      'Before this interview I read about your company, what you offer and your recent news. I like that you value quality and help your people grow, and I want to be part of that.',
-      'Yes, I am open to relocating or travelling for this job. As a fresher I see it as a chance to learn more and meet new people.',
-      'This would be my first job, so I am not leaving anything. I want to start my career in a place where I can learn, work hard and grow.'
-    ],
-    junior: [
-      [
-        'What did you like most and least about your current job?',
-        'I liked the learning and the supportive team the most. What I liked least was that growth opportunities were limited. I want a role where good work leads to more responsibility.'
-      ],
-      [
-        'How do you take criticism from your manager?',
-        'I listen fully, thank them and ask for one clear example if I need it. Then I agree on what to change and show the improvement in my next task.'
-      ]
-    ],
-    senior: [
-      [
-        'Why are you looking for a change at this stage of your career?',
-        'I have built a strong base and led real results. Now I want a bigger scope, where I can shape decisions, grow a team and make a larger impact, and this role offers that.'
-      ],
-      [
-        'What kind of culture do you build in your team?',
-        'I build a culture of trust, clear goals and open feedback. People own their work, ask for help early and share credit. Problems are discussed openly, without blame.'
-      ]
-    ]
-  },
-
   situational: {
     label: 'Situational Interview',
     role: null, // general questions: answers use the user's own target role
@@ -412,7 +349,7 @@ export const MORE = {
   },
 
   sql: {
-    label: 'SQL / Database',
+    label: 'SQL Developer',
     role: 'Database Developer',
     color: '#4f46e5',
     icon: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
@@ -946,7 +883,7 @@ export const MORE = {
   },
 
   hr: {
-    label: 'Human Resources',
+    label: 'HR Generalist',
     role: 'HR Officer',
     color: '#a855f7',
     icon: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 11a2.5 2.5 0 1 0 0-5M17 14a5 5 0 0 1 4 6',
@@ -1222,7 +1159,7 @@ export const MORE = {
     ]
   },
   web: {
-    label: 'Web Development',
+    label: 'Web Developer',
     role: 'Web Developer',
     color: '#0369a1',
     icon: 'M3 5h18v14H3zM3 9h18M10 12l-2 2.5 2 2.5M14 12l2 2.5-2 2.5',
@@ -1284,7 +1221,7 @@ export const MORE = {
     ]
   },
   data: {
-    label: 'Data / AI',
+    label: 'Data and Analytics',
     role: 'Data and AI Engineer',
     color: '#b45309',
     icon: 'M3 3v18h18M7 15l4-4 3 3 6-6',

@@ -20,19 +20,21 @@ const list = (c, level) => {
     .concat(extra);
 };
 
-check(`27 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 27);
+check(`26 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 26 && !CATS.hrq);
 check('tiles follow ORDER (each type next to related ones)', Object.keys(CATS).join() === ORDER.join());
 
 // The four split types keep their ids; each new half gets its own id.
 const SPEC = {
   software: ['Software Developer', 'Software Engineer', 'Software Developer'],
   it: ['IT Support', 'IT Support', 'IT Support Specialist'],
-  cloud: ['Cloud / DevOps', 'Cloud/DevOps', 'Cloud and DevOps Engineer'],
+  cloud: ['Cloud Engineer', 'Cloud/DevOps', 'Cloud and DevOps Engineer'],
   cyber: ['Cyber Security', 'Cyber Security', 'Cyber Security Analyst'],
   marketing: ['Marketing', 'Marketing/Sales', 'Marketing Executive'],
   fresh: ['Fresh Graduate', 'Fresher/General', undefined],
-  web: ['Web Development', 'Web Developer', 'Web Developer'],
-  data: ['Data / AI', 'Data/AI', 'Data and AI Engineer'],
+  web: ['Web Developer', 'Web Developer', 'Web Developer'],
+  data: ['Data and Analytics', 'Data/AI', 'Data and AI Engineer'],
+  sql: ['SQL Developer', 'Database Developer', 'Database Developer'],
+  hr: ['HR Generalist', 'HR', 'HR Officer'],
   graphic: ['Graphic Design', 'Graphic Designer', 'Graphic Designer']
 };
 for (const [c, [label, setupRole, role]] of Object.entries(SPEC))
@@ -113,7 +115,7 @@ for (const c of Object.keys(CATS)) {
   check('Fresh Graduate: shipped order kept (2 reworded in place)', MID.fresh.map(x => x[0]).join('|') === V1.join('|'));
   check(
     'Fresh Graduate: new questions added at the end of each level',
-    (MYEX.fresh || []).length === 2 && (LVEX.junior.fresh || []).length === 2 && (LVEX.senior.fresh || []).length === 1
+    (MYEX.fresh || []).length === 3 && (LVEX.junior.fresh || []).length === 5 && (LVEX.senior.fresh || []).length === 3
   );
 }
 

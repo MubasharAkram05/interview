@@ -6,7 +6,7 @@ export const CATS = {
   customer: 'Customer Service',
   teaching: 'Teaching',
   fresh: 'Fresh Graduate',
-  cloud: 'Cloud / DevOps'
+  cloud: 'Cloud Engineer'
 };
 
 export const LEVELS = {
@@ -588,6 +588,11 @@ export const MYEX = {
     [
       'How did you decide on your expected salary?',
       'I checked what freshers usually earn for this role in the market. I expect a fair starting salary, and my main focus is learning and growth, so I am open to discussing it.'
+    ],
+    // From HR Questions (data version 3).
+    [
+      'Are you willing to relocate or travel for this job?',
+      'Yes, I am open to relocating or travelling for this job. As a fresher I see it as a chance to learn more and meet new people.'
     ]
   ],
   customer: [
@@ -844,6 +849,19 @@ export const LVEX = {
       [
         'Is your expected salary negotiable?',
         'Yes, I am open to a fair discussion. I look at the whole offer, including growth, learning, benefits and the work itself, not only the base salary. If we agree on clear goals, I am happy to review pay again after a set period.'
+      ],
+      // From HR Questions (data version 3).
+      [
+        'Why did you leave your last job, or why do you want to change?',
+        'I learned a lot in my last role, and I am thankful for it. Now I want a role with more responsibility and growth, and this position matches my skills and the direction I want my career to take.'
+      ],
+      [
+        'What is your notice period, and when can you join?',
+        'My notice period is one month, and I will complete it properly so my current team is not left with open work. If you need me earlier, I can ask my employer whether an earlier release is possible.'
+      ],
+      [
+        'What did you like most and least about your current job?',
+        'I liked the learning and the supportive team the most. What I liked least was that growth opportunities were limited. I want a role where good work leads to more responsibility.'
       ]
     ]
   },
@@ -852,6 +870,15 @@ export const LVEX = {
       [
         'How would you negotiate your offer for a senior position?',
         'I research the market for similar senior roles and look at the total value, including scope, team size and growth. I share a clear range with my reasons and listen to the limits of the company. I aim for an agreement that feels fair to both sides, because a good start builds trust.'
+      ],
+      // From HR Questions (data version 3).
+      [
+        'Why are you looking for a change at this stage of your career?',
+        'I have built a strong base and led real results. Now I want a bigger scope, where I can shape decisions, grow a team and make a larger impact, and this role offers that.'
+      ],
+      [
+        'What kind of culture do you build in your team?',
+        'I build a culture of trust, clear goals and open feedback. People own their work, ask for help early and share credit. Problems are discussed openly, without blame.'
       ]
     ]
   }
@@ -877,6 +904,19 @@ export const PCI = {
   cloud: ['#66bb4f', 'M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 9.5 4 4 0 0 1 17.5 18zM12 12v4M10 14h4']
 };
 
+// Levels that have questions, per type. Missing: all levels. A type with fewer levels (for example
+// Fresher only) sets levels: ['fresher'] in more-questions.js.
+export const CAT_LEVELS = {};
+export const levelsOf = c => CAT_LEVELS[c] || Object.keys(LEVELS);
+/** The level to use for a type: the asked one if the type has it, else its first level. */
+export const fitLevel = (c, l) => (levelsOf(c).includes(l) ? l : levelsOf(c)[0]);
+/** Levels at least one type has (the level tabs show only these). */
+export const usedLevels = () => Object.keys(LEVELS).filter(l => Object.keys(CATS).some(c => levelsOf(c).includes(l)));
+
+// Removed type ids -> the type that took their questions (old saved sessions and history still open).
+export const CAT_ALIAS = { hrq: 'fresh' };
+export const catId = c => (CATS[c] ? c : CAT_ALIAS[c] && CATS[CAT_ALIAS[c]] ? CAT_ALIAS[c] : c);
+
 // More interview types (src/data/more-questions.js).
 Object.entries(MORE).forEach(([c, m]) => {
   CATS[c] = m.label;
@@ -886,6 +926,7 @@ Object.entries(MORE).forEach(([c, m]) => {
   LVX.junior[c] = m.junior;
   LVX.senior[c] = m.senior;
   PCI[c] = [m.color, m.icon];
+  if (m.levels) CAT_LEVELS[c] = m.levels.filter(l => LEVELS[l]);
   buildLK(c);
 });
 
@@ -903,7 +944,6 @@ export const ORDER = [
   'cloud',
   'cyber',
   'data',
-  'hrq',
   'situational',
   'behavioral',
   'sales',

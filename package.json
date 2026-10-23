@@ -18,16 +18,16 @@
     "test:home": "node tests/home/qotd.test.mjs",
     "test:voice": "node tests/voice/filter.test.mjs && node --import ./tests/voice/reg.mjs tests/voice/voice.test.mjs && node --import ./tests/storage/reg.mjs tests/voice/prefs.test.mjs",
     "test:vocab": "node tests/vocab/vocab.test.mjs && node tests/vocab/interview-vocab.test.mjs",
-    "test:practice": "node tests/practice/expected.test.mjs && node tests/practice/setup.test.mjs && node tests/practice/categories.test.mjs && node tests/practice/answer-context.test.mjs",
+    "test:practice": "node tests/practice/expected.test.mjs && node tests/practice/setup.test.mjs && node tests/practice/categories.test.mjs && node tests/practice/answer-context.test.mjs && node tests/practice/parents.test.mjs",
     "build:debug": "vite build --mode debug",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.js\" \"tests/**/*.mjs\" \"scripts/**/*.mjs\" vite.config.js eslint.config.js capacitor.config.ts",
     "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.mjs\" \"scripts/**/*.mjs\" vite.config.js eslint.config.js capacitor.config.ts",
-    "test:storage": "node --import ./tests/storage/reg.mjs tests/storage/storage.test.mjs && node tests/storage/migrate.test.mjs",
+    "test:storage": "node --import ./tests/storage/reg.mjs tests/storage/storage.test.mjs && node tests/storage/migrate.test.mjs && node tests/storage/migrate-hrq.test.mjs",
     "test": "npm run test:ads && npm run test:home && npm run test:voice && npm run test:vocab && npm run test:practice && npm run test:storage",
     "test:smoke": "node scripts/smoke.mjs",
     "test:coverage": "c8 --include=\"src/**\" --exclude=\"src/data/**\" --reporter=text-summary npm test",
-    "test:ui": "node tests/ui/home-ui.mjs && node tests/ui/voice-ui.mjs && node tests/ui/regress-ui.mjs && node tests/ui/personalize-ui.mjs && node tests/ui/migrate-ui.mjs"
+    "test:ui": "node tests/ui/home-ui.mjs && node tests/ui/voice-ui.mjs && node tests/ui/regress-ui.mjs && node tests/ui/personalize-ui.mjs && node tests/ui/migrate-ui.mjs && node tests/ui/parents-ui.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.2.1",

@@ -67,8 +67,8 @@ const practiceText = async () => {
 const storage = () => p.evaluate(() => ({ profiles: localStorage.getItem('is_profiles'), all: JSON.stringify({ ...localStorage }) }));
 
 // Generic and matching categories: no sheet
-await open('hrq');
-check('generic category (HR Questions): no sheet', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('situational');
+check('generic category (Situational): no sheet', !(await sheetOpen()) && (await p.isVisible('#practice')));
 check('generic category: no "Edit details" link', !(await p.isVisible('#pPers')));
 await open('java');
 check('matching role (Software Engineer -> Java, same family): no sheet', !(await sheetOpen()) && (await p.isVisible('#practice')));
