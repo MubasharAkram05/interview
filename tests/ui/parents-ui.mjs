@@ -57,6 +57,15 @@ await p.evaluate(me => {
     JSON.stringify([{ ts: 1, ck: 'hrq', lk: 'fresher', c: 'HR Questions · Fresher', s: 6, a: 1, t: 10, d: '10/20/2026', n: 'Sara Ahmed' }])
   );
 }, ME);
+// UI_FONT=dejavu: run with the wide fallback font of the CI machine (it has no Inter).
+if (process.env.UI_FONT === 'dejavu')
+  await p.addInitScript(() =>
+    document.addEventListener('DOMContentLoaded', () => {
+      const st = document.createElement('style');
+      st.textContent = '*{font-family:"DejaVu Sans" !important}';
+      document.head.appendChild(st);
+    })
+  );
 await p.addInitScript(() => {
   window.__skipIntro = true;
 });
@@ -213,9 +222,22 @@ check('tap the same tile: it closes', !(await p.$('.cpop')));
 // Outside tap: only closes (the single-type tile under the tap does not open its type).
 await p.click('#hPath .pt2[data-p=software]');
 await wait(250);
-await p.click('#hPath .pt2[data-p=cloud]');
+// A single-type tile that the list does not cover (the list is wider with some fonts).
+const spot = await p.evaluate(() => {
+  const r = document.querySelector('.cpop').getBoundingClientRect();
+  const view = document.getElementById('main').getBoundingClientRect();
+  for (const t of document.querySelectorAll('#hPath .pt2.cc1')) {
+    const b = t.getBoundingClientRect();
+    const x = b.left + b.width / 2;
+    const y = b.top + b.height / 2;
+    const covered = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    if (!covered && y > view.top && y < view.bottom) return { x, y, c: t.dataset.c };
+  }
+  return null;
+});
+await p.mouse.click(spot.x, spot.y);
 await wait(300);
-check('outside tap only closes the list (the tile under it does not open)', !(await p.$('.cpop')) && !(await p.isVisible('#csheet')));
+check(`outside tap only closes the list (the ${spot.c} tile under it does not open)`, !(await p.$('.cpop')) && !(await p.isVisible('#csheet')));
 // Back button closes the list first, the screen stays.
 await p.click('#hPath .pt2[data-p=general]');
 await wait(250);
@@ -321,13 +343,21 @@ for (const w of [360, 375, 412]) {
     const probe = g.querySelector('.pt2').cloneNode(true);
     g.appendChild(probe);
     const l = probe.querySelector('.pl2');
-    const bad = names.filter(n => {
-      l.style.fontSize = '';
-      l.textContent = n;
-      const lh = parseFloat(getComputedStyle(l).lineHeight);
-      const lines = Math.round(l.scrollHeight / lh);
-      return lines > 2 || l.scrollWidth > l.clientWidth + 1 || l.scrollHeight > l.clientHeight + 1 || getComputedStyle(l).fontSize !== '15px';
-    });
+    // Inter (when the phone has it) and Liberation Sans (Arial / Roboto-like widths, on every test
+    // machine): the names must fit at 15px with both.
+    const fonts = ['Liberation Sans', ...(document.fonts.check('600 15px Inter') ? ['Inter'] : [])];
+    const bad = fonts.flatMap(f =>
+      names
+        .filter(n => {
+          l.style.fontSize = '';
+          l.style.setProperty('font-family', `"${f}"`, 'important');
+          l.textContent = n;
+          const lh = parseFloat(getComputedStyle(l).lineHeight);
+          const lines = Math.round(l.scrollHeight / lh);
+          return lines > 2 || l.scrollWidth > l.clientWidth + 1 || l.scrollHeight > l.clientHeight + 1 || getComputedStyle(l).fontSize !== '15px';
+        })
+        .map(n => `${n} (${f})`)
+    );
     probe.remove();
     return { icon, bad };
   }, ALL);
