@@ -408,14 +408,18 @@ check('level tabs: only levels with questions (3 today)', (await p.locator('#mSe
 await p.evaluate(() => window.home());
 await wait(300);
 // Every tile name of the config (shown or not yet shown), at 13px in a real tile: at most 2 lines,
-// no word cut or clipped, no ellipsis; icons at least 76px.
+// no word cut or clipped, no ellipsis; icon circle 62px on phones, glyph half of it.
 const ALL = PARENTS.map(x => x.tileLabel);
 for (const w of [360, 375, 412]) {
   await p.setViewportSize({ width: w, height: 800 });
   await wait(250);
   const r = await p.evaluate(names => {
     const g = document.querySelector('#hPath .pgrid2');
-    const icon = Math.min(...[...g.querySelectorAll('.pt2 .pc')].map(e => e.getBoundingClientRect().width));
+    const pcs = [...g.querySelectorAll('.pt2 .pc')];
+    const icon = Math.min(...pcs.map(e => e.getBoundingClientRect().width));
+    const iconMax = Math.max(...pcs.map(e => e.getBoundingClientRect().width));
+    const glyph = pcs[0].querySelector('svg').getBoundingClientRect().width / pcs[0].getBoundingClientRect().width;
+    const rowGap = getComputedStyle(g).rowGap;
     const probe = g.querySelector('.pt2').cloneNode(true);
     g.appendChild(probe);
     const l = probe.querySelector('.pl2');
@@ -435,9 +439,12 @@ for (const w of [360, 375, 412]) {
         .map(n => `${n} (${f})`)
     );
     probe.remove();
-    return { icon, bad };
+    return { icon, iconMax, glyph, rowGap, bad };
   }, ALL);
-  check(`${w}px: icons at least 76px (${Math.round(r.icon)}px)`, r.icon >= 76);
+  check(
+    `${w}px: icon circle 62px (${r.icon}-${r.iconMax}px), glyph 50% (${Math.round(r.glyph * 100)}%), row gap 6px (${r.rowGap})`,
+    r.icon === 62 && r.iconMax === 62 && Math.abs(r.glyph - 0.5) < 0.01 && r.rowGap === '6px'
+  );
   check(`${w}px: all ${ALL.length} tile names fit in 2 lines at 13px, no cut word`, !r.bad.length, r.bad.join(', '));
 }
 // CI and some phones have a wider font than Inter: check the labels with a wide one too.
@@ -467,7 +474,18 @@ for (const [w, h, want] of [
       .map(l => l.textContent)
   }));
   check(`${w}px: ${want} columns (${cols}), no horizontal scroll`, cols === want && sw <= 0, sw);
-  check(`${w}px: tiles at least 128px (${Math.round(m.minH)}px), no label overflows (wide font)`, m.minH >= 128 && !m.over.length, m.over.join());
+  check(`${w}px: tiles at least 120px (${Math.round(m.minH)}px), no label overflows (wide font)`, m.minH >= 120 && !m.over.length, m.over.join());
+  if (w >= 600) {
+    // Tablets: the old clamp(76px, 78%, 84px) times 62/76.
+    const ic = await p.$$eval('#hPath .pt2', x =>
+      x.map(e => {
+        const cs = getComputedStyle(e);
+        return [e.querySelector('.pc').getBoundingClientRect().width, e.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)]; // % is of the content box
+      })
+    );
+    const off = ic.filter(([i, tw]) => Math.abs(i - Math.min(68.5, Math.max(62, tw * 0.636))) > 0.6);
+    check(`${w}px: icon scaled by 62/76 from the old size (${ic[0][0].toFixed(1)}px)`, !off.length, JSON.stringify(off[0]));
+  }
   // Right-column tile: the list stays on screen; then a resize moves it with its tile.
   const right = await p.evaluate(n => document.querySelectorAll('#hPath .pt2')[n - 1].dataset.p, cols);
   const multi = await p.$(`#hPath .pt2[data-p=${right}][aria-expanded]`);
