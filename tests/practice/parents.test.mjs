@@ -2,7 +2,7 @@
 // calls, no new storage keys" rule. Run: npm run test:practice
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { PARENTS, FAMILIES, CAT_SHORT, childrenOf, visibleParents, parentOf, displayLabel, searchCats, tileLabel } from '../../src/data/parents.js';
+import { PARENTS, FAMILIES, childrenOf, visibleParents, parentOf, displayLabel, searchCats, tileLabel } from '../../src/data/parents.js';
 import { CATS, ROLE, LEVELS, CAT_LEVELS, levelsOf, fitLevel, usedLevels, catId, CAT_ALIAS } from '../../src/data/questions.js';
 import { FAMILIES as RESOLVER_FAMILIES, roleMatches } from '../../src/services/answer-context.js';
 import { ROLES, catToRole } from '../../src/services/setup.js';
@@ -107,20 +107,16 @@ check(
 
 // ---- Tile names
 check(
-  'every parent has a short name of at most 12 characters',
-  PARENTS.every(p => p.short && p.short.length <= 12),
-  PARENTS.filter(p => !p.short || p.short.length > 12)
+  'every parent has a tile name (its readable name, at most 25 characters)',
+  PARENTS.every(p => p.tileLabel && p.tileLabel.length <= 25 && !p.short),
+  PARENTS.filter(p => !p.tileLabel || p.tileLabel.length > 25)
     .map(p => p.id)
     .join()
 );
 check(
-  'type short names at most 12 characters, known ids',
-  Object.entries(CAT_SHORT).every(([c, t]) => CATS[c] && t.length <= 12)
-);
-check(
-  "tile names: short name, or the only type's short name",
+  'tile names: the parent names (shortened only where a third line would be needed)',
   vis.map(tileLabel).join('|') ===
-    'General|Software|Web|SQL|Data|Cloud|Cyber|IT & Network|Graphic|HR|Operations|Finance|Marketing|Sales|Support|Electronics|Civil|Mechanical|Waiter|Teaching',
+    'General Interview|Software Development|Web Development|Database|Data and Analytics|Cloud|Cyber Security|IT and Networking|Graphic Design|Human Resources|Operations Management|Finance and Banking|Marketing|Sales and Retail|Customer Service|Embedded Electronics|Civil and Construction|Mechanical and Industrial|Hospitality|Education',
   vis.map(tileLabel).join('|')
 );
 

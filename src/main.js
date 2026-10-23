@@ -745,10 +745,10 @@ const levelTabs = (on, extra = () => '') =>
     .join('');
 
 const favTile = () =>
-  `<button class="cp pt2" id="favT" aria-label="Favorite Question"><span class="pc" style="background:#b45309"><svg viewBox="0 0 24 24" style="fill:#fff" aria-hidden="true"><path d="${IC.star}"/></svg></span><span class="pl2">Favorites</span></button>`;
+  `<button class="cp pt2" id="favT"><span class="pc" style="background:#b45309"><svg viewBox="0 0 24 24" style="fill:#fff" aria-hidden="true"><path d="${IC.star}"/></svg></span><span class="pl2">Favorite Questions</span></button>`;
 
 // ---- Parent groups (src/data/parents.js): one picker for Home, Practice and Mock ----
-// A grid of parent tiles (3 / 4 / 6 per row). A tile opens a small floating list of its types,
+// A grid of parent tiles (3 / 4 / 6 per row): big icon, name on up to 2 lines, no counts. A tile opens a small floating list of its types,
 // anchored under the tile (or above it when there is no room below). The list floats over the
 // grid, so no tile moves. One list at a time. A parent with one type opens that type directly.
 // With a search text, the matching types show first as a list (parent name under each).
@@ -756,8 +756,7 @@ const pickers = {}; // picker element id -> onPick
 let pop = null; // the open list: { box, id, el, tile, off }
 const CHEVR = '<svg class="cpv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-const pIcon = (p, badge = '') =>
-  `<span class="pc" style="background:${p.color}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${p.icon}"/></svg>${badge}</span>`;
+const pIcon = p => `<span class="pc" style="background:${p.color}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${p.icon}"/></svg></span>`;
 // A type's own icon and colour (questions.js), for the floating list and the search list.
 const cIcon = c => {
   const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
@@ -782,11 +781,9 @@ function renderPicker(box, onPick, query = '', after = '') {
   const tiles = visibleParents()
     .map(p => {
       const kids = childrenOf(p);
-      const name = esc(tileLabel(p));
-      if (kids.length === 1) {
-        return `<button class="cp pt2 cc1" data-c="${kids[0].id}" data-p="${p.id}" aria-label="${esc(kids[0].label)}">${pIcon(p)}<span class="pl2" aria-hidden="true">${name}</span></button>`;
-      }
-      return `<button class="cp pt2" data-p="${p.id}" data-kids="${kids.map(k => k.id).join(' ')}" aria-expanded="false" aria-controls="${box}-pop" aria-label="${esc(p.label)}, ${kids.length} types">${pIcon(p, `<i class="pbg" aria-hidden="true">${kids.length}</i>`)}<span class="pl2" aria-hidden="true">${name}</span></button>`;
+      const name = `<span class="pl2">${esc(tileLabel(p))}</span>`;
+      if (kids.length === 1) return `<button class="cp pt2 cc1" data-c="${kids[0].id}" data-p="${p.id}">${pIcon(p)}${name}</button>`;
+      return `<button class="cp pt2" data-p="${p.id}" data-kids="${kids.map(k => k.id).join(' ')}" aria-expanded="false" aria-controls="${box}-pop">${pIcon(p)}${name}</button>`;
     })
     .join('');
   el.classList.add('cpick');
@@ -806,15 +803,15 @@ function renderPicker(box, onPick, query = '', after = '') {
   fitGrid(box);
 }
 
-// A long one-word name (Electronics) on a narrow tile with a wide phone font: make the name a
-// little smaller instead of cutting it.
+// A wide phone font can make a long word (Development) wider than the tile, or a name need a third
+// line: make the name a little smaller instead of cutting it.
 function fitGrid(box) {
   const g = $(box)?.querySelector('.pgrid2');
   if (!g || !g.offsetWidth) return;
   g.querySelectorAll('.pl2').forEach(l => {
     l.style.fontSize = '';
     let fs = parseFloat(getComputedStyle(l).fontSize);
-    while (l.scrollWidth > l.clientWidth + 0.5 && fs > 11) {
+    while ((l.scrollWidth > l.clientWidth + 0.5 || l.scrollHeight > l.clientHeight + 1) && fs > 11) {
       fs -= 0.5;
       l.style.fontSize = `${fs}px`;
     }

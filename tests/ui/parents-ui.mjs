@@ -2,6 +2,7 @@
 // search, the searchable role list, and an old saved session of the removed HR Questions type.
 //   npm run build && npx vite preview --port 4173 &   then  node tests/ui/parents-ui.mjs
 const { chromium } = await import('playwright').catch(() => import('/opt/node-tools/node_modules/playwright/index.mjs'));
+import { PARENTS } from '../../src/data/parents.js';
 const URL = process.env.UI_URL || 'http://localhost:4173/';
 const out = [];
 const check = (name, ok, got) => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok || got === undefined ? '' : `\n      got: ${got}`}`);
@@ -85,17 +86,15 @@ check(`Home: ${parents.length} parent tiles (hidden ones have no types)`, parent
 const kids = await p.$$eval('#hPath .pt2[data-p]', x => x.flatMap(e => (e.dataset.kids ? e.dataset.kids.split(' ') : [e.dataset.c])));
 check(`Home: 26 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 26 && new Set(kids).size === 26 && !kids.includes('hrq'));
 check(
-  'tile: short name, full name only for screen readers, count badge',
-  (await p.textContent('#hPath .pt2[data-p=general] .pl2')).trim() === 'General' &&
-    /^General Interview, 3 types$/.test(await p.getAttribute('#hPath .pt2[data-p=general]', 'aria-label')) &&
-    (await p.textContent('#hPath .pt2[data-p=general] .pbg')).trim() === '3' &&
-    !/General Interview/.test(await p.textContent('#hPath'))
+  'tile: readable name under the icon, no count anywhere on the tiles',
+  (await p.textContent('#hPath .pt2[data-p=general] .pl2')).trim() === 'General Interview' &&
+    !(await p.$('#hPath .pt2 .pbg')) &&
+    (await p.$$eval('#hPath .pt2', x => x.every(e => !/\d/.test(e.textContent) && !/\d/.test(e.getAttribute('aria-label') || ''))))
 );
 check(
-  'single-type tile: the type short name, no badge, no list',
+  'single-type tile: its name, no list',
   (await p.textContent('#hPath .pt2[data-p=cloud] .pl2')).trim() === 'Cloud' &&
-    (await p.getAttribute('#hPath .pt2[data-p=cloud]', 'aria-label')) === 'Cloud Engineer' &&
-    !(await p.$('#hPath .pt2[data-p=cloud] .pbg')) &&
+    (await p.getAttribute('#hPath .pt2[data-p=cloud]', 'data-c')) === 'cloud' &&
     !(await p.getAttribute('#hPath .pt2[data-p=cloud]', 'aria-expanded'))
 );
 check('no list open at start', !(await p.$('.cpop')) && (await p.locator('#hPath .pt2[aria-expanded=true]').count()) === 0);
@@ -127,6 +126,9 @@ const popInfo = () =>
       up: d.classList.contains('up'),
       below: r.top >= tile.bottom,
       above: r.bottom <= tile.top,
+      dl: Math.round(r.left - tile.left),
+      dr: Math.round(r.right - tile.right),
+      dc: Math.round(r.left + r.width / 2 - (tile.left + tile.width / 2)),
       text: d.textContent,
       chev: !!d.querySelector('.cpv'),
       head: !!d.querySelector('h1,h2,h3,h4,h5,h6'),
@@ -143,8 +145,10 @@ await wait(200);
 for (const [name, id] of [
   ['left', 'general'],
   ['middle', 'software'],
-  ['right', 'itnet']
+  ['right', 'finance']
 ]) {
+  // The tile near the top of the screen, so the list has room below it.
+  await p.$eval(`#hPath .pt2[data-p=${id}]`, e => e.scrollIntoView({ block: 'start' }));
   // Wait until the page is still (the Home cards above finish loading), then measure.
   let before = await rects('#hPath');
   for (let n = 0; n < 20; n++) {
@@ -167,12 +171,14 @@ for (const [name, id] of [
     r.below && r.onTop && r.inView && r.inX && r.inGutter && r.w >= 180 && r.w <= 260,
     JSON.stringify(r)
   );
+  const aligned = name === 'left' ? r.dl === 0 : name === 'right' ? r.dr === 0 : Math.abs(r.dc) <= 1;
+  check(`${name} tile: list ${name === 'middle' ? 'centred on' : `${name} aligned with`} the tile`, aligned, JSON.stringify([r.dl, r.dc, r.dr]));
   check(
     `${name} tile: rows 28px icon, 15px text, at least 44px, no chevron, no title, no parent name`,
     r.rows.every(([h, ic, fs]) => h >= 44 && Math.round(ic) === 28 && fs === 15) &&
       !r.chev &&
       !r.head &&
-      !/General Interview|Software Development|IT Support and Networking/.test(r.text),
+      !/General Interview|Software Development|Finance and Banking/.test(r.text),
     JSON.stringify(r)
   );
   await p.keyboard.press('Escape');
@@ -303,6 +309,31 @@ check('level tabs: only levels with questions (3 today)', (await p.locator('#mSe
 // ---- Columns, sizes, labels and resize
 await p.evaluate(() => window.home());
 await wait(300);
+// Every tile name of the config (shown or not yet shown), at 15px in a real tile: at most 2 lines,
+// no word cut or clipped, no ellipsis; icons at least 76px.
+const ALL = PARENTS.map(x => x.tileLabel);
+for (const w of [360, 375, 412]) {
+  await p.setViewportSize({ width: w, height: 800 });
+  await wait(250);
+  const r = await p.evaluate(names => {
+    const g = document.querySelector('#hPath .pgrid2');
+    const icon = Math.min(...[...g.querySelectorAll('.pt2 .pc')].map(e => e.getBoundingClientRect().width));
+    const probe = g.querySelector('.pt2').cloneNode(true);
+    g.appendChild(probe);
+    const l = probe.querySelector('.pl2');
+    const bad = names.filter(n => {
+      l.style.fontSize = '';
+      l.textContent = n;
+      const lh = parseFloat(getComputedStyle(l).lineHeight);
+      const lines = Math.round(l.scrollHeight / lh);
+      return lines > 2 || l.scrollWidth > l.clientWidth + 1 || l.scrollHeight > l.clientHeight + 1 || getComputedStyle(l).fontSize !== '15px';
+    });
+    probe.remove();
+    return { icon, bad };
+  }, ALL);
+  check(`${w}px: icons at least 76px (${Math.round(r.icon)}px)`, r.icon >= 76);
+  check(`${w}px: all ${ALL.length} tile names fit in 2 lines at 15px, no cut word`, !r.bad.length, r.bad.join(', '));
+}
 // CI and some phones have a wider font than Inter: check the labels with a wide one too.
 await p.addStyleTag({ content: '*{font-family:"DejaVu Sans",Verdana,sans-serif !important}' });
 for (const [w, h, want] of [
@@ -330,7 +361,7 @@ for (const [w, h, want] of [
       .map(l => l.textContent)
   }));
   check(`${w}px: ${want} columns (${cols}), no horizontal scroll`, cols === want && sw <= 0, sw);
-  check(`${w}px: tiles at least 96px (${Math.round(m.minH)}px), no label overflows`, m.minH >= 96 && !m.over.length, m.over.join());
+  check(`${w}px: tiles at least 128px (${Math.round(m.minH)}px), no label overflows (wide font)`, m.minH >= 128 && !m.over.length, m.over.join());
   // Right-column tile: the list stays on screen; then a resize moves it with its tile.
   const right = await p.evaluate(n => document.querySelectorAll('#hPath .pt2')[n - 1].dataset.p, cols);
   const multi = await p.$(`#hPath .pt2[data-p=${right}][aria-expanded]`);
