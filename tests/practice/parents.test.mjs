@@ -64,7 +64,7 @@ check(
   `every type in exactly one parent (${Object.keys(CATS).length} types)`,
   Object.keys(CATS).every(c => kids.filter(k => k === c).length === 1)
 );
-check('37 types, HR Questions removed', Object.keys(CATS).length === 37 && !CATS.hrq);
+check('50 types, HR Questions removed', Object.keys(CATS).length === 50 && !CATS.hrq);
 const vis = visibleParents();
 check('parents with no children are hidden', vis.every(p => childrenOf(p).length) && PARENTS.filter(p => !childrenOf(p).length).every(p => !vis.includes(p)));
 check('General Interview is first', vis[0].id === 'general');
@@ -75,8 +75,9 @@ check(
       'General Interview': ['situational', 'behavioral', 'fresh'],
       'Software Development': ['software', 'java', 'cpp'],
       'Web Development': ['web'],
-      Database: ['sql'],
-      'Data and Analytics': ['data'],
+      Database: ['dbgen', 'sql', 'dba', 'etl', 'nosql'],
+      'Data and Analytics': ['data', 'analyst', 'bidev', 'datasci', 'dataeng'],
+      'AI and Machine Learning': ['aiml', 'mleng', 'genai', 'cv', 'nlp'],
       Cloud: ['cloud', 'cloudadmin', 'cloudarch', 'cloudsec', 'clouddata'],
       DevOps: ['devops', 'platform'],
       'Cyber Security': ['cyber', 'soc', 'pentest', 'appsec', 'grc', 'ir'],
@@ -117,7 +118,7 @@ check(
 check(
   'tile names: the parent names (shortened only where a third line would be needed)',
   vis.map(tileLabel).join('|') ===
-    'General Interview|Software Development|Web Development|Database|Data and Analytics|Cloud|DevOps|Cyber Security|IT and Networking|Graphic Design|Human Resources|Operations Management|Finance and Banking|Marketing|Sales and Retail|Customer Service|Embedded Electronics|Civil and Construction|Mechanical and Industrial|Hospitality|Education',
+    'General Interview|Software Development|Web Development|Database|Data and Analytics|AI and ML|Cloud|DevOps|Cyber Security|IT and Networking|Graphic Design|Human Resources|Operations Management|Finance and Banking|Marketing|Sales and Retail|Customer Service|Embedded Electronics|Civil and Construction|Mechanical and Industrial|Hospitality|Education',
   vis.map(tileLabel).join('|')
 );
 
@@ -157,9 +158,21 @@ check('parent of a type', parentOf('java').id === 'software' && parentOf('fresh'
 
 // ---- Search
 const found = q => searchCats(q).flatMap(g => g.children.map(k => k.id));
-check('search by display label (SQL Developer)', found('sql developer').join() === 'sql');
+check('search by display label (SQL Developer; NoSQL Developer also contains the letters)', found('sql developer').join() === 'sql,nosql');
 check('search by role label (Data and AI Engineer)', found('ai engineer').includes('data'));
 check('search by parent label (Finance and Banking)', found('banking').join() === 'accounting,finance');
+check(
+  'search: PR C roles by label and keywords (MongoDB, Power BI, LLM, ETL, DBA, OpenCV, Data Scientist)',
+  found('mongodb').join() === 'nosql' &&
+    found('power bi').join() === 'analyst,bidev' &&
+    found('llm').join() === 'genai' &&
+    found('etl').includes('etl') &&
+    found('dba').join() === 'dba' &&
+    found('opencv').join() === 'cv' &&
+    found('data scientist').join() === 'datasci' &&
+    found('machine learning engineer').includes('mleng')
+);
+check('search: a parent label keeps all its children (Database)', found('database').join() === 'dbgen,sql,dba,etl,nosql');
 check('search by keyword (call centre)', found('call centre').join() === 'customer');
 check('search by skill keyword (AWS)', found('aws').includes('cloud'));
 check('search result keeps its parent (for the subtitle)', searchCats('java')[0].parent.id === 'software');
@@ -172,11 +185,22 @@ check(
     found('grc analyst').join() === 'grc'
 );
 check('Cloud 5, DevOps 2, Cyber Security 6', ['cloud', 'devops', 'cyber'].map(id => childrenOf(PARENTS.find(p => p.id === id)).length).join() === '5,2,6');
+check(
+  'Data and Analytics 5, AI and Machine Learning 5, Database 5; first children named like the parent',
+  ['data', 'ai', 'database'].map(id => childrenOf(PARENTS.find(p => p.id === id)).length).join() === '5,5,5' &&
+    displayLabel('aiml') === 'AI and Machine Learning' &&
+    displayLabel('dbgen') === 'Database' &&
+    displayLabel('data') === 'Data and Analytics' &&
+    parentOf('sql').id === 'database'
+);
 check('no match: empty list', searchCats('zzzz qqqq').length === 0);
 check('empty text: no search', searchCats('  ').length === 0);
 
 // ---- Families (config) and roles
-check('family map is the config object', RESOLVER_FAMILIES === FAMILIES && Object.keys(FAMILIES).join() === 'Software,Cloud and DevOps,Security,Infra');
+check(
+  'family map is the config object',
+  RESOLVER_FAMILIES === FAMILIES && Object.keys(FAMILIES).join() === 'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database'
+);
 check('Software Engineer still matches Java (family)', roleMatches({ roleKey: 'Software Engineer' }, 'java'));
 check(
   'every setup role still in the role list',

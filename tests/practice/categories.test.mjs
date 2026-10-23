@@ -20,7 +20,7 @@ const list = (c, level) => {
     .concat(extra);
 };
 
-check(`37 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 37 && !CATS.hrq);
+check(`50 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 50 && !CATS.hrq);
 check('tiles follow ORDER (each type next to related ones)', Object.keys(CATS).join() === ORDER.join());
 
 // The four split types keep their ids; each new half gets its own id.
@@ -45,14 +45,22 @@ for (const [c, [label, setupRole, role]] of Object.entries(SPEC))
 check('only one Sales type', Object.values(CATS).filter(l => /sales/i.test(l)).length === 1);
 check('Fresh Graduate is a general type', isGeneric('fresh') && !ROLE.fresh);
 check(
-  'families: Software, Cloud and DevOps, Security, Infra; Data/AI, Cloud Data/AI and Graphic Designer in none',
-  FAMILIES.Software.includes('Web Developer') &&
+  'families: Software, Cloud and DevOps, Security, Infra, Data and Analytics, AI and ML, Database; Graphic Designer in none',
+  Object.keys(FAMILIES).join() === 'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database' &&
+    FAMILIES.Software.join() === 'Software Engineer,Web Developer,Java Developer,C/C++ Developer,Database Developer' &&
     FAMILIES['Cloud and DevOps'].join() === 'Cloud/DevOps,Cloud Administrator,Cloud Architect,DevOps,Platform Engineer' &&
     FAMILIES.Security.join() === 'Cyber Security,SOC Analyst,Penetration Tester,Application Security,GRC Analyst,Incident Response,Cloud Security' &&
     FAMILIES.Infra.join() === 'IT Support,Network Engineer,Cloud/DevOps' &&
-    !Object.values(FAMILIES)
-      .flat()
-      .some(r => r === 'Data/AI' || r === 'Cloud Data/AI' || r === 'Graphic Designer')
+    FAMILIES['Data and Analytics'].join() === 'Data/AI,Data Analyst,BI Developer,Data Scientist,Data Engineer,Cloud Data/AI' &&
+    FAMILIES['AI and ML'].join() === 'Data/AI,AI/ML,Machine Learning Engineer,Generative AI,Computer Vision,NLP,Data Scientist' &&
+    FAMILIES.Database.join() === 'Database Developer,Database Engineer,Database Administrator,ETL Developer,NoSQL Developer' &&
+    !Object.values(FAMILIES).flat().includes('Graphic Designer')
+);
+check(
+  'every family role is a setup role',
+  Object.values(FAMILIES)
+    .flat()
+    .every(r => ROLES.includes(r))
 );
 check(
   'Graphic Designer skills',
@@ -67,6 +75,44 @@ check(
       'Network security,Firewalls,SIEM,Vulnerability assessment,Incident response,Linux,IAM,Wireshark,OWASP,Cloud security'
 );
 check('no role twice in the setup list', new Set(ROLES).size === ROLES.length);
+// PR C: Data, AI and Database roles: id, label, setup role, role in answers.
+const PRC_SPEC = {
+  analyst: ['Data Analyst', 'Data Analyst', 'Data Analyst'],
+  bidev: ['BI Developer', 'BI Developer', 'BI Developer'],
+  datasci: ['Data Scientist', 'Data Scientist', 'Data Scientist'],
+  dataeng: ['Data Engineer', 'Data Engineer', 'Data Engineer'],
+  aiml: ['AI and Machine Learning', 'AI/ML', 'AI Engineer'],
+  mleng: ['Machine Learning Engineer', 'Machine Learning Engineer', 'Machine Learning Engineer'],
+  genai: ['Generative AI Engineer', 'Generative AI', 'Generative AI Engineer'],
+  cv: ['Computer Vision Engineer', 'Computer Vision', 'Computer Vision Engineer'],
+  nlp: ['NLP Engineer', 'NLP', 'NLP Engineer'],
+  dbgen: ['Database', 'Database Engineer', 'Database Engineer'],
+  dba: ['Database Administrator', 'Database Administrator', 'Database Administrator'],
+  etl: ['Data Warehouse / ETL', 'ETL Developer', 'ETL Developer'],
+  nosql: ['NoSQL / MongoDB', 'NoSQL Developer', 'NoSQL Developer']
+};
+const PRC = Object.keys(PRC_SPEC);
+for (const [c, [label, setupRole, role]] of Object.entries(PRC_SPEC))
+  check(`${c}: "${label}", setup role ${setupRole}, role in answers ${role}`, CATS[c] === label && catToRole(c) === setupRole && ROLE[c] === role);
+const PRC_SKILLS = {
+  'Data Analyst': 'Excel,SQL,Power BI,Tableau,Python,Pandas,Data cleaning,Data visualization,Statistics,Reporting',
+  'BI Developer': 'Power BI,DAX,SQL,Tableau,Data modeling,ETL,Dashboards,Excel,Data warehouse,Reporting',
+  'Data Scientist': 'Python,Statistics,Machine learning,Pandas,NumPy,scikit-learn,SQL,Data visualization,Feature engineering,Model evaluation',
+  'Data Engineer': 'Python,SQL,ETL,Airflow,Spark,Data pipelines,Data warehouse,Kafka,Cloud storage,Data modeling',
+  'AI/ML': 'Python,Machine learning,Deep learning,TensorFlow,PyTorch,Statistics,Data preprocessing,Model evaluation,Git,Math',
+  'Machine Learning Engineer': 'Python,scikit-learn,PyTorch,TensorFlow,Model deployment,MLOps,Feature engineering,Docker,APIs,Model monitoring',
+  'Generative AI': 'LLMs,Prompt engineering,RAG,Vector databases,Python,APIs,Fine-tuning,Evaluation,Responsible AI',
+  'Computer Vision': 'Python,OpenCV,PyTorch,CNN,Image processing,Object detection,Segmentation,Data augmentation,Annotation',
+  NLP: 'Python,spaCy,Transformers,Tokenization,Text classification,Embeddings,Sentiment analysis,Named entity recognition,Evaluation',
+  'Database Engineer': 'SQL,Normalization,Indexing,Transactions,Joins,Backup and recovery,Query optimization,Data modeling,ER diagrams,Constraints',
+  'Database Administrator': 'Backup and recovery,Performance tuning,Replication,High availability,Security,Monitoring,Indexing,Patching,User management,SQL',
+  'ETL Developer': 'ETL,SQL,Data warehouse,Star schema,dbt,Airflow,Data quality,Incremental load,Scheduling',
+  'NoSQL Developer': 'MongoDB,Document model,Indexing,Aggregation,Replication,Sharding,Redis,Schema design'
+};
+check(
+  'PR C roles in the profile role picker with their suggested skills',
+  Object.entries(PRC_SKILLS).every(([r, s]) => ROLES.includes(r) && ROLE_SKILLS[r].join() === s)
+);
 const NEW = [
   'it',
   'cyber',
@@ -83,7 +129,8 @@ const NEW = [
   'pentest',
   'appsec',
   'grc',
-  'ir'
+  'ir',
+  ...PRC
 ];
 const cols = Object.values(PCI).map(x => x[0].toLowerCase());
 check(
@@ -114,8 +161,8 @@ for (const c of Object.keys(CATS)) {
   );
 }
 
-// PR B roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
-for (const c of ['cloudadmin', 'cloudarch', 'cloudsec', 'clouddata', 'devops', 'platform', 'soc', 'pentest', 'appsec', 'grc', 'ir'])
+// PR B and PR C roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
+for (const c of ['cloudadmin', 'cloudarch', 'cloudsec', 'clouddata', 'devops', 'platform', 'soc', 'pentest', 'appsec', 'grc', 'ir', ...PRC])
   check(
     `${c}: 10 / 19 / 19 questions`,
     Object.keys(LEVELS)

@@ -69,8 +69,8 @@ export const PARENTS = [
     order: 6,
     color: '#4338ca',
     icon: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
-    children: ['sql'],
-    keywords: ['sql', 'dba']
+    children: ['dbgen', 'sql', 'dba', 'etl', 'nosql'],
+    keywords: ['dbms', 'rdbms']
   },
   {
     id: 'data',
@@ -79,8 +79,8 @@ export const PARENTS = [
     order: 7,
     color: '#b45309',
     icon: 'M3 3v18h18M7 15l4-4 3 3 6-6',
-    children: ['data'],
-    keywords: ['analyst', 'excel', 'power bi']
+    children: ['data', 'analyst', 'bidev', 'datasci', 'dataeng'],
+    keywords: ['big data', 'analytics']
   },
   {
     id: 'ai',
@@ -89,7 +89,7 @@ export const PARENTS = [
     order: 8,
     color: '#a21caf',
     icon: 'M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z',
-    children: [],
+    children: ['aiml', 'mleng', 'genai', 'cv', 'nlp'],
     keywords: ['ml', 'artificial intelligence']
   },
   {
@@ -345,13 +345,16 @@ export const PARENTS = [
 ];
 
 // Profile roles that count as a match for each other's types (answer-context.js). Config only:
-// a role can be in more than one family (Cloud/DevOps). Data/AI, Cloud Data/AI and Graphic
-// Designer have no family.
+// a role can be in more than one family (Cloud/DevOps, Data/AI, Data Scientist, Database
+// Developer). Graphic Designer has no family.
 export const FAMILIES = {
   Software: ['Software Engineer', 'Web Developer', 'Java Developer', 'C/C++ Developer', 'Database Developer'],
   'Cloud and DevOps': ['Cloud/DevOps', 'Cloud Administrator', 'Cloud Architect', 'DevOps', 'Platform Engineer'],
   Security: ['Cyber Security', 'SOC Analyst', 'Penetration Tester', 'Application Security', 'GRC Analyst', 'Incident Response', 'Cloud Security'],
-  Infra: ['IT Support', 'Network Engineer', 'Cloud/DevOps']
+  Infra: ['IT Support', 'Network Engineer', 'Cloud/DevOps'],
+  'Data and Analytics': ['Data/AI', 'Data Analyst', 'BI Developer', 'Data Scientist', 'Data Engineer', 'Cloud Data/AI'],
+  'AI and ML': ['Data/AI', 'AI/ML', 'Machine Learning Engineer', 'Generative AI', 'Computer Vision', 'NLP', 'Data Scientist'],
+  Database: ['Database Developer', 'Database Engineer', 'Database Administrator', 'ETL Developer', 'NoSQL Developer']
 };
 
 const kid = x => (typeof x === 'string' ? { id: x } : x);
