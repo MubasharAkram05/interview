@@ -745,7 +745,7 @@ const levelTabs = (on, extra = () => '') =>
     .join('');
 
 const favTile = () =>
-  `<button class="cp pt2" id="favT"><span class="pc" style="background:#b45309"><svg viewBox="0 0 24 24" style="fill:#fff" aria-hidden="true"><path d="${IC.star}"/></svg></span><span class="pl2">Favorite Questions</span></button>`;
+  `<button class="cp pt2" id="favT"><span class="pc" style="background:#b45309;--c:#b45309"><svg viewBox="0 0 24 24" style="fill:#fff" aria-hidden="true"><path d="${IC.star}"/></svg></span><span class="pl2">Favorite Questions</span></button>`;
 
 // ---- Parent groups (src/data/parents.js): one picker for Home, Practice and Mock ----
 // A grid of parent tiles (3 / 4 / 6 per row): big icon, name on up to 2 lines, no counts. A tile opens a small floating list of its types,
@@ -756,7 +756,8 @@ const pickers = {}; // picker element id -> onPick
 let pop = null; // the open list: { box, id, el, tile, off }
 const CHEVR = '<svg class="cpv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-const pIcon = p => `<span class="pc" style="background:${p.color}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${p.icon}"/></svg></span>`;
+const pIcon = p =>
+  `<span class="pc" style="background:${p.color};--c:${p.color}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${p.icon}"/></svg></span>`;
 // A type's own icon and colour (questions.js), for the floating list and the search list.
 const cIcon = c => {
   const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];

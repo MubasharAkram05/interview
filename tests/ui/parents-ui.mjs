@@ -408,14 +408,27 @@ check('level tabs: only levels with questions (3 today)', (await p.locator('#mSe
 await p.evaluate(() => window.home());
 await wait(300);
 // Every tile name of the config (shown or not yet shown), at 13px in a real tile: at most 2 lines,
-// no word cut or clipped, no ellipsis; icons at least 76px.
+// no word cut or clipped, no ellipsis; card tiles with a rounded-square icon of at least 56px.
 const ALL = PARENTS.map(x => x.tileLabel);
 for (const w of [360, 375, 412]) {
   await p.setViewportSize({ width: w, height: 800 });
   await wait(250);
   const r = await p.evaluate(names => {
     const g = document.querySelector('#hPath .pgrid2');
-    const icon = Math.min(...[...g.querySelectorAll('.pt2 .pc')].map(e => e.getBoundingClientRect().width));
+    const pcs = [...g.querySelectorAll('.pt2 .pc')];
+    const icon = Math.min(...pcs.map(e => e.getBoundingClientRect().width));
+    const t = g.querySelector('.pt2:not(.on)');
+    const ts = getComputedStyle(t);
+    const ps = getComputedStyle(pcs[0]);
+    const card = {
+      bg: ts.backgroundColor !== 'rgba(0, 0, 0, 0)' && ts.backgroundColor !== 'transparent',
+      radius: ts.borderTopLeftRadius,
+      share: pcs[0].getBoundingClientRect().width / t.getBoundingClientRect().width,
+      // A circle has radius = half the width; the rounded square has much less (28% here).
+      square: (r => (r.endsWith('%') ? parseFloat(r) / 100 : parseFloat(r) / pcs[0].getBoundingClientRect().width) < 0.4)(ps.borderTopLeftRadius),
+      glow: /rgb/.test(ps.boxShadow),
+      glyph: pcs[0].querySelector('svg').getBoundingClientRect().width / pcs[0].getBoundingClientRect().width
+    };
     const probe = g.querySelector('.pt2').cloneNode(true);
     g.appendChild(probe);
     const l = probe.querySelector('.pl2');
@@ -435,9 +448,20 @@ for (const w of [360, 375, 412]) {
         .map(n => `${n} (${f})`)
     );
     probe.remove();
-    return { icon, bad };
+    return { icon, card, bad };
   }, ALL);
-  check(`${w}px: icons at least 76px (${Math.round(r.icon)}px)`, r.icon >= 76);
+  check(
+    `${w}px: card tiles (background, 18px corners), rounded-square icon ${Math.round(r.icon)}px (${Math.round(r.card.share * 100)}% of the tile, glyph ${Math.round(r.card.glyph * 100)}%), coloured glow`,
+    r.icon >= 56 &&
+      r.card.bg &&
+      r.card.radius === '18px' &&
+      r.card.square &&
+      r.card.glow &&
+      r.card.share > 0.5 &&
+      r.card.share < 0.65 &&
+      Math.abs(r.card.glyph - 0.42) < 0.01,
+    JSON.stringify(r.card)
+  );
   check(`${w}px: all ${ALL.length} tile names fit in 2 lines at 13px, no cut word`, !r.bad.length, r.bad.join(', '));
 }
 // CI and some phones have a wider font than Inter: check the labels with a wide one too.
