@@ -4,14 +4,15 @@ const { chromium } = await import('playwright').catch(() => import('/opt/node-to
 const out = [];
 const check = (name, ok) => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}`);
 const wait = ms => new Promise(r => setTimeout(r, ms));
-// Mock picker: open the type's parent group (if closed), then tap the type.
+// Mock picker: tap the parent tile that holds the type (opens its panel), then the type.
 const pickMock = async c => {
-  const parent = await p.getAttribute(`#mGrid [data-c=${c}]`, 'data-p');
-  if ((await p.getAttribute(`#mGrid .cp[data-p=${parent}]`, 'aria-expanded')) === 'false') {
-    await p.click(`#mGrid .cp[data-p=${parent}]`);
+  const single = await p.$(`#mGrid .pt2.cc1[data-c=${c}]`);
+  if (single) return single.click();
+  if (!(await p.$(`#mGrid .cpanel [data-c=${c}]`))) {
+    await p.click(`#mGrid .pt2[data-kids~=${c}]`);
     await wait(300);
   }
-  await p.click(`#mGrid [data-c=${c}]`);
+  await p.click(`#mGrid .cpanel [data-c=${c}]`);
 };
 
 const b = await chromium.launch();

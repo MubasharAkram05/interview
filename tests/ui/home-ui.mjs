@@ -187,10 +187,10 @@ check(
 
 await p.evaluate(() => window.startMock());
 await p.waitForTimeout(400);
-check('mock page has level tabs and category tiles', (await p.locator('#mSeg button').count()) === 3 && (await p.locator('#mGrid .cp').count()) >= 4);
+check('mock page has level tabs and category tiles', (await p.locator('#mSeg button').count()) === 3 && (await p.locator('#mGrid .pt2').count()) >= 4);
 check('no Start button on the Mock page', (await p.locator('#mStart').count()) === 0);
-check('no interview type is pre-selected, no group open', (await p.locator('#mGrid .cp[aria-expanded=true]').count()) === 0);
-const tiles = await p.$$eval('#mGrid .cp', bs => bs.map(b => b.getBoundingClientRect().height));
+check('no interview type is pre-selected, no group open', (await p.locator('#mGrid .pt2[aria-expanded=true]').count()) === 0);
+const tiles = await p.$$eval('#mGrid .pt2', bs => bs.map(b => b.getBoundingClientRect().height));
 check(
   'tiles are big enough to tap (>= 44px)',
   tiles.every(h => h >= 44)

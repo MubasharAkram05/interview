@@ -84,9 +84,9 @@ await p.evaluate(() => window.home());
 await wait(300);
 await p.evaluate(() => window.startMock && window.startMock());
 await wait(500);
-const tiles = await p.$$eval('#mGrid [data-c]', x => x.map(e => e.dataset.c));
+const tiles = await p.$$eval('#mGrid .pt2[data-p]', x => x.flatMap(e => (e.dataset.kids ? e.dataset.kids.split(' ') : [e.dataset.c])));
 check(`Mock: 26 types in the picker (${tiles.length})`, tiles.length === 26 && !tiles.includes('hrq'));
-const groups = await p.$$eval('#mGrid .cp[data-p]', x => x.map(e => e.dataset.p));
+const groups = await p.$$eval('#mGrid .pt2[data-p]', x => x.map(e => e.dataset.p));
 check('Mock: grouped by parent, General Interview first', groups.slice(0, 3).join() === 'general,software,web');
 
 // A second start does not move anything again

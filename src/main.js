@@ -1,5 +1,5 @@
-import { CATS, LEVELS, HEAD, TAIL, MID, OV, MYEX, LVEX, LK, LVH, LVT, LVX, TIPS, levelsOf, fitLevel, usedLevels, catId } from './data/questions.js';
-import { visibleParents, childrenOf, displayLabel, searchCats } from './data/parents.js';
+import { CATS, LEVELS, HEAD, TAIL, MID, OV, MYEX, LVEX, LK, LVH, LVT, LVX, TIPS, PCI, levelsOf, fitLevel, usedLevels, catId } from './data/questions.js';
+import { visibleParents, childrenOf, displayLabel, searchCats, tileLabel } from './data/parents.js';
 
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
@@ -745,56 +745,118 @@ const levelTabs = (on, extra = () => '') =>
     .join('');
 
 const favTile = () =>
-  `<div class="cpg"><button class="cp" id="favT" aria-label="Favorite Question"><span class="pc" style="background:#f59e0b"><svg viewBox="0 0 24 24" style="fill:#fff"><path d="${IC.star}"/></svg></span><span class="cpt">Favorite Question</span></button></div>`;
+  `<button class="cp pt2" id="favT" aria-label="Favorite Question"><span class="pc" style="background:#b45309"><svg viewBox="0 0 24 24" style="fill:#fff" aria-hidden="true"><path d="${IC.star}"/></svg></span><span class="pl2">Favorites</span></button>`;
 
 // ---- Parent groups (src/data/parents.js): one picker for Home, Practice and Mock ----
-// A parent opens a dropdown with its types (one parent open at a time, kept in memory only); a
-// parent with one type shows that type and opens it directly. With a search text, the matching
-// types show under their parents, all open, with the parent name under each type.
+// A grid of parent tiles (4 / 6 / 8 per row). A tile opens a full-width panel under its row with
+// the parent's types; one panel at a time, kept in memory only. A parent with one type opens that
+// type directly. With a search text, the matching types show first as a list (parent name under
+// each), and the grid stays below.
 const openP = {}; // picker element id -> open parent id
-const CHEV = '<svg class="cpv" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-const CHEVR = '<svg class="cpv r" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+const pickers = {}; // picker element id -> onPick
+const CHEVR = '<svg class="cpv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const pIcon = (p, badge = '') =>
+  `<span class="pc" style="background:${p.color}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${p.icon}"/></svg>${badge}</span>`;
+// A type's own icon and colour (questions.js), for the rows inside a panel and the search list.
+const cIcon = c => {
+  const [col, d] = PCI[c] || ['#6a1bff', 'M12 3l9 9-9 9-9-9z'];
+  return `<span class="pc sm" style="background:${col}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg></span>`;
+};
+const cRow = (k, sub = '') =>
+  `<button class="cc" data-c="${k.id}">${cIcon(k.id)}<span class="cpt">${esc(k.label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>${CHEVR}</button>`;
 
 function renderPicker(box, onPick, query = '', after = '') {
   const el = $(box);
   if (!el) return;
+  pickers[box] = onPick;
   const q = String(query || '').trim();
-  const groups = q ? searchCats(q) : visibleParents().map(p => ({ parent: p, children: childrenOf(p) }));
-  const icon = p => `<span class="pc" style="background:${p.color}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${p.icon}"/></svg></span>`;
-  const sub = p => (q ? `<small>${esc(p.label)}</small>` : '');
-  el.innerHTML = groups.length
-    ? '<div class="cpk">' +
-      groups
-        .map(({ parent: p, children: kids }) => {
-          const all = childrenOf(p);
-          if (all.length === 1) {
-            const k = all[0];
-            return `<div class="cpg"><button class="cp cc1" data-c="${k.id}" data-p="${p.id}">${icon(p)}<span class="cpt">${esc(k.label)}${sub(p)}</span>${CHEVR}</button></div>`;
-          }
-          const open = q ? true : openP[box] === p.id;
-          const id = `${box}-${p.id}`;
-          return `<div class="cpg${open ? ' open' : ''}"><button class="cp" data-p="${p.id}" aria-expanded="${open}" aria-controls="${id}">${icon(p)}<span class="cpt">${esc(p.label)} <span class="cpn">(${all.length})</span></span>${CHEV}</button><div class="cpl" id="${id}" role="group" aria-label="${esc(p.label)}"><div>${kids
-            .map(k => `<button class="cc" data-c="${k.id}" data-p="${p.id}">${esc(k.label)}${sub(p)}</button>`)
-            .join('')}</div></div></div>`;
-        })
-        .join('') +
-      after +
-      '</div>'
-    : `<p class="cpe" role="status">No category found</p><div class="cpk">${after}</div>`;
-  el.querySelectorAll('.cp[aria-expanded]').forEach(b =>
+  const found = q ? searchCats(q).flatMap(g => g.children.map(k => cRow(k, g.parent.label))) : [];
+  const list = q ? (found.length ? `<div class="cres">${found.join('')}</div>` : '<p class="cpe" role="status">No category found</p>') : '';
+  const tiles = visibleParents()
+    .map(p => {
+      const kids = childrenOf(p);
+      const name = esc(tileLabel(p));
+      if (kids.length === 1) {
+        return `<button class="cp pt2 cc1" data-c="${kids[0].id}" data-p="${p.id}" aria-label="${esc(kids[0].label)}">${pIcon(p)}<span class="pl2" aria-hidden="true">${name}</span></button>`;
+      }
+      return `<button class="cp pt2" data-p="${p.id}" data-kids="${kids.map(k => k.id).join(' ')}" aria-expanded="false" aria-controls="${box}-panel" aria-label="${esc(p.label)}, ${kids.length} types">${pIcon(p, `<i class="pbg" aria-hidden="true">${kids.length}</i>`)}<span class="pl2" aria-hidden="true">${name}</span></button>`;
+    })
+    .join('');
+  el.innerHTML = `${list}<div class="pgrid2">${tiles}${after}</div>`;
+  el.querySelectorAll('.pt2[aria-expanded]').forEach(b =>
     b.addEventListener('click', () => {
       playTapSound();
-      const id = b.dataset.p;
-      openP[box] = openP[box] === id ? '' : id;
-      el.querySelectorAll('.cp[aria-expanded]').forEach(x => {
-        const on = !q && x.dataset.p === openP[box];
-        x.setAttribute('aria-expanded', String(on));
-        x.parentElement.classList.toggle('open', on);
-      });
+      openPanel(box, openP[box] === b.dataset.p ? '' : b.dataset.p, true);
     })
   );
-  el.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => onPick(b.dataset.c)));
+  el.querySelectorAll('.cc1[data-c], .cres [data-c]').forEach(b => b.addEventListener('click', () => onPick(b.dataset.c)));
+  if (openP[box]) openPanel(box, openP[box], false); // the open parent stays open after a redraw
 }
+
+// Columns of the grid as laid out now (4, 6 or 8).
+const gridCols = g => getComputedStyle(g).gridTemplateColumns.split(' ').filter(Boolean).length || 4;
+
+// Put the open panel right after the last tile of the tapped tile's row, pointer under the tile.
+function placePanel(box) {
+  const el = $(box);
+  const g = el && el.querySelector('.pgrid2');
+  const panel = g && g.querySelector('.cpanel');
+  const tile = panel && g.querySelector(`.pt2[data-p="${openP[box]}"]`);
+  if (!tile) return;
+  const tiles = [...g.querySelectorAll('.pt2')];
+  const cols = gridCols(g);
+  const i = tiles.indexOf(tile);
+  const end = tiles[Math.min(Math.floor(i / cols) * cols + cols - 1, tiles.length - 1)];
+  if (end.nextElementSibling !== panel) end.after(panel);
+  panel.style.setProperty('--px', `${tile.offsetLeft + tile.offsetWidth / 2}px`);
+}
+
+function openPanel(box, id, animate) {
+  const el = $(box);
+  const g = el && el.querySelector('.pgrid2');
+  if (!g) return;
+  const old = g.querySelector('.cpanel');
+  if (old) old.remove();
+  g.querySelectorAll('.pt2[aria-expanded]').forEach(t => {
+    t.setAttribute('aria-expanded', String(t.dataset.p === id));
+    t.classList.toggle('on', t.dataset.p === id);
+  });
+  const p = visibleParents().find(x => x.id === id);
+  openP[box] = p ? id : '';
+  if (!p) return;
+  const panel = document.createElement('div');
+  panel.className = 'cpanel';
+  panel.id = `${box}-panel`;
+  panel.setAttribute('role', 'region');
+  panel.setAttribute('aria-label', p.label);
+  panel.innerHTML = `<div><div class="cpin"><h4>${esc(p.label)}</h4>${childrenOf(p)
+    .map(k => cRow(k))
+    .join('')}</div></div>`;
+  g.appendChild(panel);
+  placePanel(box);
+  panel.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => pickers[box](b.dataset.c)));
+  panel.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const t = g.querySelector(`.pt2[data-p="${id}"]`);
+    openPanel(box, '', false);
+    t && t.focus();
+  });
+  if (animate && !reduceMotion()) void panel.offsetHeight; // start the height and fade from closed
+  panel.classList.add('open');
+  // Below the fold: bring the whole panel into view.
+  setTimeout(
+    () => {
+      const r = panel.getBoundingClientRect();
+      const bottom = ($('main') || document.documentElement).getBoundingClientRect().bottom;
+      if (panel.isConnected && r.bottom > bottom) panel.scrollIntoView({ block: 'nearest', behavior: reduceMotion() ? 'auto' : 'smooth' });
+    },
+    animate && !reduceMotion() ? 200 : 0
+  );
+}
+
+// Rotation or a new window size can change the column count: move each open panel to its row.
+addEventListener('resize', () => Object.keys(openP).forEach(b => openP[b] && placePanel(b)));
 
 function homeLevel(v) {
   pcLv = v;

@@ -78,104 +78,174 @@ if (await p.isVisible('#dlg')) {
   await wait(400);
 }
 
-// ---- Home: parent groups
-const parents = await p.$$eval('#hPath .cp[data-p]', x => x.map(e => e.dataset.p));
-check(`Home: ${parents.length} parents shown (hidden ones have no types)`, parents.length === 20 && parents[0] === 'general' && !parents.includes('mobile'));
-const types = await p.$$eval('#hPath [data-c]', x => x.map(e => e.dataset.c));
-check(`Home: 26 types (${types.length}), HR Questions gone`, types.length === 26 && !types.includes('hrq'));
-check('Home: count shown on a group', /General Interview\s*\(3\)/.test(await p.textContent('#hPath .cp[data-p=general]')));
+// ---- Home: parent tile grid
+const tilesOf = box => p.$$eval(`${box} .pt2[data-p]`, x => x.map(e => e.dataset.p));
+const parents = await tilesOf('#hPath');
+check(`Home: ${parents.length} parent tiles (hidden ones have no types)`, parents.length === 20 && parents[0] === 'general' && !parents.includes('mobile'));
+const kids = await p.$$eval('#hPath .pt2[data-p]', x => x.flatMap(e => (e.dataset.kids ? e.dataset.kids.split(' ') : [e.dataset.c])));
+check(`Home: 26 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 26 && new Set(kids).size === 26 && !kids.includes('hrq'));
 check(
-  'Home: single-type parent shows the type name',
-  (await p.textContent('#hPath .cp[data-p=cloud]')).trim() === 'Cloud Engineer' && !(await p.getAttribute('#hPath .cp[data-p=cloud]', 'aria-expanded'))
+  'tile: short name, full name for screen readers, count badge',
+  (await p.textContent('#hPath .pt2[data-p=general] .pl2')).trim() === 'General' &&
+    /^General Interview, 3 types$/.test(await p.getAttribute('#hPath .pt2[data-p=general]', 'aria-label')) &&
+    (await p.textContent('#hPath .pt2[data-p=general] .pbg')).trim() === '3'
 );
-check('Home: groups closed at start', (await p.locator('#hPath .cp[aria-expanded=true]').count()) === 0 && !(await p.isVisible('#hPath .cc[data-c=fresh]')));
-await p.click('#hPath .cp[data-p=general]');
-await wait(300);
 check(
-  'tap a group: it opens with its types',
-  (await p.getAttribute('#hPath .cp[data-p=general]', 'aria-expanded')) === 'true' && (await p.isVisible('#hPath .cc[data-c=fresh]'))
+  'single-type tile: the type short name, no badge, no dropdown',
+  (await p.textContent('#hPath .pt2[data-p=cloud] .pl2')).trim() === 'Cloud' &&
+    (await p.getAttribute('#hPath .pt2[data-p=cloud]', 'aria-label')) === 'Cloud Engineer' &&
+    !(await p.$('#hPath .pt2[data-p=cloud] .pbg')) &&
+    !(await p.getAttribute('#hPath .pt2[data-p=cloud]', 'aria-expanded'))
 );
-await p.click('#hPath .cp[data-p=software]');
-await wait(300);
+check('no panel open at start', !(await p.$('#hPath .cpanel')) && (await p.locator('#hPath .pt2[aria-expanded=true]').count()) === 0);
+
+// The panel must sit right after the last tile of the tapped tile's row.
+const panelAt = box =>
+  p.$eval(`${box} .pgrid2`, g => {
+    const cols = getComputedStyle(g).gridTemplateColumns.split(' ').filter(Boolean).length;
+    const items = [...g.children];
+    const panel = g.querySelector('.cpanel');
+    const tiles = items.filter(e => e.classList.contains('pt2'));
+    const before = panel ? items.indexOf(panel) : -1; // tiles before the panel
+    const open = g.querySelector('.pt2[aria-expanded=true]');
+    const i = tiles.indexOf(open);
+    const end = Math.min(Math.floor(i / cols) * cols + cols - 1, tiles.length - 1);
+    const pr = panel && panel.getBoundingClientRect();
+    const tr = open && open.getBoundingClientRect();
+    return {
+      cols,
+      ok: !!panel && before === end + 1,
+      below: !!panel && pr.top >= tr.bottom - 1,
+      full: !!panel && Math.abs(pr.width - g.getBoundingClientRect().width) < 1
+    };
+  });
+for (const [name, id] of [
+  ['first row', 'software'],
+  ['middle row', 'itnet'],
+  ['last row', 'finance']
+]) {
+  await p.click(`#hPath .pt2[data-p=${id}]`);
+  await wait(300);
+  const r = await panelAt('#hPath');
+  check(`${name}: panel full width, under the row, after its last tile (${r.cols} columns)`, r.ok && r.below && r.full, JSON.stringify(r));
+}
+check('only one panel open at a time', (await p.locator('#hPath .cpanel').count()) === 1 && (await p.locator('#hPath .pt2[aria-expanded=true]').count()) === 1);
+check('tapped tile highlighted', await p.$eval('#hPath .pt2[data-p=finance]', e => e.classList.contains('on')));
 check(
-  'only one group open at a time',
-  (await p.getAttribute('#hPath .cp[data-p=general]', 'aria-expanded')) === 'false' &&
-    (await p.getAttribute('#hPath .cp[data-p=software]', 'aria-expanded')) === 'true' &&
-    !(await p.isVisible('#hPath .cc[data-c=fresh]'))
+  'panel: full parent name in its header and label',
+  (await p.textContent('#hPath .cpanel h4')).trim() === 'Finance and Banking' &&
+    (await p.getAttribute('#hPath .cpanel', 'aria-label')) === 'Finance and Banking'
 );
-const rot = await p.$eval('#hPath .cp[data-p=software] .cpv', e => getComputedStyle(e).transform);
-check('chevron turns on the open group', rot !== 'none', rot);
-await p.click('#hPath .cp[data-p=software]');
+const rows = await p.$$eval('#hPath .cpanel .cc', x =>
+  x.map(e => [e.dataset.c, e.getBoundingClientRect().height, !!e.querySelector('.pc'), !!e.querySelector('.cpv')])
+);
+check('panel rows: icon, name, chevron, at least 48px', rows.length === 2 && rows.every(([, h, ic, ch]) => h >= 48 && ic && ch), JSON.stringify(rows));
+await p.click('#hPath .pt2[data-p=finance]');
 await wait(300);
-check('tap again: it closes', (await p.getAttribute('#hPath .cp[data-p=software]', 'aria-expanded')) === 'false');
-// Keyboard: Tab to a group and press Enter.
-await p.focus('#hPath .cp[data-p=itnet]');
+check('tap the same tile: panel closes', !(await p.$('#hPath .cpanel')) && (await p.getAttribute('#hPath .pt2[data-p=finance]', 'aria-expanded')) === 'false');
+// Keyboard
+await p.focus('#hPath .pt2[data-p=general]');
 await p.keyboard.press('Enter');
 await wait(300);
-check('keyboard: Enter opens a group', (await p.getAttribute('#hPath .cp[data-p=itnet]', 'aria-expanded')) === 'true');
-await p.keyboard.press('Tab');
-check('keyboard: Tab goes into the open group', (await p.evaluate(() => document.activeElement.dataset.c)) === 'it');
-const sizes = await p.$$eval('#hPath .cp, #hPath .cc', x =>
-  x.filter(e => e.offsetParent && getComputedStyle(e.parentElement).visibility !== 'hidden').map(e => e.getBoundingClientRect().height)
+check('keyboard: Enter opens a panel', (await p.getAttribute('#hPath .pt2[data-p=general]', 'aria-expanded')) === 'true');
+await p.focus('#hPath .cpanel .cc');
+await p.keyboard.press('Escape');
+await wait(200);
+check(
+  'keyboard: Escape closes it and focus goes back to the tile',
+  !(await p.$('#hPath .cpanel')) && (await p.evaluate(() => document.activeElement.dataset.p)) === 'general'
 );
-check(`tap targets at least 44px (smallest ${Math.min(...sizes)}px)`, Math.min(...sizes) >= 44);
-await p.click('#hPath .cp[data-p=cloud]');
+await p.click('#hPath .pt2[data-p=general]');
 await wait(300);
-check('single-type parent opens the type directly', (await p.isVisible('#csheet')) && /^Cloud Engineer · /.test(await p.textContent('#csT')));
+await p.click('#hPath .cpanel .cc[data-c=fresh]');
+await wait(300);
+check('panel row opens the type', (await p.isVisible('#csheet')) && /^Fresh Graduate · /.test(await p.textContent('#csT')));
+await p.evaluate(() => window.closeCS && window.closeCS());
+await p.click('#hPath .pt2[data-p=cloud]');
+await wait(300);
+check('single-type tile opens the type directly', (await p.isVisible('#csheet')) && /^Cloud Engineer · /.test(await p.textContent('#csT')));
 await p.evaluate(() => window.closeCS && window.closeCS());
 await wait(200);
 
-// ---- Search
+// ---- Search: a flat list above the grid
 const search = async q => {
   await p.fill('#hSearch', q);
   await wait(250);
-  return p.$$eval('#hPath [data-c]', x => x.map(e => e.dataset.c));
+  return p.$$eval('#hPath .cres [data-c]', x => x.map(e => e.dataset.c));
 };
 check('search by role label ("ai engineer") finds Data and Analytics', (await search('ai engineer')).includes('data'));
 check('search by parent label ("banking") finds both its types', (await search('banking')).join() === 'accounting,finance');
 check('search by keyword ("call centre") finds Customer Service', (await search('call centre')).join() === 'customer');
 await search('banking');
 check(
-  'results: open group, parent name under each type',
-  (await p.getAttribute('#hPath .cp[data-p=finance]', 'aria-expanded')) === 'true' &&
-    /Finance and Banking/.test(await p.textContent('#hPath .cc[data-c=accounting] small'))
+  'results: parent name under each type, list above the grid',
+  /Finance and Banking/.test(await p.textContent('#hPath .cres .cc[data-c=accounting] small')) &&
+    (await p.$eval('#hPath', e => e.firstElementChild.classList.contains('cres'))) &&
+    (await p.locator('#hPath .pgrid2 .pt2[data-p]').count()) === 20
 );
 await search('sql developer');
-check('single result shows its parent as a subtitle', /Database/.test(await p.textContent('#hPath [data-c=sql] small')));
-await p.click('#hPath [data-c=sql]');
+check('single result shows its parent as a subtitle', /Database/.test(await p.textContent('#hPath .cres [data-c=sql] small')));
+await p.click('#hPath .cres [data-c=sql]');
 await wait(300);
 check('tapping a result opens the type', (await p.isVisible('#csheet')) && /^SQL Developer · /.test(await p.textContent('#csT')));
 await p.evaluate(() => window.closeCS && window.closeCS());
 await search('zzzz qqqq');
 check('no match: "No category found"', (await p.textContent('#hPath .cpe')).trim() === 'No category found');
 await search('');
-check('clear search: all groups back, closed', (await p.$$eval('#hPath .cp[data-p]', x => x.length)) === 20);
+check('clear search: list gone, grid stays', !(await p.$('#hPath .cres')) && (await tilesOf('#hPath')).length === 20);
 
-// ---- Practice and Mock use the same picker
+// ---- Practice and Mock use the same grid
 await p.evaluate(() => window.startPractice());
 await wait(400);
-check('Practice: grouped picker', (await p.$$eval('#pPath .cp[data-p]', x => x.length)) === 20);
+check('Practice: same grid', (await tilesOf('#pPath')).length === 20);
 await p.evaluate(() => window.startMock());
 await wait(400);
-check('Mock: grouped picker', (await p.$$eval('#mGrid .cp[data-p]', x => x.length)) === 20);
+check('Mock: same grid', (await tilesOf('#mGrid')).length === 20);
+await p.click('#mGrid .pt2[data-p=software]');
+await wait(300);
+check('Mock: panel opens under its row', (await panelAt('#mGrid')).ok);
 check('level tabs: only levels with questions (3 today)', (await p.locator('#mSeg button').count()) === 3);
 
-// ---- Layout: phone, tablet, desktop; light and dark
-for (const [w, h] of [
-  [375, 740],
-  [768, 1024],
-  [1024, 768]
+// ---- Columns, sizes, labels and resize
+await p.evaluate(() => window.home());
+await wait(300);
+await p.click('#hPath .pt2[data-p=sales]'); // single type: opens the sheet, no panel
+await p.evaluate(() => window.closeCS && window.closeCS());
+await p.click('#hPath .pt2[data-p=itnet]');
+await wait(300);
+for (const [w, h, want] of [
+  [360, 740, 4],
+  [375, 740, 4],
+  [412, 860, 4],
+  [768, 1024, 6],
+  [1024, 768, 8]
 ]) {
   await p.setViewportSize({ width: w, height: h });
-  await p.evaluate(() => window.home());
   await wait(300);
+  const r = await panelAt('#hPath');
   const sw = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-  check(`${w}px: no horizontal scroll`, sw <= 0, sw);
+  const m = await p.$$eval('#hPath .pt2', x => ({
+    minH: Math.min(...x.map(e => e.getBoundingClientRect().height)),
+    over: x
+      .map(e => e.querySelector('.pl2'))
+      .filter(
+        l =>
+          l.scrollWidth > l.clientWidth + 1 ||
+          l.scrollHeight > l.clientHeight + 1 ||
+          l.getBoundingClientRect().height > parseFloat(getComputedStyle(l).lineHeight) * 2 + 1
+      )
+      .map(l => l.textContent)
+  }));
+  check(`${w}px: ${want} columns (${r.cols}), no horizontal scroll`, r.cols === want && sw <= 0, sw);
+  check(`${w}px: tiles at least 88px (${Math.round(m.minH)}px), no label overflows`, m.minH >= 88 && !m.over.length, m.over.join());
+  check(`${w}px: open panel moved to the end of its row`, r.ok && r.below, JSON.stringify(r));
 }
+await p.setViewportSize({ width: 375, height: 740 });
+await wait(200);
 for (const theme of ['light', 'dark']) {
   await p.evaluate(t => (document.documentElement.dataset.theme = t), theme);
   await wait(100);
-  const c = await p.$eval('#hPath .cp[data-p=general] .cpt', e => {
+  const c = await p.$eval('#hPath .cpanel .cc .cpt', e => {
     const lum = s => {
       const [r, g, b2] = s
         .match(/\d+(\.\d+)?/g)
@@ -186,11 +256,24 @@ for (const theme of ['light', 'dark']) {
       return 0.2126 * r + 0.7152 * g + 0.0722 * b2;
     };
     const fg = lum(getComputedStyle(e).color);
-    const bg = lum(getComputedStyle(e.closest('.cpg')).backgroundColor);
+    const bg = lum(getComputedStyle(e.closest('.cpin')).backgroundColor);
     return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
   });
-  check(`${theme} mode: group label contrast ${c.toFixed(1)}:1 (at least 4.5)`, c >= 4.5);
+  const t = await p.$eval('#hPath .pt2[data-p=general] .pl2', e => {
+    const lum = s => {
+      const [r, g, b2] = s
+        .match(/\d+(\.\d+)?/g)
+        .map(Number)
+        .slice(0, 3)
+        .map(v => v / 255)
+        .map(x => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b2;
+    };
+    return (lum(getComputedStyle(document.querySelector('.app')).backgroundColor) + 0.05) / (lum(getComputedStyle(e).color) + 0.05);
+  });
+  check(`${theme} mode: panel row ${c.toFixed(1)}:1 and tile label ${(t < 1 ? 1 / t : t).toFixed(1)}:1 (at least 4.5)`, c >= 4.5 && (t < 1 ? 1 / t : t) >= 4.5);
 }
+await p.evaluate(() => (document.documentElement.dataset.theme = 'light'));
 
 // ---- Profile role list: searchable, grouped, same values
 const before = await p.evaluate(() => localStorage.getItem('is_profiles'));

@@ -2,7 +2,7 @@
 // calls, no new storage keys" rule. Run: npm run test:practice
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { PARENTS, FAMILIES, childrenOf, visibleParents, parentOf, displayLabel, searchCats } from '../../src/data/parents.js';
+import { PARENTS, FAMILIES, CAT_SHORT, childrenOf, visibleParents, parentOf, displayLabel, searchCats, tileLabel } from '../../src/data/parents.js';
 import { CATS, ROLE, LEVELS, CAT_LEVELS, levelsOf, fitLevel, usedLevels, catId, CAT_ALIAS } from '../../src/data/questions.js';
 import { FAMILIES as RESOLVER_FAMILIES, roleMatches } from '../../src/services/answer-context.js';
 import { ROLES, catToRole } from '../../src/services/setup.js';
@@ -103,6 +103,25 @@ check(
   'every parent: own colour, white icon contrast at least 3:1, stroke icon',
   new Set(PARENTS.map(p => p.color.toLowerCase())).size === PARENTS.length &&
     PARENTS.every(p => /^#[0-9a-f]{6}$/i.test(p.color) && 1.05 / (lum(p.color) + 0.05) >= 3 && /^M[\d\s.,MLHVAZCSQTmlhvazcsqt-]+$/.test(p.icon))
+);
+
+// ---- Tile names
+check(
+  'every parent has a short name of at most 12 characters',
+  PARENTS.every(p => p.short && p.short.length <= 12),
+  PARENTS.filter(p => !p.short || p.short.length > 12)
+    .map(p => p.id)
+    .join()
+);
+check(
+  'type short names at most 12 characters, known ids',
+  Object.entries(CAT_SHORT).every(([c, t]) => CATS[c] && t.length <= 12)
+);
+check(
+  "tile names: short name, or the only type's short name",
+  vis.map(tileLabel).join('|') ===
+    'General|Software|Web|SQL|Data|Cloud|Cyber|IT & Network|Graphic|HR|Operations|Finance|Marketing|Sales|Support|Electronics|Civil|Mechanical|Waiter|Teaching',
+  vis.map(tileLabel).join('|')
 );
 
 // ---- Display label vs role label
