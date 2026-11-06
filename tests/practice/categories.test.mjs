@@ -20,7 +20,7 @@ const list = (c, level) => {
     .concat(extra);
 };
 
-check(`61 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 61 && !CATS.hrq);
+check(`73 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 73 && !CATS.hrq);
 check('tiles follow ORDER (each type next to related ones)', Object.keys(CATS).join() === ORDER.join());
 
 // The four split types keep their ids; each new half gets its own id.
@@ -45,18 +45,22 @@ for (const [c, [label, setupRole, role]] of Object.entries(SPEC))
 check('only one Sales type', Object.values(CATS).filter(l => /sales/i.test(l)).length === 1);
 check('Fresh Graduate is a general type', isGeneric('fresh') && !ROLE.fresh);
 check(
-  'families: Software, Cloud and DevOps, Security, Infra, Data and Analytics, AI and ML, Database, Web, Mobile; Graphic Designer in none',
-  Object.keys(FAMILIES).join() === 'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile' &&
+  'families: Software, Cloud and DevOps, Security, Infra, Data and Analytics, AI and ML, Database, Web, Mobile, Game, Testing, Business and Product; Graphic Designer in none',
+  Object.keys(FAMILIES).join() ===
+    'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product' &&
     FAMILIES.Software.join() ===
       'Software Engineer,Web Developer,Java Developer,C/C++ Developer,Database Developer,Python Developer,C#/.NET Developer,Frontend Developer,Backend Developer,Full Stack Developer' &&
     FAMILIES.Web.join() === 'Web Developer,Frontend Developer,Backend Developer,Full Stack Developer,WordPress Developer' &&
     FAMILIES.Mobile.join() === 'Mobile App Developer,Android Developer,Flutter Developer,React Native Developer,iOS Developer' &&
     FAMILIES['Cloud and DevOps'].join() === 'Cloud/DevOps,Cloud Administrator,Cloud Architect,DevOps,Platform Engineer' &&
     FAMILIES.Security.join() === 'Cyber Security,SOC Analyst,Penetration Tester,Application Security,GRC Analyst,Incident Response,Cloud Security' &&
-    FAMILIES.Infra.join() === 'IT Support,Network Engineer,Cloud/DevOps' &&
+    FAMILIES.Infra.join() === 'IT Support,Network Engineer,Cloud/DevOps,System Administrator' &&
     FAMILIES['Data and Analytics'].join() === 'Data/AI,Data Analyst,BI Developer,Data Scientist,Data Engineer,Cloud Data/AI' &&
     FAMILIES['AI and ML'].join() === 'Data/AI,AI/ML,Machine Learning Engineer,Generative AI,Computer Vision,NLP,Data Scientist' &&
     FAMILIES.Database.join() === 'Database Developer,Database Engineer,Database Administrator,ETL Developer,NoSQL Developer' &&
+    FAMILIES.Game.join() === 'Game Developer,Unity Developer,Unreal Developer,Game Designer,Game Artist,Game Tester' &&
+    FAMILIES.Testing.join() === 'QA Tester,Automation Tester,Game Tester' &&
+    FAMILIES['Business and Product'].join() === 'Business Analyst,Product Manager,Product Owner' &&
     !Object.values(FAMILIES).flat().includes('Graphic Designer')
 );
 check(
@@ -150,6 +154,44 @@ check(
   'PR D roles in the profile role picker with their suggested skills',
   Object.entries(PRD_SKILLS).every(([r, s]) => ROLES.includes(r) && ROLE_SKILLS[r].join() === s)
 );
+// PR E: Game, Testing, Business and System Administrator roles: id, label, setup role, role in answers.
+const PRE_SPEC = {
+  gamedev: ['Game Development', 'Game Developer', 'Game Developer'],
+  unity: ['Unity Developer', 'Unity Developer', 'Unity Developer'],
+  unreal: ['Unreal Developer', 'Unreal Developer', 'Unreal Developer'],
+  gamedesigner: ['Game Designer', 'Game Designer', 'Game Designer'],
+  gameartist: ['Game Artist', 'Game Artist', 'Game Artist'],
+  gametester: ['Game Tester', 'Game Tester', 'Game Tester'],
+  qa: ['QA Tester', 'QA Tester', 'QA Tester'],
+  autotest: ['Automation Tester', 'Automation Tester', 'Automation Tester'],
+  ba: ['Business Analyst', 'Business Analyst', 'Business Analyst'],
+  pm: ['Product Manager', 'Product Manager', 'Product Manager'],
+  po: ['Product Owner', 'Product Owner', 'Product Owner'],
+  sysadmin: ['System Administrator', 'System Administrator', 'System Administrator']
+};
+const PRE = Object.keys(PRE_SPEC);
+for (const [c, [label, setupRole, role]] of Object.entries(PRE_SPEC))
+  check(`${c}: "${label}", setup role ${setupRole}, role in answers ${role}`, CATS[c] === label && catToRole(c) === setupRole && ROLE[c] === role);
+const PRE_SKILLS = {
+  'Game Developer': 'C#,C++,Unity,Unreal Engine,Game loop,Physics,Math for games,Performance profiling,Git,Debugging',
+  'Unity Developer': 'C#,Unity,Prefabs,ScriptableObjects,Physics,Unity UI,Animation,Unity Profiler,Mobile optimization,Git',
+  'Unreal Developer': 'C++,Blueprints,Unreal Engine 5,Gameplay Framework,Materials,Animation Blueprints,Replication,Unreal Insights,Perforce,Git',
+  'Game Designer': 'Game mechanics,Level design,Prototyping,Game balance,Game design documents,Playtesting,Unity,Excel,Narrative design,Player psychology',
+  'Game Artist': 'Photoshop,Blender,Maya,Substance Painter,2D art,3D modeling,Texturing,Rigging,Animation,Unity',
+  'Game Tester':
+    'Test cases,Bug reporting,Jira,Regression testing,Playtesting,Compatibility testing,Performance testing,Exploratory testing,Attention to detail,Communication',
+  'QA Tester': 'Test cases,Test plans,Manual testing,Bug reporting,Jira,Regression testing,Exploratory testing,SDLC,STLC,Postman',
+  'Automation Tester': 'Playwright,Selenium,JavaScript,TypeScript,Java,Page Object Model,API testing,Postman,CI/CD,Git',
+  'Business Analyst': 'Requirements gathering,User stories,BRD,Process mapping,BPMN,Stakeholder management,Jira,Excel,SQL,UAT',
+  'Product Manager': 'Product roadmap,Prioritization,User research,Product metrics,A/B testing,Agile,Jira,Figma,Market research,Stakeholder management',
+  'Product Owner':
+    'Scrum,Backlog management,User stories,Acceptance criteria,Sprint planning,Jira,Stakeholder management,Agile,Prioritization,Definition of Done',
+  'System Administrator': 'Linux,Windows Server,Active Directory,Bash,PowerShell,Backup and recovery,Monitoring,Patching,Networking,Virtualization'
+};
+check(
+  'PR E roles in the profile role picker with their suggested skills',
+  Object.entries(PRE_SKILLS).every(([r, s]) => ROLES.includes(r) && ROLE_SKILLS[r].join() === s)
+);
 const NEW = [
   'it',
   'cyber',
@@ -168,7 +210,8 @@ const NEW = [
   'grc',
   'ir',
   ...PRC,
-  ...PRD
+  ...PRD,
+  ...PRE
 ];
 const cols = Object.values(PCI).map(x => x[0].toLowerCase());
 check(
@@ -199,8 +242,8 @@ for (const c of Object.keys(CATS)) {
   );
 }
 
-// PR B, PR C and PR D roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
-for (const c of ['cloudadmin', 'cloudarch', 'cloudsec', 'clouddata', 'devops', 'platform', 'soc', 'pentest', 'appsec', 'grc', 'ir', ...PRC, ...PRD])
+// PR B, PR C, PR D and PR E roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
+for (const c of ['cloudadmin', 'cloudarch', 'cloudsec', 'clouddata', 'devops', 'platform', 'soc', 'pentest', 'appsec', 'grc', 'ir', ...PRC, ...PRD, ...PRE])
   check(
     `${c}: 10 / 19 / 19 questions`,
     Object.keys(LEVELS)

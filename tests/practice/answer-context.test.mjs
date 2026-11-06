@@ -134,6 +134,29 @@ check(
   'Mobile family: Android matches Flutter, React Native, iOS and Mobile, not Software',
   ['flutter', 'rn', 'ios', 'mobile'].every(c => roleMatches({ roleKey: 'Android Developer' }, c)) && !roleMatches({ roleKey: 'Android Developer' }, 'software')
 );
+{
+  const R = r => ({ roleKey: r });
+  check(
+    'Game family: Unity Developer matches Unreal, Game Development, Game Designer, Game Artist and Game Tester, not Software or QA Tester',
+    ['unreal', 'gamedev', 'gamedesigner', 'gameartist', 'gametester'].every(c => roleMatches(R('Unity Developer'), c)) &&
+      !['software', 'qa', 'autotest'].some(c => roleMatches(R('Unity Developer'), c))
+  );
+  check(
+    'Testing family: QA Tester matches Automation Tester and Game Tester, not Unity; Game Tester is in Game and Testing',
+    ['autotest', 'gametester'].every(c => roleMatches(R('QA Tester'), c)) &&
+      !roleMatches(R('QA Tester'), 'unity') &&
+      ['qa', 'autotest', 'unity', 'gamedev'].every(c => roleMatches(R('Game Tester'), c))
+  );
+  check(
+    'Business and Product family: Business Analyst matches Product Manager and Product Owner, not Data Analyst or Software',
+    ['pm', 'po'].every(c => roleMatches(R('Business Analyst'), c)) && !['analyst', 'software'].some(c => roleMatches(R('Business Analyst'), c))
+  );
+  check(
+    'Infra family: System Administrator matches IT Support, Network and Cloud, not Software or Cloud Administrator',
+    ['it', 'network', 'cloud'].every(c => roleMatches(R('System Administrator'), c)) &&
+      !['software', 'cloudadmin'].some(c => roleMatches(R('System Administrator'), c))
+  );
+}
 check(
   'Software family grows: Software Engineer matches Python, .NET, Frontend, Backend and Full Stack, not WordPress or Android',
   ['python', 'dotnet', 'frontend', 'backend', 'fullstack'].every(c => roleMatches(SW, c)) && !['wordpress', 'android', 'mobile'].some(c => roleMatches(SW, c))
@@ -149,6 +172,20 @@ check(
     /a C# and \.NET Developer role/.test(introAnswer(answerContext({}, 'dotnet'))) &&
     /a Python Developer role/.test(introAnswer(answerContext({}, 'python'))) &&
     /a WordPress Developer role/.test(introAnswer(answerContext({}, 'wordpress')))
+);
+check(
+  'a / an for the PR E role labels',
+  ['Unreal Developer', 'Automation Tester'].every(r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be an ${r}.`) &&
+    ['Unity Developer', 'QA Tester', 'Business Analyst', 'Product Owner', 'System Administrator', 'Game Designer', 'Product Manager'].every(
+      r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be a ${r}.`
+    ) &&
+    /an Unreal Developer role/.test(introAnswer(answerContext({}, 'unreal'))) &&
+    /an Automation Tester role/.test(introAnswer(answerContext({}, 'autotest'))) &&
+    /a Unity Developer role/.test(introAnswer(answerContext({}, 'unity'))) &&
+    /a QA Tester role/.test(introAnswer(answerContext({}, 'qa'))) &&
+    /a Business Analyst role/.test(introAnswer(answerContext({}, 'ba'))) &&
+    /a Product Owner role/.test(introAnswer(answerContext({}, 'po'))) &&
+    /a System Administrator role/.test(introAnswer(answerContext({}, 'sysadmin')))
 );
 check('Software Engineer does not match IT Support or Cyber Security', !roleMatches(SW, 'it') && !roleMatches(SW, 'cyber'));
 check('Fresh Graduate is general: always matches', isGeneric('fresh') && roleMatches({}, 'fresh'));
@@ -245,7 +282,7 @@ check('no university: "at {uni}" removed', fillTemplate('I study {degree} at {un
       introAnswer(ctx, true),
       introAnswer(ctx, false),
       introAnswer(undefined, true),
-      ...['software', 'situational', 'nosql', 'datasci'].flatMap(c => {
+      ...['software', 'situational', 'nosql', 'datasci', 'gamedev', 'unity', 'qa', 'autotest', 'ba', 'po', 'sysadmin'].flatMap(c => {
         const x = answerContext(prof, c);
         return [introAnswer(x, true), fillTemplate(ALL, x), ...Object.values(x).filter(y => typeof y === 'string')];
       })
@@ -290,7 +327,9 @@ check(
     'NLP',
     'Other',
     'Android Developer',
-    'iOS Developer'
+    'iOS Developer',
+    'Unreal Developer',
+    'Automation Tester'
   ];
   const A = [
     'Software Developer',
@@ -355,7 +394,17 @@ check(
     'WordPress Developer',
     'Mobile App Developer',
     'Flutter Developer',
-    'React Native Developer'
+    'React Native Developer',
+    'Game Developer',
+    'Unity Developer',
+    'Game Designer',
+    'Game Artist',
+    'Game Tester',
+    'QA Tester',
+    'Business Analyst',
+    'Product Manager',
+    'Product Owner',
+    'System Administrator'
   ];
   const inApp = [...new Set([...Object.values(ROLE).filter(Boolean), ...ROLES.map(roleText)])];
   const known = new Set([...AN, ...A]);

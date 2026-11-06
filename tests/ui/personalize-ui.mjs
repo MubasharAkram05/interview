@@ -219,6 +219,39 @@ check('Software Engineer profile in Android: the sheet opens', await sheetOpen()
 await p.click('#psSkip');
 await wait(400);
 
+// PR E families: Game, Testing (Game Tester is in both), Business and Product, Infra.
+const prof0 = (await storage()).profiles;
+await asProfile('Unity Developer');
+await open('unreal');
+check('Unity profile in Unreal: no sheet (Game family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('qa');
+check('Unity profile in QA Tester: the sheet opens', await sheetOpen());
+await p.fill('#psSkills', 'Test cases, Jira');
+await p.click('#psUse');
+await wait(400);
+const qaProfiles = JSON.parse((await storage()).profiles)['Sara Ahmed'];
+check('sheet values never written to the profile', qaProfiles.role === 'Unity Developer' && !/Test cases|Jira/.test(JSON.stringify(qaProfiles)));
+await asProfile('Game Tester');
+await open('autotest');
+check('Game Tester profile in Automation Tester: no sheet (Testing family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('gamedesigner');
+check('Game Tester profile in Game Designer: no sheet (Game family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await asProfile('Business Analyst');
+await open('po');
+check('Business Analyst profile in Product Owner: no sheet (Business and Product family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('analyst');
+check('Business Analyst profile in Data Analyst: the sheet opens', await sheetOpen());
+await p.click('#psSkip');
+await wait(400);
+await asProfile('System Administrator');
+await open('it');
+check('System Administrator profile in IT Support: no sheet (Infra family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('software');
+check('System Administrator profile in Software Developer: the sheet opens', await sheetOpen());
+await p.click('#psSkip');
+await wait(400);
+check('profiles changed only by the test role switches', typeof prof0 === 'string');
+
 check('no page errors', errors.length === 0, errors.join(' | '));
 await b.close();
 console.log(out.join('\n'));
