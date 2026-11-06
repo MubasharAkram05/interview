@@ -11,7 +11,7 @@ Every category also has the shared opening and closing questions (not repeated h
   - [Training and Development](#training-and-development)
 - **Management and Operations**
   - [Project Manager](#project-manager)
-  - [Operations Manager](#operations-manager)
+  - [Operations Executive](#operations-executive)
   - [Team Leader](#team-leader)
   - [Supply Chain and Logistics Coordinator](#supply-chain-and-logistics-coordinator)
 
@@ -259,53 +259,53 @@ Every category also has the shared opening and closing questions (not repeated h
 2. **How do you close a project properly?**
    I confirm that all deliverables are accepted by the sponsor and hand over the work to the operations team with documentation. I close contracts with suppliers and release the team. I run a lessons learned session to see what worked and what to change next time. Finally, I write a short closing report with the results against the original goals.
 
-## Operations Manager
+## Operations Executive
 
-- id: `opsmgr`
-- Role label: Operations Manager
-- Profile role (setupRole): Operations Manager
-- Suggested skills: Process improvement, Lean, Six Sigma, KPIs, Resource planning, Cost control, Vendor management, Quality management, Excel, Team leadership
-- Search keywords: operations management, lean, six sigma, bottleneck
+- id: `opsexec`
+- Role label: Operations Executive
+- Profile role (setupRole): Operations Executive
+- Suggested skills: Excel, Google Sheets, Reporting, Data accuracy, Coordination, Vendor follow-up, ERP systems, Process follow-up, Escalation, Time management
+- Search keywords: operations executive, operations coordinator, operations assistant, back office
 
 ### Role questions (Junior and Senior answers)
 
-1. **How do you find and remove a bottleneck in a process?**
-   I map the process step by step and measure how long each step takes and where work waits. The step with the longest queue or the lowest capacity is usually the bottleneck. I improve that step first, for example by adding capacity, removing waste or changing the order of work. Then I measure again, because the bottleneck often moves to another step.
-2. **How do you use Lean or Six Sigma ideas in daily operations?**
-   Lean helps me remove waste, such as waiting, extra movement, rework and too much stock. Six Sigma helps me reduce variation and defects, using data and the DMAIC steps: define, measure, analyse, improve and control. I start with small improvements that the team suggests and can test quickly. I measure the results, so the team sees the benefit.
-3. **How do you plan resources for the coming month?**
-   I start from the demand forecast, such as expected orders or customer volume. I compare it with our capacity in people, machines and materials, including leave and maintenance. Where there is a gap, I plan overtime, temporary staff, shift changes or a different schedule. I share the plan early with the team and update it when demand changes.
-4. **How do you manage the quality of products or services in operations?**
-   I define clear standards and checks for each important step, not only at the end. I track quality measures, such as defect rates and customer complaints, every day or week. When a problem appears, I find the root cause with the team, for example with the five whys, and fix the process. I also train people, so quality is part of everyone's job.
-5. **How do you build a budget for an operations department?**
-   I start from the planned volume and the cost of people, materials, equipment, maintenance and suppliers. I compare it with last year's actual costs and explain the main changes. I include some savings targets from planned improvements. During the year, I track actual costs against the budget every month and act on large differences.
-6. **How do you evaluate and choose a new vendor?**
-   I define what we need first, such as quality, price, delivery time, capacity and support. I ask several vendors for quotes and compare them with a simple scoring table. I check references and, for important supplies, I test a small order first. I agree on clear terms and service levels in the contract before we start.
-7. **How do you introduce a new process to a team that resists change?**
-   I explain why the change is needed and what it means for each person, using facts and examples. I involve team members in designing the details, because people support what they help create. I train them, start with a pilot and fix problems quickly. I share early results and thank the people who help the change work.
+1. **What does a normal working day look like for an operations executive?**
+   I start by checking emails, open requests and the dashboards to see what needs attention first. Then I update the trackers, process the daily tasks and follow up on anything that is pending. During the day I answer questions from other teams and fix small problems before they grow. Before I leave, I update the status of open items so the next day starts clearly.
+2. **How do you prepare daily and weekly operations reports?**
+   I pull the data from our systems into Excel or Google Sheets and use pivot tables or simple formulas to summarise it. I check the totals against the source before I share anything. The report shows the main numbers, the trend against last week and anything unusual that needs action. I send it at the same time every day or week, so people can rely on it.
+3. **How do you coordinate work between different departments?**
+   I make sure each department knows what is needed from them, by when and why. I keep one shared tracker, so everyone sees the same status and the owner of each item. When a request is stuck between two teams, I bring the right people together quickly. I confirm decisions in writing, so nothing is forgotten.
+4. **How do you follow up with vendors on open requests and invoices?**
+   I keep a list of open purchase orders, service requests and invoices with their due dates. I send polite reminders before the due date, not after it has passed. If a vendor does not answer, I call them and note what they promised. I match invoices with the purchase order and the delivery before I pass them for payment.
+5. **How do you make sure a new process is followed after it starts?**
+   I share the new steps in a short written guide and explain them to the people who use them. For the first weeks I check a sample of the work to see whether the steps are followed. When I find a gap, I find out why, for example a step is unclear or takes too long, and I tell my manager. I update the guide when the process changes.
+6. **How do you keep operations data accurate?**
+   I enter data carefully and use drop-down lists and validation in sheets to avoid typing mistakes. I compare totals between systems, for example orders in the system against the daily report. When I find a difference, I trace it to the source and correct it there, not only in my report. I keep one main file as the source of truth, so people do not work from old copies.
+7. **How do you handle a delay, and when do you escalate it?**
+   When something is delayed, I first find out the reason and the new expected time. I tell the people affected early, with the facts and what we are doing about it. I escalate to my manager when the delay will miss an important deadline, affect a customer or needs a decision I cannot make. In the escalation I explain the problem, the impact and the options in a few clear lines.
 
 ### Fresher answers (first 3 role questions)
 
-1. **How do you find and remove a bottleneck in a process?**
-   I map the process and measure where work waits the longest. I improve that step first and then measure again.
-2. **How do you use Lean or Six Sigma ideas in daily operations?**
-   Lean removes waste such as waiting and rework. Six Sigma uses data to reduce defects and variation.
-3. **How do you plan resources for the coming month?**
-   I compare the expected demand with our people and machines. If there is a gap, I plan overtime, temporary staff or shift changes.
+1. **What does a normal working day look like for an operations executive?**
+   I check emails, open requests and dashboards first. Then I update trackers, finish daily tasks and follow up on pending items.
+2. **How do you prepare daily and weekly operations reports?**
+   I pull the data into Excel or Google Sheets, summarise it and check the totals. I send the report at the same time every day.
+3. **How do you coordinate work between different departments?**
+   I tell each team what is needed and by when, and I keep one shared tracker. I confirm decisions in writing.
 
 ### Junior extra questions
 
-1. **How do you run a short daily meeting with an operations team?**
-   I keep it to about fifteen minutes, at the same time every day, often standing near the work area. We look at yesterday's results against targets, today's plan and any problems or safety issues. Each problem gets an owner and a time to fix it. Bigger problems are discussed after the meeting with the right people.
-2. **How do you use data to make operations decisions?**
-   I collect data from our systems, such as output, downtime, errors and costs, and show it on a simple dashboard. I look for trends and compare shifts, lines or sites. Before a big decision, I check the numbers with the people who know the work. Data guides the decision, but I also listen to the team on the floor.
+1. **How do you keep track of many deadlines at the same time?**
+   I keep all tasks and their deadlines in one tracker or calendar, not in my head. Each morning I sort them by due date and impact and start with the most urgent. I set reminders a few days before important deadlines. If two deadlines clash, I tell my manager early and agree on the order.
+2. **Which tools do you use for daily operations work?**
+   I use Excel or Google Sheets for trackers and reports, with functions such as XLOOKUP and pivot tables. I also work in the ERP or order system to check and update records. Email, shared calendars and chat tools help me coordinate with teams and vendors. I learn new tools quickly, because the main tasks stay the same.
 
 ### Senior extra questions
 
-1. **How do you set an operations strategy that supports business growth?**
-   I start from the business plan, such as new markets, higher volume or better service. I decide what operations must change, for example capacity, automation, locations or suppliers. I plan the investments and improvements in phases and agree on clear targets for each one. I review progress every quarter with leadership.
-2. **How do you prepare operations for an unexpected disruption?**
-   I identify the main risks, such as a key supplier failing, a system outage or a sudden rise in demand. For each one I prepare a plan, such as backup suppliers, safety stock or a manual process. I test the plans with the team and keep contact lists up to date. After a real disruption, I review what happened and improve the plan.
+1. **How do you make a recurring report faster to prepare?**
+   I list the manual steps that take the most time, such as copying data or fixing formats. I build a template with formulas, and where possible I use tools such as Power Query to load and clean the data automatically. I test the new report against the old one before I switch. This saves time every week and reduces mistakes.
+2. **How do you reduce repeated mistakes in daily operations work?**
+   I record each mistake with its cause, so I can see which ones come back. For common mistakes I add a simple check, such as a checklist, a validation rule or a second review for important entries. I share the cause and the fix with the team, without blaming anyone. Then I watch whether the mistake stops.
 
 ## Team Leader
 
@@ -403,9 +403,9 @@ Every category also has the shared opening and closing questions (not repeated h
 2. **Which supply chain KPIs do you track?**
    I track on-time and in-full delivery, inventory turnover, stock accuracy and order cycle time. I also watch freight cost per order and supplier on-time performance. I show the KPIs on a simple dashboard and review them weekly with the team. When a KPI drops, I look for the root cause and agree on actions.
 
-# Operations Manager and the existing ops type
+# Operations Executive and the existing Operations Manager type
 
-The existing `ops` type is labelled "Operations Manager", and so is the new `opsmgr` type. To avoid two rows with the same name, `ops` is now shown as "Management and Operations" inside its parent (the general first child, as in the other parents). Its id, its type label, its role in answers ("Operations Manager") and all its answers are unchanged. Both types use the one profile role "Operations Manager" with its existing skills. The questions are kept apart: `ops` covers the general job (what the role does, KPIs, process, inventory, suppliers, team, staff shortages, costs, several sites), and `opsmgr` covers bottlenecks, Lean and Six Sigma, resource planning, quality, budgets, choosing a vendor and leading change.
+The existing `ops` type keeps its label "Operations Manager", its role, its profile role, its skills and all its answers, with no display change. The new type is "Operations Executive" (id `opsexec`, own label, role and profile role). It covers the hands-on daily job: the working day, daily and weekly reports, coordinating teams, following up with vendors on open requests and invoices, process follow-up, data accuracy, delays and escalation, deadlines, tools, faster recurring reports and repeated mistakes. It stays clear of the manager-level topics of `ops` (KPIs, process improvement, inventory, supplier relationships, motivating a team, planning a team's day, staff shortages, cost cutting, several sites), of Team Leader (people management), of Project Manager (scope, schedule, project status reports) and of Supply Chain and Logistics Coordinator (stock, shipments, carriers).
 
 # Overlap check
 
@@ -423,9 +423,12 @@ No question text is repeated in any two types (checked by `tests/practice/catego
 | Training and Development: onboarding program | HR Generalist: what makes a good onboarding process | Designing the learning program vs the HR steps of joining |
 | Project Manager: scope, schedule, risk, change requests | PR E Product Owner: backlog, sprint planning; PR E Business Analyst: changing requirements | Delivering a project to time and cost vs product backlog and requirements work |
 | Project Manager: write a status report | PR E Product Manager: build and share a roadmap | Progress and risks of one project vs product direction |
-| Operations Manager: find a bottleneck; Lean and Six Sigma | Operations Management (ops): how do you improve a process | Specific tools and constraint finding vs general improvement |
-| Operations Manager: choose a new vendor | Operations Management (ops): work with suppliers and vendors | Selecting a vendor vs managing existing ones |
-| Operations Manager: budget for an operations department | Operations Management (ops): reduce operating costs without hurting quality | Building and tracking a budget vs cutting costs |
+| Operations Executive: prepare daily and weekly operations reports | Project Manager: write a useful project status report | Recurring operations numbers vs the progress of one project |
+| Operations Executive: follow up with vendors on open requests and invoices | Operations Manager (ops): work with suppliers and vendors | Day-to-day follow-up and invoice matching vs managing the supplier relationship |
+| Operations Executive: make sure a new process is followed | Operations Manager (ops): how do you improve a process | Checking that agreed steps are used vs designing the improvement |
+| Operations Executive: handle a delay and when to escalate | Project Manager: a project starts to run late; Logistics: a shipment is delayed | A delayed task and the escalation note vs a whole project vs a shipment |
+| Operations Executive: keep track of many deadlines | Fresh Graduate: prioritize tasks and manage your time | Tracking operational due dates vs general time management |
+| Operations Executive: a normal working day | Operations Manager (ops): what does an operations manager do; plan daily work for a team | The executive's own tasks vs the manager's role and the team plan |
 | Team Leader: delegate; motivate in a busy period | Operations Management (ops): motivate your operations team | Any team lead's daily habits vs an operations team |
 | Team Leader: handle an underperformer | Situational: a teammate not doing their share | A leader's process with an improvement plan vs a peer's reaction |
 | Team Leader: help from people outside your team | Behavioral: a time you influenced people without authority | Practical steps today vs a past story |

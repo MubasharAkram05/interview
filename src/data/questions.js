@@ -1021,7 +1021,7 @@ export const ORDER = [
   'lnd',
   'ops',
   'projectmgr',
-  'opsmgr',
+  'opsexec',
   'teamlead',
   'logistics',
   'ba',

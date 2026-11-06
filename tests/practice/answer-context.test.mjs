@@ -240,7 +240,7 @@ check(
 );
 check(
   'a / an for the PR G1 role labels',
-  ['HR Manager', 'Operations Manager'].every(r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be an ${r}.`) &&
+  ['HR Manager', 'Operations Manager', 'Operations Executive'].every(r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be an ${r}.`) &&
     [
       'Recruiter',
       'Payroll and Compensation Officer',
@@ -250,7 +250,8 @@ check(
       'Supply Chain and Logistics Coordinator'
     ].every(r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be a ${r}.`) &&
     /an HR Manager role/.test(introAnswer(answerContext({}, 'hrmanager'))) &&
-    /an Operations Manager role/.test(introAnswer(answerContext({}, 'opsmgr'))) &&
+    /an Operations Manager role/.test(introAnswer(answerContext({}, 'ops'))) &&
+    /an Operations Executive role/.test(introAnswer(answerContext({}, 'opsexec'))) &&
     /a Recruiter role/.test(introAnswer(answerContext({}, 'recruiter'))) &&
     /a Payroll and Compensation Officer role/.test(introAnswer(answerContext({}, 'payroll'))) &&
     /a Training and Development Specialist role/.test(introAnswer(answerContext({}, 'lnd'))) &&
@@ -268,12 +269,13 @@ check(
   );
   check(
     'Management family: Operations Manager matches ops, Project Manager, Team Leader and Logistics, not HR',
-    ['ops', 'opsmgr', 'projectmgr', 'teamlead', 'logistics'].every(c => roleMatches(R('Operations Manager'), c)) &&
+    ['ops', 'opsexec', 'projectmgr', 'teamlead', 'logistics'].every(c => roleMatches(R('Operations Manager'), c)) &&
+      ['ops', 'teamlead', 'logistics'].every(c => roleMatches(R('Operations Executive'), c)) &&
       !['hr', 'recruiter'].some(c => roleMatches(R('Operations Manager'), c))
   );
   check(
     'Project Manager is in Management and in Business and Product: matches Product Owner and Team Leader, not Software',
-    ['po', 'pm', 'ba', 'teamlead', 'opsmgr'].every(c => roleMatches(R('Project Manager'), c)) && !roleMatches(R('Project Manager'), 'software')
+    ['po', 'pm', 'ba', 'teamlead', 'opsexec'].every(c => roleMatches(R('Project Manager'), c)) && !roleMatches(R('Project Manager'), 'software')
   );
 }
 check('Software Engineer does not match IT Support or Cyber Security', !roleMatches(SW, 'it') && !roleMatches(SW, 'cyber'));
@@ -394,7 +396,7 @@ check('no university: "at {uni}" removed', fillTemplate('I study {degree} at {un
         'payroll',
         'lnd',
         'projectmgr',
-        'opsmgr',
+        'opsexec',
         'teamlead',
         'logistics'
       ].flatMap(c => {
@@ -445,7 +447,8 @@ check(
     'iOS Developer',
     'Unreal Developer',
     'Automation Tester',
-    'HR Manager'
+    'HR Manager',
+    'Operations Executive'
   ];
   const A = [
     'Software Developer',

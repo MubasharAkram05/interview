@@ -93,7 +93,7 @@ check(
       'Video and Animation': ['video', 'motion', 'anim2d', 'anim3d'],
       'Content and Writing': ['contentwriter', 'techwriter', 'copywriter'],
       'Human Resources': ['hr', 'recruiter', 'hrmanager', 'payroll', 'lnd'],
-      'Management and Operations': ['ops', 'projectmgr', 'opsmgr', 'teamlead', 'logistics'],
+      'Management and Operations': ['ops', 'projectmgr', 'opsexec', 'teamlead', 'logistics'],
       'Finance and Banking': ['accounting', 'finance'],
       Marketing: ['marketing'],
       'Sales and Retail': ['sales'],
@@ -258,14 +258,14 @@ check(
     parentOf('graphic').id === 'graphic'
 );
 check(
-  'search: PR G1 roles by keyword (talent acquisition, payroll, PMP, Prince2, Lean, Six Sigma, supervisor, logistics)',
+  'search: PR G1 roles by keyword (talent acquisition, payroll, PMP, Prince2, operations executive, back office, supervisor, logistics)',
   found('talent acquisition').join() === 'recruiter' &&
     found('payroll').join() === 'payroll' &&
     found('learning and development').join() === 'lnd' &&
     found('pmp').join() === 'projectmgr' &&
     found('prince2').join() === 'projectmgr' &&
-    found('lean').join() === 'opsmgr' &&
-    found('six sigma').join() === 'opsmgr' &&
+    found('operations executive').join() === 'opsexec' &&
+    found('back office').join() === 'opsexec' &&
     found('supervisor').join() === 'teamlead' &&
     found('logistics').join() === 'logistics' &&
     found('hr manager').join() === 'hrmanager'
@@ -273,7 +273,7 @@ check(
 check(
   'search: no child keyword on the HR and Management parents (recruiter, operations, manager), and no keyword splits into single letters',
   !['recruiter', 'operations', 'manager'].some(k => ['hr', 'management'].some(id => PARENTS.find(p => p.id === id).keywords.includes(k))) &&
-    ['recruiter', 'hrmanager', 'payroll', 'lnd', 'projectmgr', 'opsmgr', 'teamlead', 'logistics'].every(c =>
+    ['recruiter', 'hrmanager', 'payroll', 'lnd', 'projectmgr', 'opsexec', 'teamlead', 'logistics'].every(c =>
       (KEYWORDS[c] || []).every(k =>
         k
           .toLowerCase()
@@ -284,12 +284,12 @@ check(
     )
 );
 check(
-  'Human Resources 5, Management and Operations 5; the general Operations type is named like the parent, its id and answers unchanged',
+  'Human Resources 5, Management and Operations 5; the existing Operations Manager type keeps its label, Operations Executive is new',
   ['hr', 'management'].map(id => childrenOf(PARENTS.find(p => p.id === id)).length).join() === '5,5' &&
-    displayLabel('ops') === 'Management and Operations' &&
+    displayLabel('ops') === 'Operations Manager' &&
     CATS.ops === 'Operations Manager' &&
     ROLE.ops === 'Operations Manager' &&
-    displayLabel('opsmgr') === 'Operations Manager' &&
+    displayLabel('opsexec') === 'Operations Executive' &&
     displayLabel('hr') === 'HR Generalist' &&
     displayLabel('lnd') === 'Training and Development' &&
     CATS.lnd === 'Training and Development Specialist' &&

@@ -309,7 +309,7 @@ for (const [id, list] of [
   ['video', 'video,motion,anim2d,anim3d'],
   ['content', 'contentwriter,techwriter,copywriter'],
   ['hr', 'hr,recruiter,hrmanager,payroll,lnd'], // PR G1: 5 rows each
-  ['management', 'ops,projectmgr,opsmgr,teamlead,logistics']
+  ['management', 'ops,projectmgr,opsexec,teamlead,logistics']
 ]) {
   await p.$eval(`#hPath .pt2[data-p=${id}]`, e => e.scrollIntoView({ block: 'center' }));
   await wait(300);
@@ -339,9 +339,9 @@ for (const [id, list] of [
   if (id === 'uiux') check('UI/UX list: first row named like the parent', (await p.textContent('.cpop [data-c=uiux]')).trim() === 'UI/UX Design');
   if (id === 'management')
     check(
-      'Management list: the general type is named like the parent, Operations Manager is its own row',
-      (await p.textContent('.cpop [data-c=ops]')).trim() === 'Management and Operations' &&
-        (await p.textContent('.cpop [data-c=opsmgr]')).trim() === 'Operations Manager'
+      'Management list: Operations Manager keeps its name, Operations Executive is its own row',
+      (await p.textContent('.cpop [data-c=ops]')).trim() === 'Operations Manager' &&
+        (await p.textContent('.cpop [data-c=opsexec]')).trim() === 'Operations Executive'
     );
   await p.keyboard.press('Escape');
   await wait(200);

@@ -5606,78 +5606,78 @@ export const MORE = {
       ]
     ]
   },
-  opsmgr: {
-    label: 'Operations Manager',
-    role: 'Operations Manager',
+  opsexec: {
+    label: 'Operations Executive',
+    role: 'Operations Executive',
     color: '#8a3b12',
-    icon: 'M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4',
-    setupRole: 'Operations Manager',
-    keywords: ['operations management', 'lean', 'six sigma', 'bottleneck'],
+    icon: 'M5 4h14v16H5zM8 8h8M8 12h8M8 16h4M15.5 16.5l1.5 1.5 2.5-3',
+    setupRole: 'Operations Executive',
+    keywords: ['operations executive', 'operations coordinator', 'operations assistant', 'back office'],
     skills: [
-      'Process improvement',
-      'Lean',
-      'Six Sigma',
-      'KPIs',
-      'Resource planning',
-      'Cost control',
-      'Vendor management',
-      'Quality management',
       'Excel',
-      'Team leadership'
+      'Google Sheets',
+      'Reporting',
+      'Data accuracy',
+      'Coordination',
+      'Vendor follow-up',
+      'ERP systems',
+      'Process follow-up',
+      'Escalation',
+      'Time management'
     ],
     mid: [
       [
-        'How do you find and remove a bottleneck in a process?',
-        'I map the process step by step and measure how long each step takes and where work waits. The step with the longest queue or the lowest capacity is usually the bottleneck. I improve that step first, for example by adding capacity, removing waste or changing the order of work. Then I measure again, because the bottleneck often moves to another step.'
+        'What does a normal working day look like for an operations executive?',
+        'I start by checking emails, open requests and the dashboards to see what needs attention first. Then I update the trackers, process the daily tasks and follow up on anything that is pending. During the day I answer questions from other teams and fix small problems before they grow. Before I leave, I update the status of open items so the next day starts clearly.'
       ],
       [
-        'How do you use Lean or Six Sigma ideas in daily operations?',
-        'Lean helps me remove waste, such as waiting, extra movement, rework and too much stock. Six Sigma helps me reduce variation and defects, using data and the DMAIC steps: define, measure, analyse, improve and control. I start with small improvements that the team suggests and can test quickly. I measure the results, so the team sees the benefit.'
+        'How do you prepare daily and weekly operations reports?',
+        'I pull the data from our systems into Excel or Google Sheets and use pivot tables or simple formulas to summarise it. I check the totals against the source before I share anything. The report shows the main numbers, the trend against last week and anything unusual that needs action. I send it at the same time every day or week, so people can rely on it.'
       ],
       [
-        'How do you plan resources for the coming month?',
-        'I start from the demand forecast, such as expected orders or customer volume. I compare it with our capacity in people, machines and materials, including leave and maintenance. Where there is a gap, I plan overtime, temporary staff, shift changes or a different schedule. I share the plan early with the team and update it when demand changes.'
+        'How do you coordinate work between different departments?',
+        'I make sure each department knows what is needed from them, by when and why. I keep one shared tracker, so everyone sees the same status and the owner of each item. When a request is stuck between two teams, I bring the right people together quickly. I confirm decisions in writing, so nothing is forgotten.'
       ],
       [
-        'How do you manage the quality of products or services in operations?',
-        "I define clear standards and checks for each important step, not only at the end. I track quality measures, such as defect rates and customer complaints, every day or week. When a problem appears, I find the root cause with the team, for example with the five whys, and fix the process. I also train people, so quality is part of everyone's job."
+        'How do you follow up with vendors on open requests and invoices?',
+        'I keep a list of open purchase orders, service requests and invoices with their due dates. I send polite reminders before the due date, not after it has passed. If a vendor does not answer, I call them and note what they promised. I match invoices with the purchase order and the delivery before I pass them for payment.'
       ],
       [
-        'How do you build a budget for an operations department?',
-        "I start from the planned volume and the cost of people, materials, equipment, maintenance and suppliers. I compare it with last year's actual costs and explain the main changes. I include some savings targets from planned improvements. During the year, I track actual costs against the budget every month and act on large differences."
+        'How do you make sure a new process is followed after it starts?',
+        'I share the new steps in a short written guide and explain them to the people who use them. For the first weeks I check a sample of the work to see whether the steps are followed. When I find a gap, I find out why, for example a step is unclear or takes too long, and I tell my manager. I update the guide when the process changes.'
       ],
       [
-        'How do you evaluate and choose a new vendor?',
-        'I define what we need first, such as quality, price, delivery time, capacity and support. I ask several vendors for quotes and compare them with a simple scoring table. I check references and, for important supplies, I test a small order first. I agree on clear terms and service levels in the contract before we start.'
+        'How do you keep operations data accurate?',
+        'I enter data carefully and use drop-down lists and validation in sheets to avoid typing mistakes. I compare totals between systems, for example orders in the system against the daily report. When I find a difference, I trace it to the source and correct it there, not only in my report. I keep one main file as the source of truth, so people do not work from old copies.'
       ],
       [
-        'How do you introduce a new process to a team that resists change?',
-        'I explain why the change is needed and what it means for each person, using facts and examples. I involve team members in designing the details, because people support what they help create. I train them, start with a pilot and fix problems quickly. I share early results and thank the people who help the change work.'
+        'How do you handle a delay, and when do you escalate it?',
+        'When something is delayed, I first find out the reason and the new expected time. I tell the people affected early, with the facts and what we are doing about it. I escalate to my manager when the delay will miss an important deadline, affect a customer or needs a decision I cannot make. In the escalation I explain the problem, the impact and the options in a few clear lines.'
       ]
     ],
     fresher: [
-      'I map the process and measure where work waits the longest. I improve that step first and then measure again.',
-      'Lean removes waste such as waiting and rework. Six Sigma uses data to reduce defects and variation.',
-      'I compare the expected demand with our people and machines. If there is a gap, I plan overtime, temporary staff or shift changes.'
+      'I check emails, open requests and dashboards first. Then I update trackers, finish daily tasks and follow up on pending items.',
+      'I pull the data into Excel or Google Sheets, summarise it and check the totals. I send the report at the same time every day.',
+      'I tell each team what is needed and by when, and I keep one shared tracker. I confirm decisions in writing.'
     ],
     junior: [
       [
-        'How do you run a short daily meeting with an operations team?',
-        "I keep it to about fifteen minutes, at the same time every day, often standing near the work area. We look at yesterday's results against targets, today's plan and any problems or safety issues. Each problem gets an owner and a time to fix it. Bigger problems are discussed after the meeting with the right people."
+        'How do you keep track of many deadlines at the same time?',
+        'I keep all tasks and their deadlines in one tracker or calendar, not in my head. Each morning I sort them by due date and impact and start with the most urgent. I set reminders a few days before important deadlines. If two deadlines clash, I tell my manager early and agree on the order.'
       ],
       [
-        'How do you use data to make operations decisions?',
-        'I collect data from our systems, such as output, downtime, errors and costs, and show it on a simple dashboard. I look for trends and compare shifts, lines or sites. Before a big decision, I check the numbers with the people who know the work. Data guides the decision, but I also listen to the team on the floor.'
+        'Which tools do you use for daily operations work?',
+        'I use Excel or Google Sheets for trackers and reports, with functions such as XLOOKUP and pivot tables. I also work in the ERP or order system to check and update records. Email, shared calendars and chat tools help me coordinate with teams and vendors. I learn new tools quickly, because the main tasks stay the same.'
       ]
     ],
     senior: [
       [
-        'How do you set an operations strategy that supports business growth?',
-        'I start from the business plan, such as new markets, higher volume or better service. I decide what operations must change, for example capacity, automation, locations or suppliers. I plan the investments and improvements in phases and agree on clear targets for each one. I review progress every quarter with leadership.'
+        'How do you make a recurring report faster to prepare?',
+        'I list the manual steps that take the most time, such as copying data or fixing formats. I build a template with formulas, and where possible I use tools such as Power Query to load and clean the data automatically. I test the new report against the old one before I switch. This saves time every week and reduces mistakes.'
       ],
       [
-        'How do you prepare operations for an unexpected disruption?',
-        'I identify the main risks, such as a key supplier failing, a system outage or a sudden rise in demand. For each one I prepare a plan, such as backup suppliers, safety stock or a manual process. I test the plans with the team and keep contact lists up to date. After a real disruption, I review what happened and improve the plan.'
+        'How do you reduce repeated mistakes in daily operations work?',
+        'I record each mistake with its cause, so I can see which ones come back. For common mistakes I add a simple check, such as a checklist, a validation rule or a second review for important entries. I share the cause and the fix with the team, without blaming anyone. Then I watch whether the mistake stops.'
       ]
     ]
   },

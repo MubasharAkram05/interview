@@ -65,7 +65,7 @@ check(
     FAMILIES['Video and Animation'].join() === 'Video Editor,Motion Graphics Designer,2D Animator,3D Animator' &&
     FAMILIES.Writing.join() === 'Content Writer,Technical Writer,Copywriter' &&
     FAMILIES.HR.join() === 'HR,Recruiter,HR Manager,Payroll and Compensation Officer,Training and Development Specialist' &&
-    FAMILIES.Management.join() === 'Operations Manager,Project Manager,Team Leader,Supply Chain and Logistics Coordinator' &&
+    FAMILIES.Management.join() === 'Operations Manager,Project Manager,Operations Executive,Team Leader,Supply Chain and Logistics Coordinator' &&
     Object.entries(FAMILIES)
       .filter(([, r]) => r.includes('Graphic Designer'))
       .map(([f]) => f)
@@ -246,7 +246,7 @@ const PRG1_SPEC = {
   payroll: ['Payroll and Compensation Officer', 'Payroll and Compensation Officer', 'Payroll and Compensation Officer'],
   lnd: ['Training and Development Specialist', 'Training and Development Specialist', 'Training and Development Specialist'],
   projectmgr: ['Project Manager', 'Project Manager', 'Project Manager'],
-  opsmgr: ['Operations Manager', 'Operations Manager', 'Operations Manager'],
+  opsexec: ['Operations Executive', 'Operations Executive', 'Operations Executive'],
   teamlead: ['Team Leader', 'Team Leader', 'Team Leader'],
   logistics: ['Supply Chain and Logistics Coordinator', 'Supply Chain and Logistics Coordinator', 'Supply Chain and Logistics Coordinator']
 };
@@ -264,6 +264,7 @@ const PRG1_SKILLS = {
   'Project Manager': 'Project planning,Scope management,Risk management,Stakeholder communication,Agile,Scrum,Waterfall,MS Project,Jira,Budgeting',
   'Team Leader':
     'Delegation,Motivation,Feedback,Coaching,Performance management,Conflict resolution,Target setting,Communication,Time management,Decision making',
+  'Operations Executive': 'Excel,Google Sheets,Reporting,Data accuracy,Coordination,Vendor follow-up,ERP systems,Process follow-up,Escalation,Time management',
   'Supply Chain and Logistics Coordinator':
     'Inventory control,Order tracking,Shipping documents,Carrier management,ERP systems,Excel,Demand planning,Warehouse operations,Cost control,Communication'
 };
@@ -272,9 +273,10 @@ check(
   Object.entries(PRG1_SKILLS).every(([r, s]) => ROLES.includes(r) && ROLE_SKILLS[r].join() === s)
 );
 check(
-  'Operations Manager: one profile role for ops and opsmgr, its existing skills unchanged, listed once',
-  catToRole('ops') === 'Operations Manager' &&
-    catToRole('opsmgr') === 'Operations Manager' &&
+  'ops unchanged: "Operations Manager" with its existing skills, listed once; Operations Executive is a separate role',
+  CATS.ops === 'Operations Manager' &&
+    catToRole('ops') === 'Operations Manager' &&
+    catToRole('opsexec') === 'Operations Executive' &&
     ROLES.filter(r => r === 'Operations Manager').length === 1 &&
     ROLE_SKILLS['Operations Manager'].join() ===
       'Process improvement,Lean,Six Sigma,Supply chain,Inventory management,KPIs,Team leadership,Budgeting,Excel,Vendor management'

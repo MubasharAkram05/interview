@@ -221,8 +221,7 @@ export const PARENTS = [
     order: 21,
     color: '#c2410c',
     icon: 'M8 4h8v3H8zM6 5H4v16h16V5h-2M8 12h8M8 16h5',
-    // The general type keeps the parent name here: "Operations Manager" is now its own type.
-    children: [{ id: 'ops', label: 'Management and Operations' }, 'projectmgr', 'opsmgr', 'teamlead', 'logistics'],
+    children: ['ops', 'projectmgr', 'opsexec', 'teamlead', 'logistics'],
     keywords: ['management', 'leadership']
   },
   {
@@ -389,7 +388,7 @@ export const FAMILIES = {
   'Video and Animation': ['Video Editor', 'Motion Graphics Designer', '2D Animator', '3D Animator'],
   Writing: ['Content Writer', 'Technical Writer', 'Copywriter'],
   HR: ['HR', 'Recruiter', 'HR Manager', 'Payroll and Compensation Officer', 'Training and Development Specialist'],
-  Management: ['Operations Manager', 'Project Manager', 'Team Leader', 'Supply Chain and Logistics Coordinator']
+  Management: ['Operations Manager', 'Project Manager', 'Operations Executive', 'Team Leader', 'Supply Chain and Logistics Coordinator']
 };
 
 const kid = x => (typeof x === 'string' ? { id: x } : x);
