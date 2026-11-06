@@ -949,7 +949,16 @@ export const ORDER = [
   'flutter',
   'rn',
   'ios',
+  'gamedev',
+  'unity',
+  'unreal',
+  'gamedesigner',
+  'gameartist',
+  'gametester',
+  'qa',
+  'autotest',
   'it',
+  'sysadmin',
   'marketing',
   'graphic',
   'customer',
@@ -996,7 +1005,10 @@ export const ORDER = [
   'accounting',
   'finance',
   'hr',
-  'ops'
+  'ops',
+  'ba',
+  'pm',
+  'po'
 ];
 {
   const all = { ...CATS };

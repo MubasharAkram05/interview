@@ -27,6 +27,7 @@ const ORDER = [
   'DevOps',
   'Cyber Security',
   'IT Support and Networking',
+  'System Administrator',
   'Testing and QA',
   'Business and Product',
   'Graphic Design',
@@ -50,7 +51,7 @@ const ORDER = [
   'Freelancing and Business'
 ];
 const sorted = [...PARENTS].sort((a, b) => a.order - b.order);
-check('33 parents in the agreed order', PARENTS.length === 33 && sorted.map(p => p.label).join('|') === ORDER.join('|'));
+check('34 parents in the agreed order', PARENTS.length === 34 && sorted.map(p => p.label).join('|') === ORDER.join('|'));
 check('parent ids unique', new Set(ids(PARENTS)).size === PARENTS.length);
 check('order values unique', new Set(PARENTS.map(p => p.order)).size === PARENTS.length);
 const kids = PARENTS.flatMap(p => p.children.map(k => (typeof k === 'string' ? k : k.id)));
@@ -64,7 +65,7 @@ check(
   `every type in exactly one parent (${Object.keys(CATS).length} types)`,
   Object.keys(CATS).every(c => kids.filter(k => k === c).length === 1)
 );
-check('61 types, HR Questions removed', Object.keys(CATS).length === 61 && !CATS.hrq);
+check('73 types, HR Questions removed', Object.keys(CATS).length === 73 && !CATS.hrq);
 const vis = visibleParents();
 check('parents with no children are hidden', vis.every(p => childrenOf(p).length) && PARENTS.filter(p => !childrenOf(p).length).every(p => !vis.includes(p)));
 check('General Interview is first', vis[0].id === 'general');
@@ -76,6 +77,7 @@ check(
       'Software Development': ['software', 'java', 'cpp', 'python', 'dotnet'],
       'Web Development': ['web', 'frontend', 'backend', 'fullstack', 'wordpress'],
       'Mobile App Development': ['mobile', 'android', 'flutter', 'rn', 'ios'],
+      'Game Development': ['gamedev', 'unity', 'unreal', 'gamedesigner', 'gameartist', 'gametester'],
       Database: ['dbgen', 'sql', 'dba', 'etl', 'nosql'],
       'Data and Analytics': ['data', 'analyst', 'bidev', 'datasci', 'dataeng'],
       'AI and Machine Learning': ['aiml', 'mleng', 'genai', 'cv', 'nlp'],
@@ -83,6 +85,9 @@ check(
       DevOps: ['devops', 'platform'],
       'Cyber Security': ['cyber', 'soc', 'pentest', 'appsec', 'grc', 'ir'],
       'IT Support and Networking': ['it', 'network'],
+      'System Administrator': ['sysadmin'],
+      'Testing and QA': ['qa', 'autotest'],
+      'Business and Product': ['ba', 'pm', 'po'],
       'Graphic Design': ['graphic'],
       'Human Resources': ['hr'],
       'Management and Operations': ['ops'],
@@ -119,7 +124,7 @@ check(
 check(
   'tile names: the parent names (shortened only where a third line would be needed)',
   vis.map(tileLabel).join('|') ===
-    'General Interview|Software Development|Web Development|Mobile App Development|Database|Data and Analytics|AI and ML|Cloud|DevOps|Cyber Security|IT and Networking|Graphic Design|Human Resources|Operations Management|Finance and Banking|Marketing|Sales and Retail|Customer Service|Embedded Electronics|Civil and Construction|Mechanical and Industrial|Hospitality|Education',
+    'General Interview|Software Development|Web Development|Mobile App Development|Game Development|Database|Data and Analytics|AI and ML|Cloud|DevOps|Cyber Security|IT and Networking|System Administrator|Testing and QA|Business and Product|Graphic Design|Human Resources|Operations Management|Finance and Banking|Marketing|Sales and Retail|Customer Service|Embedded Electronics|Civil and Construction|Mechanical and Industrial|Hospitality|Education',
   vis.map(tileLabel).join('|')
 );
 
@@ -191,6 +196,36 @@ check(
     parentOf('mobile').id === 'mobile' &&
     parentOf('wordpress').id === 'web'
 );
+check(
+  'search: PR E roles by label and keywords (Unity, Unreal, Blender, Selenium, Playwright, BRD, Scrum, roadmap, Linux admin)',
+  found('unity').join() === 'unity' &&
+    found('unreal').join() === 'unreal' &&
+    found('blender').join() === 'gameartist' &&
+    found('selenium').join() === 'autotest' &&
+    found('playwright').join() === 'autotest' &&
+    found('brd').join() === 'ba' &&
+    found('scrum').join() === 'po' &&
+    found('roadmap').join() === 'pm' &&
+    found('linux admin').join() === 'sysadmin' &&
+    found('level design').join() === 'gamedesigner' &&
+    found('manual testing').join() === 'qa'
+);
+check(
+  'search: a parent keyword finds all its children, and no child keyword sits on the parent (gaming, quality assurance)',
+  found('gaming').join() === 'gamedev,unity,unreal,gamedesigner,gameartist,gametester' &&
+    found('quality assurance').join() === 'qa,autotest' &&
+    !['unity', 'unreal', 'qa', 'tester', 'product manager', 'business analyst'].some(k => PARENTS.some(p => (p.keywords || []).includes(k)))
+);
+check(
+  'Game Development 6, Testing and QA 2, Business and Product 3, System Administrator 1; first child named like the parent',
+  ['game', 'testing', 'business', 'sysadmin'].map(id => childrenOf(PARENTS.find(p => p.id === id)).length).join() === '6,2,3,1' &&
+    displayLabel('gamedev') === 'Game Development' &&
+    parentOf('gametester').id === 'game' &&
+    parentOf('sysadmin').id === 'sysadmin' &&
+    childrenOf(PARENTS.find(p => p.id === 'sysadmin'))
+      .map(k => k.label)
+      .join() === 'System Administrator'
+);
 check('search: a parent label keeps all its children (Database)', found('database').join() === 'dbgen,sql,dba,etl,nosql');
 check('search by keyword (call centre)', found('call centre').join() === 'customer');
 check('search by skill keyword (AWS)', found('aws').includes('cloud'));
@@ -218,7 +253,9 @@ check('empty text: no search', searchCats('  ').length === 0);
 // ---- Families (config) and roles
 check(
   'family map is the config object',
-  RESOLVER_FAMILIES === FAMILIES && Object.keys(FAMILIES).join() === 'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile'
+  RESOLVER_FAMILIES === FAMILIES &&
+    Object.keys(FAMILIES).join() ===
+      'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product'
 );
 check('Software Engineer still matches Java (family)', roleMatches({ roleKey: 'Software Engineer' }, 'java'));
 check(

@@ -93,10 +93,13 @@ const tilesOf = box => p.$$eval(`${box} .pt2[data-p]`, x => x.map(e => e.dataset
 const parents = await tilesOf('#hPath');
 check(
   `Home: ${parents.length} parent tiles (hidden ones have no types)`,
-  parents.length === 23 && parents[0] === 'general' && parents.includes('mobile') && !parents.includes('game')
+  parents.length === 27 &&
+    parents[0] === 'general' &&
+    ['mobile', 'game', 'testing', 'business', 'sysadmin'].every(x => parents.includes(x)) &&
+    !parents.includes('uiux')
 );
 const kids = await p.$$eval('#hPath .pt2[data-p]', x => x.flatMap(e => (e.dataset.kids ? e.dataset.kids.split(' ') : [e.dataset.c])));
-check(`Home: 61 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 61 && new Set(kids).size === 61 && !kids.includes('hrq'));
+check(`Home: 73 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 73 && new Set(kids).size === 73 && !kids.includes('hrq'));
 check(
   'tile: readable name under the icon, no count anywhere on the tiles',
   (await p.textContent('#hPath .pt2[data-p=general] .pl2')).trim() === 'General Interview' &&
@@ -224,8 +227,9 @@ check(
 await p.click('#hPath .pt2[data-p=software]');
 await wait(200);
 check('tap the same tile: it closes', !(await p.$('.cpop')));
-// Outside tap: only closes (the single-type tile under the tap does not open its type).
-await p.click('#hPath .pt2[data-p=software]');
+// Outside tap: only closes (the single-type tile under the tap does not open its type). Testing
+// and QA sits next to single-type tiles (System Administrator), so one is on screen beside the list.
+await p.click('#hPath .pt2[data-p=testing]');
 await wait(250);
 // A single-type tile that the list does not cover (the list is wider with some fonts).
 const spot = await p.evaluate(() => {
@@ -292,6 +296,56 @@ for (const [id, list] of [
   );
   check(`${id}: long names wrap to at most 2 lines, nothing cut`, !cut.length, cut.join());
   await p.keyboard.press('Escape');
+  await wait(200);
+}
+// PR E: Game Development (6 types), Testing and QA (2) and Business and Product (3) open a floating
+// list, fully in view; the grid does not move. System Administrator (1 type) opens its type directly.
+for (const [id, list] of [
+  ['game', 'gamedev,unity,unreal,gamedesigner,gameartist,gametester'],
+  ['testing', 'qa,autotest'],
+  ['business', 'ba,pm,po'],
+  ['cyber', 'cyber,soc,pentest,appsec,grc,ir'] // 6 rows from a mid-screen tile: scrolled fully into view
+]) {
+  await p.$eval(`#hPath .pt2[data-p=${id}]`, e => e.scrollIntoView({ block: 'center' }));
+  await wait(300);
+  const before = await rects('#hPath');
+  const multi = (await p.getAttribute(`#hPath .pt2[data-p=${id}]`, 'data-kids')) === list.replace(/,/g, ' ');
+  await p.click(`#hPath .pt2[data-p=${id}]`);
+  await wait(300);
+  const rows = await p.$$eval('.cpop [data-c]', x => x.map(e => e.dataset.c));
+  const info = await popInfo();
+  const after = await rects('#hPath');
+  check(`${id}: tile opens a list of its ${list.split(',').length} types (${rows.join()})`, multi && rows.join() === list);
+  check(
+    `${id}: the list floats on top inside the screen, the grid does not move`,
+    info && info.onTop && info.inGutter && info.inView && JSON.stringify(before) === JSON.stringify(after),
+    JSON.stringify(info)
+  );
+  const cut = await p.$$eval('.cpop .cpt', x =>
+    x
+      .filter(e => {
+        const lines = Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight));
+        return lines > 2 || e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1;
+      })
+      .map(e => e.textContent)
+  );
+  check(`${id}: long names wrap to at most 2 lines, nothing cut`, !cut.length, cut.join());
+  if (id === 'game') check('Game list: first row named like the parent', (await p.textContent('.cpop [data-c=gamedev]')).trim() === 'Game Development');
+  await p.keyboard.press('Escape');
+  await wait(200);
+}
+{
+  await p.$eval('#hPath .pt2[data-p=sysadmin]', e => e.scrollIntoView({ block: 'center' }));
+  await wait(200);
+  const single =
+    (await p.getAttribute('#hPath .pt2[data-p=sysadmin]', 'data-c')) === 'sysadmin' &&
+    !(await p.getAttribute('#hPath .pt2[data-p=sysadmin]', 'aria-expanded')) &&
+    (await p.textContent('#hPath .pt2[data-p=sysadmin] .pl2')).trim() === 'System Administrator';
+  await p.click('#hPath .pt2[data-p=sysadmin]');
+  await wait(300);
+  const opened = !(await p.$('.cpop')) && (await p.isVisible('#csheet')) && /System Administrator/.test(await p.textContent('#csT'));
+  check('System Administrator: one type, the tile opens it directly (no list)', single && opened);
+  await p.evaluate(() => window.closeCS && window.closeCS());
   await wait(200);
 }
 check(
@@ -370,7 +424,7 @@ check(
   'results: parent name under each type, list above the grid',
   /Finance and Banking/.test(await p.textContent('#hPath .cres .cc[data-c=accounting] small')) &&
     (await p.$eval('#hPath', e => e.firstElementChild.classList.contains('cres'))) &&
-    (await p.locator('#hPath .pgrid2 .pt2[data-p]').count()) === 23
+    (await p.locator('#hPath .pgrid2 .pt2[data-p]').count()) === 27
 );
 await search('sql developer');
 check('single result shows its parent as a subtitle', /Database/.test(await p.textContent('#hPath .cres [data-c=sql] small')));
@@ -381,19 +435,19 @@ await p.evaluate(() => window.closeCS && window.closeCS());
 await search('zzzz qqqq');
 check('no match: "No category found"', (await p.textContent('#hPath .cpe')).trim() === 'No category found');
 await search('');
-check('clear search: list gone, grid stays', !(await p.$('#hPath .cres')) && (await tilesOf('#hPath')).length === 23);
+check('clear search: list gone, grid stays', !(await p.$('#hPath .cres')) && (await tilesOf('#hPath')).length === 27);
 
 // ---- Practice and Mock use the same grid and list
 await p.evaluate(() => window.startPractice());
 await wait(400);
-check('Practice: same grid', (await tilesOf('#pPath')).length === 23);
+check('Practice: same grid', (await tilesOf('#pPath')).length === 27);
 await p.click('#pPath .pt2[data-p=software]');
 await wait(250);
 check('Practice: same floating list', (await p.locator('#pPath .cpop .cc').count()) === 5);
 await p.keyboard.press('Escape');
 await p.evaluate(() => window.startMock());
 await wait(400);
-check('Mock: same grid', (await tilesOf('#mGrid')).length === 23);
+check('Mock: same grid', (await tilesOf('#mGrid')).length === 27);
 const mBefore = await rects('#mGrid');
 await p.click('#mGrid .pt2[data-p=software]');
 await wait(250);
