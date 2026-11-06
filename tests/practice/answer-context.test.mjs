@@ -278,6 +278,49 @@ check(
     ['po', 'pm', 'ba', 'teamlead', 'opsexec'].every(c => roleMatches(R('Project Manager'), c)) && !roleMatches(R('Project Manager'), 'software')
   );
 }
+check(
+  'a / an for the PR G2 role labels',
+  ['Internal Auditor', 'SEO Specialist'].every(r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be an ${r}.`) &&
+    [
+      'Financial Analyst',
+      'Digital Marketing Specialist',
+      'Social Media Manager',
+      'Store Supervisor',
+      'Business Development Executive',
+      'Call Center Agent'
+    ].every(r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be a ${r}.`) &&
+    /an Internal Auditor role/.test(introAnswer(answerContext({}, 'audit'))) &&
+    /an SEO Specialist role/.test(introAnswer(answerContext({}, 'seo'))) &&
+    /a Financial Analyst role/.test(introAnswer(answerContext({}, 'finanalyst'))) &&
+    /a Digital Marketing Specialist role/.test(introAnswer(answerContext({}, 'digitalmkt'))) &&
+    /a Social Media Manager role/.test(introAnswer(answerContext({}, 'socialmedia'))) &&
+    /a Store Supervisor role/.test(introAnswer(answerContext({}, 'storesup'))) &&
+    /a Business Development Executive role/.test(introAnswer(answerContext({}, 'bizdev'))) &&
+    /a Call Center Agent role/.test(introAnswer(answerContext({}, 'callcenter')))
+);
+{
+  const R = r => ({ roleKey: r });
+  check(
+    'Finance families: Financial Analyst and Internal Auditor match Accounting and Finance; Accountant still does not match Finance',
+    ['accounting', 'finance', 'audit'].every(c => roleMatches(R('Financial Analyst'), c)) &&
+      ['accounting', 'finance', 'finanalyst'].every(c => roleMatches(R('Internal Auditor'), c)) &&
+      !roleMatches(R('Accountant'), 'finance') &&
+      !roleMatches(R('Finance'), 'accounting')
+  );
+  check(
+    'Marketing families: SEO Specialist matches Marketing, Content Writer and Copywriter; Marketing/Sales still does not match Content Writer',
+    ['marketing', 'contentwriter', 'copywriter', 'digitalmkt', 'socialmedia'].every(c => roleMatches(R('SEO Specialist'), c)) &&
+      !roleMatches(R('Marketing/Sales'), 'contentwriter') &&
+      !roleMatches(R('Content Writer'), 'marketing')
+  );
+  check(
+    'Store Supervisor is in Sales and Retail and in Customer Service; Sales Associate still does not match Customer Service',
+    ['sales', 'bizdev', 'customer', 'callcenter'].every(c => roleMatches(R('Store Supervisor'), c)) &&
+      !roleMatches(R('Sales Associate'), 'customer') &&
+      roleMatches(R('Call Center Agent'), 'customer') &&
+      !roleMatches(R('Call Center Agent'), 'sales')
+  );
+}
 check('Software Engineer does not match IT Support or Cyber Security', !roleMatches(SW, 'it') && !roleMatches(SW, 'cyber'));
 check('Fresh Graduate is general: always matches', isGeneric('fresh') && roleMatches({}, 'fresh'));
 {
@@ -398,7 +441,15 @@ check('no university: "at {uni}" removed', fillTemplate('I study {degree} at {un
         'projectmgr',
         'opsexec',
         'teamlead',
-        'logistics'
+        'logistics',
+        'finanalyst',
+        'audit',
+        'digitalmkt',
+        'seo',
+        'socialmedia',
+        'storesup',
+        'bizdev',
+        'callcenter'
       ].flatMap(c => {
         const x = answerContext(prof, c);
         return [introAnswer(x, true), fillTemplate(ALL, x), ...Object.values(x).filter(y => typeof y === 'string')];
@@ -448,7 +499,9 @@ check(
     'Unreal Developer',
     'Automation Tester',
     'HR Manager',
-    'Operations Executive'
+    'Operations Executive',
+    'Internal Auditor',
+    'SEO Specialist'
   ];
   const A = [
     'Software Developer',
@@ -539,7 +592,13 @@ check(
     'Training and Development Specialist',
     'Project Manager',
     'Team Leader',
-    'Supply Chain and Logistics Coordinator'
+    'Supply Chain and Logistics Coordinator',
+    'Financial Analyst',
+    'Digital Marketing Specialist',
+    'Social Media Manager',
+    'Store Supervisor',
+    'Business Development Executive',
+    'Call Center Agent'
   ];
   const inApp = [...new Set([...Object.values(ROLE).filter(Boolean), ...ROLES.map(roleText)])];
   const known = new Set([...AN, ...A]);

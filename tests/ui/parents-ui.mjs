@@ -98,7 +98,7 @@ check(
     ['mobile', 'game', 'testing', 'business', 'sysadmin', 'graphic', 'uiux', 'video', 'content'].every(x => parents.includes(x))
 );
 const kids = await p.$$eval('#hPath .pt2[data-p]', x => x.flatMap(e => (e.dataset.kids ? e.dataset.kids.split(' ') : [e.dataset.c])));
-check(`Home: 91 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 91 && new Set(kids).size === 91 && !kids.includes('hrq'));
+check(`Home: 99 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 99 && new Set(kids).size === 99 && !kids.includes('hrq'));
 check(
   'tile: readable name under the icon, no count anywhere on the tiles',
   (await p.textContent('#hPath .pt2[data-p=general] .pl2')).trim() === 'General Interview' &&
@@ -309,7 +309,11 @@ for (const [id, list] of [
   ['video', 'video,motion,anim2d,anim3d'],
   ['content', 'contentwriter,techwriter,copywriter'],
   ['hr', 'hr,recruiter,hrmanager,payroll,lnd'], // PR G1: 5 rows each
-  ['management', 'ops,projectmgr,opsexec,teamlead,logistics']
+  ['management', 'ops,projectmgr,opsexec,teamlead,logistics'],
+  ['finance', 'accounting,finance,finanalyst,audit'], // PR G2: 4, 4, 3 and 2 rows
+  ['marketing', 'marketing,digitalmkt,seo,socialmedia'],
+  ['sales', 'sales,storesup,bizdev'],
+  ['customer', 'customer,callcenter']
 ]) {
   await p.$eval(`#hPath .pt2[data-p=${id}]`, e => e.scrollIntoView({ block: 'center' }));
   await wait(300);
@@ -432,8 +436,8 @@ const search = async q => {
   return p.$$eval('#hPath .cres [data-c]', x => x.map(e => e.dataset.c));
 };
 check('search by role label ("ai engineer") finds Data and Analytics', (await search('ai engineer')).includes('data'));
-check('search by parent label ("banking") finds both its types', (await search('banking')).join() === 'accounting,finance');
-check('search by keyword ("call centre") finds Customer Service', (await search('call centre')).join() === 'customer');
+check('search by parent label ("banking") finds all its types', (await search('banking')).join() === 'accounting,finance,finanalyst,audit');
+check('search by keyword ("call centre") finds Call Center Agent', (await search('call centre')).join() === 'callcenter');
 check(
   'search: new roles by keyword (MongoDB, Power BI, LLM, ETL)',
   (await search('mongodb')).join() === 'nosql' &&

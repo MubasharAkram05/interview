@@ -20,7 +20,7 @@ const list = (c, level) => {
     .concat(extra);
 };
 
-check(`91 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 91 && !CATS.hrq);
+check(`99 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 99 && !CATS.hrq);
 check('tiles follow ORDER (each type next to related ones)', Object.keys(CATS).join() === ORDER.join());
 
 // The four split types keep their ids; each new half gets its own id.
@@ -45,9 +45,9 @@ for (const [c, [label, setupRole, role]] of Object.entries(SPEC))
 check('only one Sales type', Object.values(CATS).filter(l => /sales/i.test(l)).length === 1);
 check('Fresh Graduate is a general type', isGeneric('fresh') && !ROLE.fresh);
 check(
-  'families: Software, Cloud and DevOps, Security, Infra, Data and Analytics, AI and ML, Database, Web, Mobile, Game, Testing, Business and Product, Design, Video and Animation, Writing, HR, Management; Graphic Designer in Design only',
+  'families: Software, Cloud and DevOps, Security, Infra, Data and Analytics, AI and ML, Database, Web, Mobile, Game, Testing, Business and Product, Design, Video and Animation, Writing, HR, Management, Finance, Corporate Finance, Marketing, Content Marketing, Sales and Retail, Customer Service; Graphic Designer in Design only',
   Object.keys(FAMILIES).join() ===
-    'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product,Design,Video and Animation,Writing,HR,Management' &&
+    'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product,Design,Video and Animation,Writing,HR,Management,Finance,Corporate Finance,Marketing,Content Marketing,Sales and Retail,Customer Service' &&
     FAMILIES.Software.join() ===
       'Software Engineer,Web Developer,Java Developer,C/C++ Developer,Database Developer,Python Developer,C#/.NET Developer,Frontend Developer,Backend Developer,Full Stack Developer' &&
     FAMILIES.Web.join() === 'Web Developer,Frontend Developer,Backend Developer,Full Stack Developer,WordPress Developer' &&
@@ -66,6 +66,12 @@ check(
     FAMILIES.Writing.join() === 'Content Writer,Technical Writer,Copywriter' &&
     FAMILIES.HR.join() === 'HR,Recruiter,HR Manager,Payroll and Compensation Officer,Training and Development Specialist' &&
     FAMILIES.Management.join() === 'Operations Manager,Project Manager,Operations Executive,Team Leader,Supply Chain and Logistics Coordinator' &&
+    FAMILIES.Finance.join() === 'Accountant,Financial Analyst,Internal Auditor' &&
+    FAMILIES['Corporate Finance'].join() === 'Finance,Financial Analyst,Internal Auditor' &&
+    FAMILIES.Marketing.join() === 'Marketing/Sales,Digital Marketing Specialist,SEO Specialist,Social Media Manager' &&
+    FAMILIES['Content Marketing'].join() === 'Content Writer,Copywriter,Digital Marketing Specialist,SEO Specialist,Social Media Manager' &&
+    FAMILIES['Sales and Retail'].join() === 'Sales Associate,Store Supervisor,Business Development Executive' &&
+    FAMILIES['Customer Service'].join() === 'Customer Service,Call Center Agent,Store Supervisor' &&
     Object.entries(FAMILIES)
       .filter(([, r]) => r.includes('Graphic Designer'))
       .map(([f]) => f)
@@ -281,6 +287,54 @@ check(
     ROLE_SKILLS['Operations Manager'].join() ===
       'Process improvement,Lean,Six Sigma,Supply chain,Inventory management,KPIs,Team leadership,Budgeting,Excel,Vendor management'
 );
+// PR G2: Finance, Marketing, Sales and Retail, and Customer Service roles (no Banking Officer).
+const PRG2_SPEC = {
+  finanalyst: ['Financial Analyst', 'Financial Analyst', 'Financial Analyst'],
+  audit: ['Internal Auditor', 'Internal Auditor', 'Internal Auditor'],
+  digitalmkt: ['Digital Marketing Specialist', 'Digital Marketing Specialist', 'Digital Marketing Specialist'],
+  seo: ['SEO Specialist', 'SEO Specialist', 'SEO Specialist'],
+  socialmedia: ['Social Media Manager', 'Social Media Manager', 'Social Media Manager'],
+  storesup: ['Store Supervisor', 'Store Supervisor', 'Store Supervisor'],
+  bizdev: ['Business Development Executive', 'Business Development Executive', 'Business Development Executive'],
+  callcenter: ['Call Center Agent', 'Call Center Agent', 'Call Center Agent']
+};
+const PRG2 = Object.keys(PRG2_SPEC);
+for (const [c, [label, setupRole, role]] of Object.entries(PRG2_SPEC))
+  check(`${c}: "${label}", setup role ${setupRole}, role in answers ${role}`, CATS[c] === label && catToRole(c) === setupRole && ROLE[c] === role);
+const PRG2_SKILLS = {
+  'Financial Analyst':
+    'Financial modelling,Excel,Forecasting,Financial statements,Scenario analysis,Power BI,Business partnering,Presentation,Accounting basics,Attention to detail',
+  'Internal Auditor':
+    'Internal controls,Risk assessment,Audit planning,Sampling,Audit reporting,Excel,Data analytics,Process walkthroughs,Professional ethics,Communication',
+  'Digital Marketing Specialist':
+    'Google Ads,Meta Ads,Google Analytics 4,Email marketing,Campaign planning,A/B testing,Marketing funnel,Budget management,Landing pages,Reporting',
+  'SEO Specialist':
+    'Keyword research,On-page SEO,Technical SEO,Google Search Console,Google Analytics 4,Content strategy,Link building,Core Web Vitals,Structured data,Reporting',
+  'Social Media Manager':
+    'Content planning,Community management,Instagram,TikTok,LinkedIn,Social media analytics,Short-form video,Canva,Brand voice,Crisis communication',
+  'Store Supervisor':
+    'Store operations,Cash reconciliation,Staff scheduling,Stock control,Visual merchandising,Loss prevention,Customer service,Health and safety,Point of sale,Reporting',
+  'Business Development Executive':
+    'Lead generation,Prospecting,Cold outreach,CRM,Pipeline management,Proposals,Negotiation,LinkedIn,Market research,Presentation',
+  'Call Center Agent':
+    'Call handling,Active listening,CRM,Call metrics,Data protection,Typing speed,Empathy,Problem solving,Schedule adherence,Product knowledge'
+};
+check(
+  'PR G2 roles in the profile role picker with their suggested skills',
+  Object.entries(PRG2_SKILLS).every(([r, s]) => ROLES.includes(r) && ROLE_SKILLS[r].join() === s)
+);
+check(
+  'PR G2: no Banking Officer type, profile role or keyword, and no Retail Sales Associate',
+  !Object.values(CATS).some(l => /bank|retail sales associate/i.test(l)) &&
+    !ROLES.some(r => /bank|retail sales associate/i.test(r)) &&
+    !PRG2.some(c => (MORE[c].keywords || []).some(k => /bank/i.test(k)))
+);
+check(
+  'existing roles never share a new family (Accountant / Finance, Marketing/Sales / Content Writer and Copywriter)',
+  !Object.values(FAMILIES).some(f => f.includes('Accountant') && f.includes('Finance')) &&
+    !Object.values(FAMILIES).some(f => f.includes('Marketing/Sales') && (f.includes('Content Writer') || f.includes('Copywriter'))) &&
+    !Object.values(FAMILIES).some(f => f.includes('Sales Associate') && f.includes('Customer Service'))
+);
 const NEW = [
   'it',
   'cyber',
@@ -302,7 +356,8 @@ const NEW = [
   ...PRD,
   ...PRE,
   ...PRF,
-  ...PRG1
+  ...PRG1,
+  ...PRG2
 ];
 const cols = Object.values(PCI).map(x => x[0].toLowerCase());
 check(
@@ -333,7 +388,7 @@ for (const c of Object.keys(CATS)) {
   );
 }
 
-// PR B to PR G1 roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
+// PR B to PR G2 roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
 for (const c of [
   'cloudadmin',
   'cloudarch',
@@ -350,7 +405,8 @@ for (const c of [
   ...PRD,
   ...PRE,
   ...PRF,
-  ...PRG1
+  ...PRG1,
+  ...PRG2
 ])
   check(
     `${c}: 10 / 19 / 19 questions`,

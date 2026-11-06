@@ -65,7 +65,7 @@ check(
   `every type in exactly one parent (${Object.keys(CATS).length} types)`,
   Object.keys(CATS).every(c => kids.filter(k => k === c).length === 1)
 );
-check('91 types, HR Questions removed', Object.keys(CATS).length === 91 && !CATS.hrq);
+check('99 types, HR Questions removed', Object.keys(CATS).length === 99 && !CATS.hrq);
 const vis = visibleParents();
 check('parents with no children are hidden', vis.every(p => childrenOf(p).length) && PARENTS.filter(p => !childrenOf(p).length).every(p => !vis.includes(p)));
 check('General Interview is first', vis[0].id === 'general');
@@ -94,10 +94,10 @@ check(
       'Content and Writing': ['contentwriter', 'techwriter', 'copywriter'],
       'Human Resources': ['hr', 'recruiter', 'hrmanager', 'payroll', 'lnd'],
       'Management and Operations': ['ops', 'projectmgr', 'opsexec', 'teamlead', 'logistics'],
-      'Finance and Banking': ['accounting', 'finance'],
-      Marketing: ['marketing'],
-      'Sales and Retail': ['sales'],
-      'Customer Service': ['customer'],
+      'Finance and Banking': ['accounting', 'finance', 'finanalyst', 'audit'],
+      Marketing: ['marketing', 'digitalmkt', 'seo', 'socialmedia'],
+      'Sales and Retail': ['sales', 'storesup', 'bizdev'],
+      'Customer Service': ['customer', 'callcenter'],
       'Electronics and Embedded': ['micro'],
       'Civil and Construction': ['civil'],
       'Mechanical and Industrial': ['mech'],
@@ -169,7 +169,7 @@ check('parent of a type', parentOf('java').id === 'software' && parentOf('fresh'
 const found = q => searchCats(q).flatMap(g => g.children.map(k => k.id));
 check('search by display label (SQL Developer; NoSQL Developer also contains the letters)', found('sql developer').join() === 'sql,nosql');
 check('search by role label (Data and AI Engineer)', found('ai engineer').includes('data'));
-check('search by parent label (Finance and Banking)', found('banking').join() === 'accounting,finance');
+check('search by parent label (Finance and Banking)', found('banking').join() === 'accounting,finance,finanalyst,audit');
 check(
   'search: PR C roles by label and keywords (MongoDB, Power BI, LLM, ETL, DBA, OpenCV, Data Scientist)',
   found('mongodb').join() === 'nosql' &&
@@ -266,7 +266,8 @@ check(
     found('prince2').join() === 'projectmgr' &&
     found('operations executive').join() === 'opsexec' &&
     found('back office').join() === 'opsexec' &&
-    found('supervisor').join() === 'teamlead' &&
+    found('shift leader').join() === 'teamlead' &&
+    found('supervisor').join() === 'teamlead,storesup' &&
     found('logistics').join() === 'logistics' &&
     found('hr manager').join() === 'hrmanager'
 );
@@ -298,7 +299,50 @@ check(
     parentOf('payroll').id === 'hr'
 );
 check('search: a parent label keeps all its children (Database)', found('database').join() === 'dbgen,sql,dba,etl,nosql');
-check('search by keyword (call centre)', found('call centre').join() === 'customer');
+check('search by keyword (call centre): now finds the Call Center Agent type', found('call centre').join() === 'callcenter');
+check(
+  'search: PR G2 roles by keyword (Google Ads, SEO, Instagram, store supervisor, CRM, internal audit, forecasting, accountant, shop)',
+  found('google ads').join() === 'digitalmkt' &&
+    found('seo').includes('seo') &&
+    found('instagram').join() === 'socialmedia' &&
+    found('store supervisor').join() === 'storesup' &&
+    found('business development').join() === 'bizdev' &&
+    found('crm').join() === 'bizdev' &&
+    found('internal audit').join() === 'audit' &&
+    found('forecasting').join() === 'finanalyst' &&
+    found('accountant').join() === 'accounting' &&
+    found('shop').includes('sales')
+);
+check(
+  'search: no child keyword on the Finance, Marketing, Sales and Customer parents, no Banking keyword, no single-letter keyword',
+  !['seo', 'digital marketing', 'call centre', 'call center', 'shop', 'store', 'accountant', 'bank'].some(k =>
+    ['finance', 'marketing', 'sales', 'customer'].some(id => PARENTS.find(p => p.id === id).keywords.includes(k))
+  ) &&
+    ['finanalyst', 'audit', 'digitalmkt', 'seo', 'socialmedia', 'storesup', 'bizdev', 'callcenter'].every(c =>
+      (KEYWORDS[c] || []).every(
+        k =>
+          !/bank/i.test(k) &&
+          k
+            .toLowerCase()
+            .split(/[^a-z0-9+#]+/)
+            .filter(Boolean)
+            .every(w => w.length > 1)
+      )
+    )
+);
+check(
+  'Finance and Banking 4, Marketing 4, Sales and Retail 3, Customer Service 2; existing first types keep their labels',
+  ['finance', 'marketing', 'sales', 'customer'].map(id => childrenOf(PARENTS.find(p => p.id === id)).length).join() === '4,4,3,2' &&
+    displayLabel('sales') === 'Sales Associate' &&
+    displayLabel('customer') === 'Customer Service' &&
+    displayLabel('marketing') === 'Marketing' &&
+    displayLabel('accounting') === 'Accounting' &&
+    displayLabel('bizdev') === 'Business Development' &&
+    CATS.bizdev === 'Business Development Executive' &&
+    ROLE.bizdev === 'Business Development Executive' &&
+    parentOf('storesup').id === 'sales' &&
+    parentOf('callcenter').id === 'customer'
+);
 check('search by skill keyword (AWS)', found('aws').includes('cloud'));
 check('search result keeps its parent (for the subtitle)', searchCats('java')[0].parent.id === 'software');
 check(
@@ -326,7 +370,7 @@ check(
   'family map is the config object',
   RESOLVER_FAMILIES === FAMILIES &&
     Object.keys(FAMILIES).join() ===
-      'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product,Design,Video and Animation,Writing,HR,Management'
+      'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product,Design,Video and Animation,Writing,HR,Management,Finance,Corporate Finance,Marketing,Content Marketing,Sales and Retail,Customer Service'
 );
 check('Software Engineer still matches Java (family)', roleMatches({ roleKey: 'Software Engineer' }, 'java'));
 check(
