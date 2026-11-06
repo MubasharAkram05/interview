@@ -906,8 +906,15 @@ function placePop() {
   d.style.left = `${left}px`;
   d.style.top = `${top}px`;
   d.style.setProperty('--px', `${tl + tr.width / 2 - left}px`);
-  // Taller than the space on both sides (very small screens): bring it into view.
-  if (Math.max(below, above) < h + gap) d.scrollIntoView({ block: 'nearest' });
+  // Taller than the space on both sides (a long list, a small screen): scroll the content so the
+  // whole list is in view. Measured from its layout box, not getBoundingClientRect: the list opens
+  // at scale(.96), so its on-screen box is smaller until the animation ends.
+  if (Math.max(below, above) < h + gap) {
+    const m = $('main');
+    const popTop = up ? tr.top - gap - h : tr.bottom + gap;
+    if (m && popTop < view.top) m.scrollTop -= view.top - popTop;
+    else if (m && popTop + h > view.bottom) m.scrollTop += popTop + h - view.bottom;
+  }
 }
 
 // Rotation or a new window size can change the columns: fit the names and move the open list.
