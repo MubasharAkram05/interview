@@ -238,6 +238,46 @@ check(
     /a Copywriter role/.test(introAnswer(answerContext({}, 'copywriter'))) &&
     /a UI\/UX Designer role/.test(introAnswer(answerContext({ role: 'UI/UX Designer', roleKey: 'UI/UX Designer', setup: 1 }, 'uiux')))
 );
+check(
+  'a / an for the PR G1 role labels',
+  ['HR Manager', 'Operations Manager', 'Operations Executive'].every(r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be an ${r}.`) &&
+    [
+      'Recruiter',
+      'Payroll and Compensation Officer',
+      'Training and Development Specialist',
+      'Project Manager',
+      'Team Leader',
+      'Supply Chain and Logistics Coordinator'
+    ].every(r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be a ${r}.`) &&
+    /an HR Manager role/.test(introAnswer(answerContext({}, 'hrmanager'))) &&
+    /an Operations Manager role/.test(introAnswer(answerContext({}, 'ops'))) &&
+    /an Operations Executive role/.test(introAnswer(answerContext({}, 'opsexec'))) &&
+    /a Recruiter role/.test(introAnswer(answerContext({}, 'recruiter'))) &&
+    /a Payroll and Compensation Officer role/.test(introAnswer(answerContext({}, 'payroll'))) &&
+    /a Training and Development Specialist role/.test(introAnswer(answerContext({}, 'lnd'))) &&
+    /a Project Manager role/.test(introAnswer(answerContext({}, 'projectmgr'))) &&
+    /a Team Leader role/.test(introAnswer(answerContext({}, 'teamlead'))) &&
+    /a Supply Chain and Logistics Coordinator role/.test(introAnswer(answerContext({}, 'logistics')))
+);
+{
+  const R = r => ({ roleKey: r });
+  check(
+    'HR family: the HR profile matches Recruiter, HR Manager, Payroll and Training; Recruiter matches HR Generalist, not Operations',
+    ['hr', 'recruiter', 'hrmanager', 'payroll', 'lnd'].every(c => roleMatches(R('HR'), c)) &&
+      roleMatches(R('Recruiter'), 'hr') &&
+      !['ops', 'teamlead'].some(c => roleMatches(R('Recruiter'), c))
+  );
+  check(
+    'Management family: Operations Manager matches ops, Project Manager, Team Leader and Logistics, not HR',
+    ['ops', 'opsexec', 'projectmgr', 'teamlead', 'logistics'].every(c => roleMatches(R('Operations Manager'), c)) &&
+      ['ops', 'teamlead', 'logistics'].every(c => roleMatches(R('Operations Executive'), c)) &&
+      !['hr', 'recruiter'].some(c => roleMatches(R('Operations Manager'), c))
+  );
+  check(
+    'Project Manager is in Management and in Business and Product: matches Product Owner and Team Leader, not Software',
+    ['po', 'pm', 'ba', 'teamlead', 'opsexec'].every(c => roleMatches(R('Project Manager'), c)) && !roleMatches(R('Project Manager'), 'software')
+  );
+}
 check('Software Engineer does not match IT Support or Cyber Security', !roleMatches(SW, 'it') && !roleMatches(SW, 'cyber'));
 check('Fresh Graduate is general: always matches', isGeneric('fresh') && roleMatches({}, 'fresh'));
 {
@@ -350,7 +390,15 @@ check('no university: "at {uni}" removed', fillTemplate('I study {degree} at {un
         'anim3d',
         'video',
         'techwriter',
-        'copywriter'
+        'copywriter',
+        'recruiter',
+        'hrmanager',
+        'payroll',
+        'lnd',
+        'projectmgr',
+        'opsexec',
+        'teamlead',
+        'logistics'
       ].flatMap(c => {
         const x = answerContext(prof, c);
         return [introAnswer(x, true), fillTemplate(ALL, x), ...Object.values(x).filter(y => typeof y === 'string')];
@@ -398,7 +446,9 @@ check(
     'Android Developer',
     'iOS Developer',
     'Unreal Developer',
-    'Automation Tester'
+    'Automation Tester',
+    'HR Manager',
+    'Operations Executive'
   ];
   const A = [
     'Software Developer',
@@ -483,7 +533,13 @@ check(
     '3D Animator',
     'Content Writer',
     'Technical Writer',
-    'Copywriter'
+    'Copywriter',
+    'Recruiter',
+    'Payroll and Compensation Officer',
+    'Training and Development Specialist',
+    'Project Manager',
+    'Team Leader',
+    'Supply Chain and Logistics Coordinator'
   ];
   const inApp = [...new Set([...Object.values(ROLE).filter(Boolean), ...ROLES.map(roleText)])];
   const known = new Set([...AN, ...A]);

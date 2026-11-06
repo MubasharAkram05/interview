@@ -278,6 +278,31 @@ check('Content Writer profile in Marketing: the sheet opens', await sheetOpen())
 await p.click('#psSkip');
 await wait(400);
 
+// PR G1 families: HR, Management (Project Manager also in Business and Product).
+await asProfile('Recruiter');
+await open('payroll');
+check('Recruiter profile in Payroll: no sheet (HR family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('teamlead');
+check('Recruiter profile in Team Leader: the sheet opens', await sheetOpen());
+await p.fill('#psSkills', 'Delegation, Coaching');
+await p.click('#psUse');
+await wait(400);
+const rec = JSON.parse((await storage()).profiles)['Sara Ahmed'];
+check('sheet values never written to the profile', rec.role === 'Recruiter' && !/Delegation|Coaching/.test(JSON.stringify(rec)));
+await asProfile('HR');
+await open('hrmanager');
+check('HR profile in HR Manager: no sheet (HR family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await asProfile('Operations Manager');
+await open('logistics');
+check('Operations Manager profile in Logistics: no sheet (Management family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await asProfile('Project Manager');
+await open('po');
+check('Project Manager profile in Product Owner: no sheet (Business and Product family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('recruiter');
+check('Project Manager profile in Recruiter: the sheet opens', await sheetOpen());
+await p.click('#psSkip');
+await wait(400);
+
 check('no page errors', errors.length === 0, errors.join(' | '));
 await b.close();
 console.log(out.join('\n'));

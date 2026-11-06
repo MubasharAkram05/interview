@@ -98,7 +98,7 @@ check(
     ['mobile', 'game', 'testing', 'business', 'sysadmin', 'graphic', 'uiux', 'video', 'content'].every(x => parents.includes(x))
 );
 const kids = await p.$$eval('#hPath .pt2[data-p]', x => x.flatMap(e => (e.dataset.kids ? e.dataset.kids.split(' ') : [e.dataset.c])));
-check(`Home: 83 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 83 && new Set(kids).size === 83 && !kids.includes('hrq'));
+check(`Home: 91 types under the tiles (${kids.length}), HR Questions gone`, kids.length === 91 && new Set(kids).size === 91 && !kids.includes('hrq'));
 check(
   'tile: readable name under the icon, no count anywhere on the tiles',
   (await p.textContent('#hPath .pt2[data-p=general] .pl2')).trim() === 'General Interview' &&
@@ -307,7 +307,9 @@ for (const [id, list] of [
   ['cyber', 'cyber,soc,pentest,appsec,grc,ir'], // 6 rows from a mid-screen tile: scrolled fully into view
   ['uiux', 'uiux,uxresearch,productdesign'],
   ['video', 'video,motion,anim2d,anim3d'],
-  ['content', 'contentwriter,techwriter,copywriter']
+  ['content', 'contentwriter,techwriter,copywriter'],
+  ['hr', 'hr,recruiter,hrmanager,payroll,lnd'], // PR G1: 5 rows each
+  ['management', 'ops,projectmgr,opsexec,teamlead,logistics']
 ]) {
   await p.$eval(`#hPath .pt2[data-p=${id}]`, e => e.scrollIntoView({ block: 'center' }));
   await wait(300);
@@ -335,6 +337,12 @@ for (const [id, list] of [
   check(`${id}: long names wrap to at most 2 lines, nothing cut`, !cut.length, cut.join());
   if (id === 'game') check('Game list: first row named like the parent', (await p.textContent('.cpop [data-c=gamedev]')).trim() === 'Game Development');
   if (id === 'uiux') check('UI/UX list: first row named like the parent', (await p.textContent('.cpop [data-c=uiux]')).trim() === 'UI/UX Design');
+  if (id === 'management')
+    check(
+      'Management list: Operations Manager keeps its name, Operations Executive is its own row',
+      (await p.textContent('.cpop [data-c=ops]')).trim() === 'Operations Manager' &&
+        (await p.textContent('.cpop [data-c=opsexec]')).trim() === 'Operations Executive'
+    );
   await p.keyboard.press('Escape');
   await wait(200);
 }
