@@ -170,26 +170,32 @@ const last = () => logs.at(-1) || '';
   logs.length = 0;
   const ads = await import(`../../src/services/admob.js?s=${++n}`);
   const space = [];
-  // header bottom 98 (with a 24px status bar), so the banner should start at 104
+  check('E1 slot decided once at first paint: 10 + 50 + 8 = 68', ads.decideBannerSlot(true) === 68);
+  // header bottom 98 (with a 24px status bar), so the banner should start at 108
   await ads.initializeAdMob({ layout: () => ({ headerBottom: 98, safeTop: 24 }), onSpace: h => space.push(h) });
   await tick();
-  check('E1 slot reserved at 50 before load', space.includes(50));
-  check('E2 first margin = 98 + 6 - 24 = 80', m.calls.includes('showBanner:80'));
-  // Phone where the plugin did NOT add the inset: banner really at 80 (24px too high, over the header)
-  m.state.adLayout = { found: true, visible: true, top: 80, height: 50, width: 320 };
+  check('E2 first margin = 98 + 10 - 24 = 84', m.calls.includes('showBanner:84'));
+  // Phone where the plugin did NOT add the inset: banner really at 84 (24px too high, over the header)
+  m.state.adLayout = { found: true, visible: true, top: 84, height: 50, width: 320 };
   m.emit('bl');
   await advance(700); // check after 300 ms, then the rebuild waits 250 ms for Android to remove the old view
-  check('E3 wrong position detected and banner rebuilt +24', m.calls.includes('removeBanner') && m.calls.includes('showBanner:104'));
-  m.state.adLayout = { found: true, visible: true, top: 104, height: 50, width: 320 };
+  check(
+    'E3 wrong position detected: hidden at once, banner rebuilt +24',
+    m.calls.includes('hideBanner') && m.calls.includes('removeBanner') && m.calls.includes('showBanner:108')
+  );
+  m.state.adLayout = { found: true, visible: true, top: 108, height: 50, width: 320 };
   m.emit('bl');
   await advance(400);
   check('E4 correct position: no further rebuild', m.calls.filter(c => c.startsWith('showBanner')).length === 2);
-  check('E5 debug state shows wanted/real top', ads.getAdsDebugState().banner.desiredTop === 104 && ads.getAdsDebugState().banner.actualTop === 104);
-  // Real height differs from 50 -> slot follows the native height
-  m.state.adLayout = { found: true, visible: true, top: 104, height: 52, width: 320 };
+  check('E5 debug state shows wanted/real top', ads.getAdsDebugState().banner.desiredTop === 108 && ads.getAdsDebugState().banner.actualTop === 108);
+  // Real height differs from 50 -> recorded only, the slot does not change
+  m.state.adLayout = { found: true, visible: true, top: 108, height: 52, width: 320 };
   ads.requestBannerRelayout();
   await advance(400);
-  check('E6 slot follows real native height', space.at(-1) === 52);
+  check(
+    'E6 real native height recorded, slot unchanged',
+    ads.getAdsDebugState().banner.height === 52 && ads.getAdsDebugState().banner.slot === 68 && space.length === 0
+  );
   // Never more than 2 corrections
   m.state.adLayout = { found: true, visible: true, top: 60, height: 52, width: 320 };
   m.emit('bl');
@@ -324,12 +330,12 @@ async function freshAds() {
   let space = -1;
   const started = await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: h => (space = h) });
   check(
-    'E6 consent refused: no SDK start, no ad request, slot collapsed',
+    'E6 consent refused: no SDK start, no ad request, slot unchanged',
     started === false &&
       !m.calls.some(c => c.startsWith('init:')) &&
       !m.calls.includes('prepare') &&
       !m.calls.some(c => c.startsWith('showBanner')) &&
-      space === 0
+      space === -1
   );
 
   // Consent request throws (offline / UMP error): consent is unknown, so no ads this launch.
@@ -455,6 +461,105 @@ async function freshAds() {
   await ads3.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
   await tick();
   check('I10 failed load: no ad and no gap', !(await ads3.showInterstitialAtBreak('interview_finished')) && gapLeft(ads3) === 0);
+}
+
+// ---- Scenario S: the banner slot is decided once per launch and never changes
+{
+  const LAYOUT = () => ({ headerBottom: 98, safeTop: 24 });
+  const shows = () => m.calls.filter(c => c.startsWith('showBanner')).length;
+  // One app launch: first paint decides the slot, then consent and the SDK start.
+  async function launch({ online = true, consent = null, formResult = null, initFails = false } = {}) {
+    m.reset();
+    m.state.online = online;
+    m.state.consent = consent;
+    m.state.formResult = formResult;
+    m.state.initFails = initFails;
+    const ads = await freshAds();
+    const slot = ads.decideBannerSlot(online);
+    let spaceCalls = 0;
+    const started = await ads.initializeAdMob({ layout: LAYOUT, onSpace: () => spaceCalls++ });
+    await tick();
+    // The slot stays what first paint decided: asking again (even with the other network state)
+    // gives the same height, and nothing ever asks the page to change it.
+    const same = () => ads.decideBannerSlot(!online) === slot && ads.getAdsDebugState().banner.slot === slot && spaceCalls === 0;
+    return { ads, slot, started, same };
+  }
+  const inSlot = { found: true, visible: true, top: 108, height: 50, width: 320 };
+
+  let L = await launch();
+  check('S1 online launch: fixed 68px slot, banner requested into it', L.slot === 68 && shows() === 1 && L.same());
+  m.state.adLayout = inSlot;
+  m.emit('bl');
+  await advance(400);
+  check(
+    'S2 ad loads: slot unchanged, banner shown',
+    L.same() && L.ads.getAdsDebugState().banner.state === 'loaded' && L.ads.getAdsDebugState().banner.hiddenFor.length === 0
+  );
+  m.state.adLayout = { ...inSlot, height: 70 };
+  L.ads.requestBannerRelayout();
+  await advance(400);
+  check(
+    'S3 banner taller than its slot: hidden, slot unchanged',
+    L.same() && L.ads.getAdsDebugState().banner.hiddenFor.includes('misplaced') && m.calls.includes('hideBanner')
+  );
+
+  L = await launch();
+  m.emit('bf', { code: 0 });
+  check('S4 ad fails: slot unchanged', L.same() && L.ads.getAdsDebugState().banner.state === 'failed');
+
+  L = await launch();
+  m.emit('bf', { code: 3 });
+  check('S5 no fill: slot unchanged', L.same());
+  await advance(61000);
+  check('S6 retry loads into the same slot', shows() === 2 && L.same());
+  m.state.adLayout = inSlot;
+  m.emit('bl');
+  await advance(400);
+  check('S7 retried ad loads: slot unchanged', L.same() && L.ads.getAdsDebugState().banner.state === 'loaded');
+
+  L = await launch();
+  await advance(45000);
+  m.state.adLayout = inSlot;
+  m.emit('bl');
+  await advance(400);
+  check('S8 late ad (45 s): slot unchanged', L.same() && L.ads.getAdsDebugState().banner.state === 'loaded');
+
+  L = await launch({
+    consent: { status: 'REQUIRED', isConsentFormAvailable: true, canRequestAds: false },
+    formResult: { status: 'REQUIRED', canRequestAds: false }
+  });
+  check('S9 consent refused: slot unchanged, no banner', L.started === false && shows() === 0 && L.same() && L.slot === 68);
+
+  L = await launch({ initFails: true });
+  check('S10 SDK init failed: slot unchanged, no banner', L.started === false && shows() === 0 && L.same());
+
+  L = await launch();
+  m.state.adLayout = inSlot;
+  m.emit('bl');
+  await advance(400);
+  m.emitNetwork(false);
+  m.emit('bf', { code: 2 });
+  await advance(61000); // the retry finds the phone offline
+  check('S11 going offline after launch: slot unchanged', L.same() && L.ads.getAdsDebugState().banner.errorCode === 'offline');
+  const before = shows();
+  m.emitNetwork(true);
+  await tick();
+  await tick();
+  check('S12 back online: banner requested again into the same slot', shows() === before + 1 && L.same());
+
+  L = await launch({ online: false });
+  check('S13 offline at launch: slot 0, SDK still starts (interstitials), no banner', L.slot === 0 && L.started === true && shows() === 0);
+  m.emitNetwork(true);
+  await tick();
+  await advance(10 * 60_000);
+  check('S14 offline at launch: internet back, still no banner and slot 0 all session', shows() === 0 && L.same() && L.slot === 0);
+
+  const fs = await import('node:fs');
+  const mainSrc = fs.readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8');
+  check(
+    'S15 the page sets the slot once (first paint) and gives admob.js no way to change it',
+    mainSrc.match(/setAdSpace\(/g).length === 2 && mainSrc.includes('setAdSpace(decideBannerSlot())') && !mainSrc.includes('onSpace')
+  );
 }
 
 // ---- Scenario G: config rules

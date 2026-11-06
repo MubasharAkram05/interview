@@ -23,7 +23,7 @@
 - [x] Read aloud: `@capacitor-community/text-to-speech` with clear message when no voice is installed
 - [x] One shared offline helper (`src/services/online.js`) for voice, policy link and ad privacy choices
 - [x] AdMob: all IDs in `src/config/ads.js` (Google test IDs); App ID in manifest; UMP consent for EEA/UK; "Ad privacy choices" entry when required
-- [x] AdMob: ONE standard 320x50 banner fixed under the header on every screen (created once, kept alive across screens, no reloads). A spacer `#adSlot` reserves 50px before the ad loads and pushes content down, so the banner never covers anything; it collapses to 0 with no consent, offline or no fill, and reloads when back online. Banner hides while a dialog, sheet or consent form is open.
+- [x] AdMob: ONE standard 320x50 banner fixed under the header on every screen (created once, kept alive across screens, no reloads). A spacer `#adSlot` (10px gap + 50px banner + 8px gap = 68px) is decided once per launch at first paint and never changes, so the banner never covers anything and the page never jumps when the ad loads, fails, has no fill, comes late or is retried, or when consent is refused. Offline at launch: the slot is 0 and there is no banner for that session (the next launch decides again). A banner measured outside its slot is hidden. Banner hides while a dialog, sheet or consent form is open.
 - [x] Back button handled (`@capacitor/app`): dialogs, leave-interview confirm, edit cancel, double back to exit
 - [x] Privacy Policy screen inside the app, rendered from `PRIVACY_POLICY.md` (same file), "View online version" button with offline message
 - [x] `PRIVACY_POLICY_URL` constant in `src/config/app.js`

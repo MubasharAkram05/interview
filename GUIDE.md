@@ -227,7 +227,7 @@ Use the `app-debug.apk` from the workflow first, then the release build from the
 1. Phone: Settings > Security > allow "Install unknown apps" for your file manager or browser.
 2. Copy `app-debug.apk` to the phone and tap it to install. (Or with a PC: `adb install -r app-debug.apk`.)
 3. For the release build: join the closed test with the opt-in link and install from Play.
-4. Open the app. Check: splash shows, then Home. No interstitial at launch. A 50px space opens under the header and the test banner appears there once loaded (no full-screen ad).
+4. Open the app. Check: splash shows, then Home. No interstitial at launch. A fixed 68px space is under the header from the first frame (10px gap, 50px banner, 8px gap) and the test banner appears in it once loaded (no full-screen ad). The space never changes during the session.
 
 ### Online voice works
 1. Wi-Fi on. Mock tab > Start mock interview > tap the big mic.
@@ -271,9 +271,10 @@ Use the `app-debug.apk` from the workflow first, then the release build from the
 3. Reopen: you are on the same screen and typed answers are still there.
 
 ### Ad failure case
-1. Airplane mode on, open app, go Home and Results. Check: no banner, the space under the header closes (no empty gap), no freeze.
+1. Airplane mode on, open app, go Home and Results. Check: no banner and no space under the header (offline at launch = no banner for this session), no freeze.
 2. Finish a mock interview offline. Check: results show, no ad, no error.
-3. Turn airplane mode off. Within a few seconds the banner space opens again and the test banner loads.
+3. Turn airplane mode off. The layout does not change and no banner appears in this session. Close and reopen the app online: the 68px space is there from the start and the test banner loads into it.
+3b. Online launch, then airplane mode on: the 68px space stays (no jump). Airplane mode off: the banner loads into the same space.
 4. Online: ONE banner sits right under the header on every screen (Home, Practice, Mock, Interview, Results, Profile, Add question, Privacy Policy). It never covers the header buttons, content, mic, text boxes or the bottom tab bar, and it does not reload or flicker when you change screens. It does not reload when you change screens.
 5. Open any dialog (for example delete a question, or tap an interview type on Home): the banner disappears while the dialog is open and comes back after.
 6. EEA/UK test (optional): the consent form shows once, with no banner on top of it. Profile > Privacy Policy shows "Ad privacy choices"; the banner hides while that form is open.

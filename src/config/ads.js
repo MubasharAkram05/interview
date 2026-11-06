@@ -88,8 +88,9 @@ export const ADS_CONFIG = {
   // this much space before the ad arrives and the content does not jump.
   bannerReserveHeight: 50,
   // Clear space (CSS px) between the header bottom and the banner, and below the banner.
-  // The header has 12px inner padding, so buttons get 12 + 6 = 18px clearance.
-  bannerGapTop: 6,
+  // The header has 12px inner padding, so buttons get 12 + 10 = 22px clearance.
+  // Slot = 10 + 50 + 8 = 68px, decided once per launch (admob.js decideBannerSlot).
+  bannerGapTop: 10,
   bannerGapBottom: 8,
 
   enableBanner: true,

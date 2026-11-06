@@ -9,6 +9,7 @@ export const state = {
   adLayout: null, // what BuildInfo.getAdLayout returns
   consent: null, // requestConsentInfo result (null = not required); 'throw' = offline / UMP error
   formResult: null, // showConsentForm result
+  initFails: false, // AdMob.initialize throws
   showMode: null // showInterstitial: null = shown, 'reject' = call fails, 'failEvent' = FailedToShow event
 };
 export function reset() {
@@ -22,8 +23,10 @@ export function reset() {
     adLayout: null,
     consent: null,
     formResult: null,
+    initFails: false,
     showMode: null
   });
+  netListeners.length = 0;
 }
 export const Capacitor = { isNativePlatform: () => true };
 export const registerPlugin = () => ({
@@ -31,7 +34,13 @@ export const registerPlugin = () => ({
   getInfo: async () => ({ debug: true, versionName: '1.0', versionCode: 1, sdkInt: 36, density: 2.625 }),
   getAdLayout: async () => state.adLayout
 });
-export const Network = { getStatus: async () => ({ connected: state.online }), addListener: () => {} };
+const netListeners = [];
+/** Fire a networkStatusChange event (the online flag of getStatus follows it). */
+export const emitNetwork = connected => {
+  state.online = connected;
+  netListeners.forEach(f => f({ connected }));
+};
+export const Network = { getStatus: async () => ({ connected: state.online }), addListener: (e, f) => netListeners.push(f) };
 export const AdmobConsentStatus = { REQUIRED: 'REQUIRED' };
 export const BannerAdSize = { BANNER: 'BANNER' };
 export const BannerAdPosition = { TOP_CENTER: 'TOP_CENTER' };
@@ -54,6 +63,7 @@ export const AdMob = {
   },
   initialize: async opts => {
     calls.push('init:' + JSON.stringify(opts || {}));
+    if (state.initFails) throw new Error('init failed');
   },
   showBanner: async opts => {
     calls.push('showBanner:' + opts.margin);
