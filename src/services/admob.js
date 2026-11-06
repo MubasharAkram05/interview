@@ -92,8 +92,10 @@ export async function initializeAdMob({ layout, onSpace } = {}) {
     canRequestAds = info.canRequestAds !== false;
     privacyOptionsRequired = info.privacyOptionsRequirementStatus === 'REQUIRED';
   } catch (e) {
-    // Offline or UMP error: the SDK can still start; Google decides what can be served.
+    // Offline or UMP error: consent is unknown, so no ads this launch (no SDK start, no banner,
+    // no interstitial). The next launch asks again.
     consent.error = 'consent request failed (offline or UMP error)';
+    canRequestAds = false;
   }
   consent.canRequestAds = canRequestAds;
   adsLog('consent', 'status=' + consent.status, 'canRequestAds=' + canRequestAds);
