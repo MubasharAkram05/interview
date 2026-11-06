@@ -303,6 +303,34 @@ check('Project Manager profile in Recruiter: the sheet opens', await sheetOpen()
 await p.click('#psSkip');
 await wait(400);
 
+// PR G2 families: Finance and Corporate Finance, Marketing and Content Marketing, Sales and Retail,
+// Customer Service (Store Supervisor in both). Existing roles still do not match each other.
+await asProfile('Financial Analyst');
+await open('accounting');
+check('Financial Analyst profile in Accounting: no sheet (Finance family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('finance');
+check('Financial Analyst profile in Finance: no sheet (Corporate Finance family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await asProfile('Accountant');
+await open('finance');
+check('Accountant profile in Finance: the sheet still opens (existing roles not linked)', await sheetOpen());
+await p.fill('#psSkills', 'Forecasting, Power BI');
+await p.click('#psUse');
+await wait(400);
+const accProf = JSON.parse((await storage()).profiles)['Sara Ahmed'];
+check('sheet values never written to the profile', accProf.role === 'Accountant' && !/Forecasting|Power BI/.test(JSON.stringify(accProf)));
+await asProfile('SEO Specialist');
+await open('copywriter');
+check('SEO Specialist profile in Copywriter: no sheet (Content Marketing family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await asProfile('Store Supervisor');
+await open('callcenter');
+check('Store Supervisor profile in Call Center Agent: no sheet (Customer Service family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('bizdev');
+check('Store Supervisor profile in Business Development: no sheet (Sales and Retail family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('audit');
+check('Store Supervisor profile in Internal Auditor: the sheet opens', await sheetOpen());
+await p.click('#psSkip');
+await wait(400);
+
 check('no page errors', errors.length === 0, errors.join(' | '));
 await b.close();
 console.log(out.join('\n'));

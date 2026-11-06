@@ -231,8 +231,8 @@ export const PARENTS = [
     order: 22,
     color: '#166534',
     icon: 'M3 10l9-6 9 6M5 10v8M10 10v8M14 10v8M19 10v8M3 21h18',
-    children: ['accounting', 'finance'],
-    keywords: ['bank', 'accountant']
+    children: ['accounting', 'finance', 'finanalyst', 'audit'],
+    keywords: ['money', 'financial services']
   },
   {
     id: 'marketing',
@@ -241,8 +241,8 @@ export const PARENTS = [
     order: 23,
     color: '#dc2626',
     icon: 'M3 11v3l12 5V6zM15 9a4 4 0 0 1 0 6M6 14l1 6h3l-1-5',
-    children: ['marketing'],
-    keywords: ['seo', 'digital marketing']
+    children: ['marketing', 'digitalmkt', 'seo', 'socialmedia'],
+    keywords: ['advertising', 'promotion']
   },
   {
     id: 'sales',
@@ -251,8 +251,10 @@ export const PARENTS = [
     order: 24,
     color: '#6d28d9',
     icon: 'M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2',
-    children: ['sales'],
-    keywords: ['shop', 'store']
+    // "Business Development Executive" needs 3 lines in the list with wide fonts; the full name stays
+    // the type label and the role in answers.
+    children: ['sales', 'storesup', { id: 'bizdev', label: 'Business Development' }],
+    keywords: ['selling', 'revenue']
   },
   {
     id: 'customer',
@@ -261,8 +263,8 @@ export const PARENTS = [
     order: 25,
     color: '#be123c',
     icon: 'M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v5H4zM17 14h3v5h-3zM20 19a4 4 0 0 1-4 3h-2',
-    children: ['customer'],
-    keywords: ['call centre', 'call center', 'support']
+    children: ['customer', 'callcenter'],
+    keywords: ['support', 'client service']
   },
   {
     id: 'electronics',
@@ -388,7 +390,15 @@ export const FAMILIES = {
   'Video and Animation': ['Video Editor', 'Motion Graphics Designer', '2D Animator', '3D Animator'],
   Writing: ['Content Writer', 'Technical Writer', 'Copywriter'],
   HR: ['HR', 'Recruiter', 'HR Manager', 'Payroll and Compensation Officer', 'Training and Development Specialist'],
-  Management: ['Operations Manager', 'Project Manager', 'Operations Executive', 'Team Leader', 'Supply Chain and Logistics Coordinator']
+  Management: ['Operations Manager', 'Project Manager', 'Operations Executive', 'Team Leader', 'Supply Chain and Logistics Coordinator'],
+  // Split so that existing roles never share a new family (their answers stay exactly as they were):
+  // Accountant and Finance are kept apart, and so are Marketing/Sales and Content Writer / Copywriter.
+  Finance: ['Accountant', 'Financial Analyst', 'Internal Auditor'],
+  'Corporate Finance': ['Finance', 'Financial Analyst', 'Internal Auditor'],
+  Marketing: ['Marketing/Sales', 'Digital Marketing Specialist', 'SEO Specialist', 'Social Media Manager'],
+  'Content Marketing': ['Content Writer', 'Copywriter', 'Digital Marketing Specialist', 'SEO Specialist', 'Social Media Manager'],
+  'Sales and Retail': ['Sales Associate', 'Store Supervisor', 'Business Development Executive'],
+  'Customer Service': ['Customer Service', 'Call Center Agent', 'Store Supervisor']
 };
 
 const kid = x => (typeof x === 'string' ? { id: x } : x);
