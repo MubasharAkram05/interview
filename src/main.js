@@ -13,6 +13,7 @@ import glyphSvg from '../assets/logo/glyph.svg?raw';
 import { PRIVACY_POLICY_URL, VOICE_ACCENTS } from './config/app.js';
 import {
   initializeAdMob,
+  decideBannerSlot,
   showInterstitialAtBreak,
   setInterstitialBlocker,
   skipInterstitialBreak,
@@ -327,12 +328,9 @@ function customAlert(m) {
   ask('Just a moment', String(m), 'Got it', null, '💡');
 }
 
-// Banner slot under the header.
-// --ad-h = real banner height; #adSlot = gap above + banner + gap below (0 when there is no ad).
-function setAdSpace(h) {
-  const root = document.documentElement.style;
-  root.setProperty('--ad-h', `${h}px`);
-  root.setProperty('--ad-slot', h > 0 ? `${ADS_CONFIG.bannerGapTop + h + ADS_CONFIG.bannerGapBottom}px` : '0px');
+// Banner slot under the header: gap above + banner + gap below, or 0. Set once per launch.
+function setAdSpace(slot) {
+  document.documentElement.style.setProperty('--ad-slot', `${slot}px`);
 }
 
 // Header bottom and top safe area (notch / status bar) in CSS px, for the banner position.
@@ -347,9 +345,10 @@ function bannerLayout() {
   };
 }
 
-// Reserve the banner space at first paint (before storage and consent), so the content never
-// jumps down when the ad arrives. It collapses to 0 if there is no consent, no internet or no ad.
-if (Capacitor.isNativePlatform() && ADS_CONFIG.enableBanner) setAdSpace(ADS_CONFIG.bannerReserveHeight);
+// Decide the banner space ONCE, at first paint (before storage and consent), and never change it
+// this session: the page does not jump when the ad loads, fails, comes late or is retried.
+// Online at launch: the space is kept even with no ad. Offline at launch: 0 and no banner.
+setAdSpace(decideBannerSlot());
 
 // Re-measure the banner position once the layout has settled: web fonts, Capacitor injecting the
 // --safe-area-inset-* variables (a style change on <html>), and late WebView size changes.
@@ -3124,7 +3123,7 @@ async function initAppMain() {
   // Consent (EEA/UK) first, then AdMob creates ONE banner under the header for the whole session.
   // Never an interstitial while the mic records (or is still finishing a recording).
   setInterstitialBlocker(() => mMicOn || pMicOn || isListening() || voiceState() !== 'idle');
-  initializeAdMob({ layout: bannerLayout, onSpace: setAdSpace });
+  initializeAdMob({ layout: bannerLayout });
   watchBannerLayout();
   watchHeaderInset();
 

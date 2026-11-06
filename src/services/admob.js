@@ -11,7 +11,9 @@ import { nativeAdLayout } from './native-info.js';
  * Banner: ONE standard 320x50 banner, created once and kept for the whole session,
  * placed by the native SDK at TOP_CENTER just under the app header. The web page keeps a
  * matching spacer (#adSlot) under the header, so the banner never covers any content.
- * After it loads, the real native position is measured and corrected if needed.
+ * The spacer height is decided once per launch (decideBannerSlot) and never changes, so the
+ * page never jumps when the ad loads, fails, comes late or is retried.
+ * After it loads, the real native position is measured: a banner outside its slot is hidden.
  *
  * Every call is wrapped so a failed or offline ad never blocks or crashes the app.
  */
@@ -60,7 +62,11 @@ const suppressed = new Set(); // reasons the banner is hidden right now (dialog,
 
 // Callbacks from the page
 let getLayout = () => ({ headerBottom: 0, safeTop: 0 }); // CSS px
-let onBannerSpace = () => {}; // (heightPx) => reserve that much banner height (0 = collapse)
+
+// Banner slot for this launch, decided once at first paint (decideBannerSlot).
+let slotDecided = false;
+let slotHeight = 0; // CSS px of #adSlot: gap + banner + gap, or 0
+let bannerSession = false; // false = no banner at all this session (offline at launch)
 
 const native = () => Capacitor.isNativePlatform();
 
@@ -72,13 +78,28 @@ export function setInterstitialBlocker(fn) {
 }
 
 /**
+ * Decide the banner slot ONCE per launch, at first paint, and return its height in CSS px.
+ * Native build with the banner on and online at launch: gap + 50 + gap for the whole session,
+ * whatever the ad does later (loads, fails, no fill, late, retried, offline, no consent).
+ * Offline at launch: 0, and no banner this session even if the internet comes back.
+ * Later calls return the same value. The next launch decides again.
+ */
+export function decideBannerSlot(online = typeof navigator === 'undefined' || navigator.onLine !== false) {
+  if (slotDecided) return slotHeight;
+  slotDecided = true;
+  bannerSession = native() && ADS_CONFIG.enableBanner && online;
+  slotHeight = bannerSession ? ADS_CONFIG.bannerGapTop + ADS_CONFIG.bannerReserveHeight + ADS_CONFIG.bannerGapBottom : 0;
+  return slotHeight;
+}
+
+/**
  * Ask for consent (only shows a form where the law needs it), then start the SDK and
  * the banner. No ad request is made before consent is resolved.
  */
-export async function initializeAdMob({ layout, onSpace } = {}) {
+export async function initializeAdMob({ layout } = {}) {
   if (!native()) return false;
   if (layout) getLayout = layout;
-  if (onSpace) onBannerSpace = onSpace;
+  decideBannerSlot(); // normally already decided at first paint
 
   let canRequestAds = true;
   try {
@@ -101,7 +122,6 @@ export async function initializeAdMob({ layout, onSpace } = {}) {
   adsLog('consent', 'status=' + consent.status, 'canRequestAds=' + canRequestAds);
   if (!canRequestAds) {
     adsLog('skipped: consent does not allow ads');
-    onBannerSpace(0);
     return false;
   }
 
@@ -113,7 +133,6 @@ export async function initializeAdMob({ layout, onSpace } = {}) {
     });
   } catch {
     adsLog('init failed');
-    onBannerSpace(0);
     return false;
   }
   ready = true;
@@ -132,13 +151,10 @@ function errCode(err) {
 function addListeners() {
   try {
     AdMob.addListener(BannerAdPluginEvents.SizeChanged, size => {
-      // hideBanner() reports height 0; ignore it so the slot does not jump behind a dialog.
+      // Only recorded: the slot never changes. hideBanner() reports height 0, so ignore that.
       if (suppressed.size || bannerState === 'off' || bannerState === 'failed') return;
       const h = size && size.height ? size.height : 0;
-      if (h > 0) {
-        bstats.height = h;
-        onBannerSpace(h);
-      }
+      if (h > 0) bstats.height = h;
     });
     AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
       clearTimeout(bannerRequestTimer);
@@ -210,7 +226,7 @@ function bannerFailed(code) {
   bannerMargin = -1;
   bstats.errorCode = code;
   adsLog('banner failed', 'code=' + code);
-  onBannerSpace(0);
+  // The slot stays as it is (no jump); a retry loads into the same slot.
   // Offline: the network listener starts it again. Otherwise (no fill, timeout) try again later.
   if (code === 'offline') return;
   clearTimeout(bannerRetryTimer);
@@ -225,7 +241,7 @@ function bannerFailed(code) {
 
 /** Create the one banner (only when consent allows, the SDK is ready and the phone is online). */
 async function startBanner() {
-  if (!ready || !ADS_CONFIG.enableBanner || bannerState === 'requested' || bannerState === 'loaded') return;
+  if (!ready || !bannerSession || bannerState === 'requested' || bannerState === 'loaded') return;
   if (!(await isOnline())) {
     adsLog('banner skipped: offline');
     bannerFailed('offline');
@@ -234,7 +250,6 @@ async function startBanner() {
   if (bannerState === 'requested' || bannerState === 'loaded') return; // another call got here first
   bannerState = 'requested';
   bannerMargin = bannerTargets().margin;
-  onBannerSpace(bstats.height || ADS_CONFIG.bannerReserveHeight);
   adsLog('banner requested', 'margin=' + bannerMargin);
   // Safety net: if the native banner was replaced before it could answer (see rebuildBanner),
   // neither Loaded nor FailedToLoad arrives and the banner would stay gone for the session.
@@ -262,7 +277,6 @@ async function rebuildBanner(reason, { correction = false } = {}) {
   // A rebuild for a moved header gets its own position checks again (the limit is per banner,
   // not per session: before, a banner that moved later could never be fixed).
   if (!correction) bannerCorrections = 0;
-  setBannerSuppressed('misplaced', false);
   clearTimeout(bannerRequestTimer);
   try {
     await AdMob.removeBanner();
@@ -270,6 +284,8 @@ async function rebuildBanner(reason, { correction = false } = {}) {
     // ignore
   }
   bannerState = 'off';
+  // Cleared only now that the old banner is gone, so a misplaced banner is never shown again.
+  setBannerSuppressed('misplaced', false);
   // removeBanner resolves before Android has removed the old view. Showing the new one at once
   // could reach the plugin while the old view still exists: it then only reloads the old view,
   // which is removed a moment later, and no banner comes back. Give the UI thread a moment.
@@ -288,21 +304,21 @@ async function checkBannerPosition() {
   bstats.native = n;
   if (!n || !n.found || !n.visible) return;
   bstats.actualTop = Math.round(n.top);
-  if (n.height > 0 && Math.abs(n.height - (bstats.height || 0)) > 1) {
-    bstats.height = Math.round(n.height);
-    onBannerSpace(bstats.height);
-  }
+  if (n.height > 0) bstats.height = Math.round(n.height); // recorded only: the slot never changes
   const { desiredTop } = bannerTargets();
+  // The banner may only show inside its reserved slot (header bottom .. header bottom + slot).
+  // Outside it (over the header or the page, or taller than the slot), hide it at once; the slot
+  // stays, so nothing jumps. A correction or the next screen change tries again.
+  const slotTop = desiredTop - ADS_CONFIG.bannerGapTop;
+  const inside = n.top >= slotTop - 0.5 && n.top + n.height <= slotTop + slotHeight + 0.5;
+  if (!inside) {
+    adsLog('banner hidden: outside its slot');
+    setBannerSuppressed('misplaced', true);
+  }
   const diff = desiredTop - n.top;
   if (Math.abs(diff) <= BANNER_TOLERANCE_PX) return;
   if (bannerCorrections >= BANNER_MAX_CORRECTIONS) {
     adsLog('banner position off by', Math.round(diff) + 'px, no more corrections');
-    // Still wrong: never let the banner cover the header or the page. Hide it (the slot stays,
-    // so nothing jumps); the next screen change or rebuild tries again.
-    if (Math.abs(diff) > 8) {
-      adsLog('banner hidden: would cover the page');
-      setBannerSuppressed('misplaced', true);
-    }
     return;
   }
   bannerCorrections++;
@@ -599,6 +615,8 @@ export function getAdsDebugState() {
     consent: { ...consent, privacyOptionsRequired },
     banner: {
       state: bannerState,
+      session: bannerSession,
+      slot: slotHeight,
       errorCode: bstats.errorCode,
       height: bstats.height,
       marginTop: bannerMargin,

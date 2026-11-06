@@ -218,8 +218,8 @@ header.bar{height:auto;min-height:56px;overflow:visible;margin:0;border-radius:0
 header.bar .ic{width:44px;height:44px;min-height:44px}
 
 /* Ad banner slot: the native AdMob banner sits on top of this spacer, right under the header.
-   Its height is set from JS (--ad-slot = 6px gap + banner height + 8px gap, or 0 with no ad),
-   so main shrinks and nothing is ever covered. */
+   Its height is set from JS ONCE per launch (--ad-slot = 10px gap + 50px banner + 8px gap, or 0
+   when offline at launch) and never changes, so main shrinks, nothing is covered, nothing jumps. */
 #adSlot{flex:none;height:var(--ad-slot,0px);background:var(--bg);transition:height .2s ease;pointer-events:none}
 /* Measures the top safe area (notch / status bar) in CSS px for the banner position. */
 #safeTopProbe{position:fixed;top:0;left:0;width:0;visibility:hidden;pointer-events:none;height:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px))}
