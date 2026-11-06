@@ -343,19 +343,23 @@ async function freshAds() {
   m.state.consent = 'throw';
   ads = await freshAds();
   space = -1;
+  const firstPaintSlot = ads.decideBannerSlot(true);
   const ok = await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: h => (space = h) });
   await advance(10 * 60_000);
   now += INTERSTITIAL_COOLDOWN_MS + MIN_LAUNCH;
   const shown = await ads.showInterstitialAtBreak('mock-finished');
   check(
-    'E7 consent request throws: no crash, no SDK start, no banner, no interstitial, slot collapsed',
+    'E7 consent request throws: no crash, no SDK start, no banner, no interstitial, slot stays at its first-paint value',
     ok === false &&
       shown === false &&
       !m.calls.some(c => c.startsWith('init:')) &&
       !m.calls.includes('prepare') &&
       !m.calls.some(c => c.startsWith('showBanner')) &&
       !m.calls.includes('show') &&
-      space === 0 &&
+      firstPaintSlot === 68 &&
+      ads.decideBannerSlot(false) === firstPaintSlot &&
+      ads.getAdsDebugState().banner.slot === firstPaintSlot &&
+      space === -1 &&
       ads.getAdsDebugState().consent.canRequestAds === false &&
       ads.getAdsDebugState().consent.error !== null
   );
