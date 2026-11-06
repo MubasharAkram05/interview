@@ -179,8 +179,8 @@ export const PARENTS = [
     order: 17,
     color: '#db2777',
     icon: 'M3 4h18v16H3zM3 9h18M9 9v11',
-    children: [],
-    keywords: ['figma', 'ux']
+    children: ['uiux', 'uxresearch', 'productdesign'],
+    keywords: ['user experience', 'interface design']
   },
   {
     id: 'video',
@@ -189,8 +189,8 @@ export const PARENTS = [
     order: 18,
     color: '#e11d48',
     icon: 'M3 6h13v12H3zM16 10l5-3v10l-5-3',
-    children: [],
-    keywords: ['editor', 'motion']
+    children: ['video', 'motion', 'anim2d', 'anim3d'],
+    keywords: ['film', 'post-production']
   },
   {
     id: 'content',
@@ -199,8 +199,8 @@ export const PARENTS = [
     order: 19,
     color: '#9a3412',
     icon: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5',
-    children: [],
-    keywords: ['writer', 'copywriting']
+    children: ['contentwriter', 'techwriter', 'copywriter'],
+    keywords: ['writer', 'publishing']
   },
   {
     id: 'hr',
@@ -356,8 +356,8 @@ export const PARENTS = [
 
 // Profile roles that count as a match for each other's types (answer-context.js). Config only:
 // a role can be in more than one family (Cloud/DevOps, Data/AI, Data Scientist, Database
-// Developer, Web Developer and the frontend, backend and full stack roles, Game Tester). Graphic
-// Designer has no family.
+// Developer, Web Developer and the frontend, backend and full stack roles, Game Tester, Motion
+// Graphics Designer). Graphic Designer is in Design only.
 export const FAMILIES = {
   Software: [
     'Software Engineer',
@@ -381,7 +381,10 @@ export const FAMILIES = {
   Mobile: ['Mobile App Developer', 'Android Developer', 'Flutter Developer', 'React Native Developer', 'iOS Developer'],
   Game: ['Game Developer', 'Unity Developer', 'Unreal Developer', 'Game Designer', 'Game Artist', 'Game Tester'],
   Testing: ['QA Tester', 'Automation Tester', 'Game Tester'],
-  'Business and Product': ['Business Analyst', 'Product Manager', 'Product Owner']
+  'Business and Product': ['Business Analyst', 'Product Manager', 'Product Owner'],
+  Design: ['UI/UX Designer', 'UX Researcher', 'Product Designer', 'Graphic Designer', 'Motion Graphics Designer'],
+  'Video and Animation': ['Video Editor', 'Motion Graphics Designer', '2D Animator', '3D Animator'],
+  Writing: ['Content Writer', 'Technical Writer', 'Copywriter']
 };
 
 const kid = x => (typeof x === 'string' ? { id: x } : x);

@@ -121,9 +121,39 @@ check(
     !roleMatches(SW, 'data')
 );
 check(
-  'Graphic Designer has no family: only Graphic Design matches',
-  roleMatches({ roleKey: 'Graphic Designer' }, 'graphic') && !roleMatches({ roleKey: 'Graphic Designer' }, 'marketing') && !roleMatches(SW, 'graphic')
+  'Graphic Designer is in Design only: matches Graphic Design and the UI/UX roles, not Marketing, Video Editor or the animators',
+  ['graphic', 'uiux', 'uxresearch', 'productdesign', 'motion'].every(c => roleMatches({ roleKey: 'Graphic Designer' }, c)) &&
+    !['marketing', 'video', 'anim2d', 'anim3d'].some(c => roleMatches({ roleKey: 'Graphic Designer' }, c)) &&
+    !roleMatches(SW, 'graphic')
 );
+{
+  const R = r => ({ roleKey: r });
+  check(
+    'Design family: UI/UX Designer matches UX Researcher and Product Designer, not Frontend or Video Editor',
+    ['uxresearch', 'productdesign', 'graphic'].every(c => roleMatches(R('UI/UX Designer'), c)) &&
+      !['frontend', 'video', 'contentwriter'].some(c => roleMatches(R('UI/UX Designer'), c))
+  );
+  check(
+    'Video and Animation family: Video Editor matches the animators; Motion Graphics Designer is in Design and Video and Animation',
+    ['motion', 'anim2d', 'anim3d'].every(c => roleMatches(R('Video Editor'), c)) &&
+      !roleMatches(R('Video Editor'), 'uiux') &&
+      ['video', 'anim3d', 'uiux', 'graphic'].every(c => roleMatches(R('Motion Graphics Designer'), c))
+  );
+  check(
+    'Writing family: Content Writer matches Technical Writer and Copywriter, not Marketing or UI/UX',
+    ['techwriter', 'copywriter'].every(c => roleMatches(R('Content Writer'), c)) && !['marketing', 'uiux'].some(c => roleMatches(R('Content Writer'), c))
+  );
+  check(
+    'UI/UX keeps its slash; other slashes still read as "and"',
+    roleText('UI/UX Designer') === 'UI/UX Designer' &&
+      roleText('UI / UX Designer') === 'UI/UX Designer' &&
+      roleText('Cloud/DevOps') === 'Cloud and DevOps' &&
+      roleText('AI/ML') === 'AI and ML' &&
+      roleText('C/C++ Developer') === 'C and C++ Developer' &&
+      roleText('Waiter/Restaurant Staff') === 'Waiter and Restaurant Staff' &&
+      roleText('GUI/UX test') === 'GUI and UX test'
+  );
+}
 check(
   'Web family: Frontend matches Backend, Full Stack and WordPress; WordPress matches Full Stack but not Python',
   ['backend', 'fullstack', 'wordpress', 'web'].every(c => roleMatches({ roleKey: 'Frontend Developer' }, c)) &&
@@ -186,6 +216,27 @@ check(
     /a Business Analyst role/.test(introAnswer(answerContext({}, 'ba'))) &&
     /a Product Owner role/.test(introAnswer(answerContext({}, 'po'))) &&
     /a System Administrator role/.test(introAnswer(answerContext({}, 'sysadmin')))
+);
+check(
+  'a / an for the PR F role labels (digits and slashes: 2D, 3D, UI/UX)',
+  [
+    'UI/UX Designer',
+    'UX Researcher',
+    'Product Designer',
+    'Video Editor',
+    'Motion Graphics Designer',
+    '2D Animator',
+    '3D Animator',
+    'Content Writer',
+    'Technical Writer',
+    'Copywriter'
+  ].every(r => fillTemplate('I want to be a {role}.', { role: r }) === `I want to be a ${r}.`) &&
+    /a UI\/UX Designer role/.test(introAnswer(answerContext({}, 'uiux'))) &&
+    /a UX Researcher role/.test(introAnswer(answerContext({}, 'uxresearch'))) &&
+    /a 2D Animator role/.test(introAnswer(answerContext({}, 'anim2d'))) &&
+    /a 3D Animator role/.test(introAnswer(answerContext({}, 'anim3d'))) &&
+    /a Copywriter role/.test(introAnswer(answerContext({}, 'copywriter'))) &&
+    /a UI\/UX Designer role/.test(introAnswer(answerContext({ role: 'UI/UX Designer', roleKey: 'UI/UX Designer', setup: 1 }, 'uiux')))
 );
 check('Software Engineer does not match IT Support or Cyber Security', !roleMatches(SW, 'it') && !roleMatches(SW, 'cyber'));
 check('Fresh Graduate is general: always matches', isGeneric('fresh') && roleMatches({}, 'fresh'));
@@ -282,7 +333,25 @@ check('no university: "at {uni}" removed', fillTemplate('I study {degree} at {un
       introAnswer(ctx, true),
       introAnswer(ctx, false),
       introAnswer(undefined, true),
-      ...['software', 'situational', 'nosql', 'datasci', 'gamedev', 'unity', 'qa', 'autotest', 'ba', 'po', 'sysadmin'].flatMap(c => {
+      ...[
+        'software',
+        'situational',
+        'nosql',
+        'datasci',
+        'gamedev',
+        'unity',
+        'qa',
+        'autotest',
+        'ba',
+        'po',
+        'sysadmin',
+        'uiux',
+        'anim2d',
+        'anim3d',
+        'video',
+        'techwriter',
+        'copywriter'
+      ].flatMap(c => {
         const x = answerContext(prof, c);
         return [introAnswer(x, true), fillTemplate(ALL, x), ...Object.values(x).filter(y => typeof y === 'string')];
       })
@@ -404,7 +473,17 @@ check(
     'Business Analyst',
     'Product Manager',
     'Product Owner',
-    'System Administrator'
+    'System Administrator',
+    'UI/UX Designer',
+    'UX Researcher',
+    'Product Designer',
+    'Video Editor',
+    'Motion Graphics Designer',
+    '2D Animator',
+    '3D Animator',
+    'Content Writer',
+    'Technical Writer',
+    'Copywriter'
   ];
   const inApp = [...new Set([...Object.values(ROLE).filter(Boolean), ...ROLES.map(roleText)])];
   const known = new Set([...AN, ...A]);

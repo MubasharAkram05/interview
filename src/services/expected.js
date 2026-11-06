@@ -241,11 +241,14 @@ export function expandDegree(edu = '') {
   return { degree: t, studying };
 }
 
-/** "Marketing/Sales" -> "Marketing and Sales", "Cloud/DevOps" -> "Cloud and DevOps". */
+/**
+ * "Marketing/Sales" -> "Marketing and Sales", "Cloud/DevOps" -> "Cloud and DevOps". "UI/UX" keeps
+ * its slash: it is one name in English ("a UI/UX Designer").
+ */
 export const roleText = r =>
   String(r || '')
     .trim()
-    .replace(/\s*\/\s*/g, ' and ');
+    .replace(/\s*\/\s*/g, (m, i, s) => (/\bUI$/i.test(s.slice(0, i)) && /^UX\b/i.test(s.slice(i + m.length)) ? '/' : ' and '));
 
 /** "Introduce yourself" questions: their sample answer is built by src/services/answer-context.js. */
 export const isIntroQuestion = q => /introduce yourself|tell me about yourself/i.test(String(q || ''));

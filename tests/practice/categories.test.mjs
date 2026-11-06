@@ -20,7 +20,7 @@ const list = (c, level) => {
     .concat(extra);
 };
 
-check(`73 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 73 && !CATS.hrq);
+check(`83 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 83 && !CATS.hrq);
 check('tiles follow ORDER (each type next to related ones)', Object.keys(CATS).join() === ORDER.join());
 
 // The four split types keep their ids; each new half gets its own id.
@@ -45,9 +45,9 @@ for (const [c, [label, setupRole, role]] of Object.entries(SPEC))
 check('only one Sales type', Object.values(CATS).filter(l => /sales/i.test(l)).length === 1);
 check('Fresh Graduate is a general type', isGeneric('fresh') && !ROLE.fresh);
 check(
-  'families: Software, Cloud and DevOps, Security, Infra, Data and Analytics, AI and ML, Database, Web, Mobile, Game, Testing, Business and Product; Graphic Designer in none',
+  'families: Software, Cloud and DevOps, Security, Infra, Data and Analytics, AI and ML, Database, Web, Mobile, Game, Testing, Business and Product, Design, Video and Animation, Writing; Graphic Designer in Design only',
   Object.keys(FAMILIES).join() ===
-    'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product' &&
+    'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product,Design,Video and Animation,Writing' &&
     FAMILIES.Software.join() ===
       'Software Engineer,Web Developer,Java Developer,C/C++ Developer,Database Developer,Python Developer,C#/.NET Developer,Frontend Developer,Backend Developer,Full Stack Developer' &&
     FAMILIES.Web.join() === 'Web Developer,Frontend Developer,Backend Developer,Full Stack Developer,WordPress Developer' &&
@@ -61,7 +61,13 @@ check(
     FAMILIES.Game.join() === 'Game Developer,Unity Developer,Unreal Developer,Game Designer,Game Artist,Game Tester' &&
     FAMILIES.Testing.join() === 'QA Tester,Automation Tester,Game Tester' &&
     FAMILIES['Business and Product'].join() === 'Business Analyst,Product Manager,Product Owner' &&
-    !Object.values(FAMILIES).flat().includes('Graphic Designer')
+    FAMILIES.Design.join() === 'UI/UX Designer,UX Researcher,Product Designer,Graphic Designer,Motion Graphics Designer' &&
+    FAMILIES['Video and Animation'].join() === 'Video Editor,Motion Graphics Designer,2D Animator,3D Animator' &&
+    FAMILIES.Writing.join() === 'Content Writer,Technical Writer,Copywriter' &&
+    Object.entries(FAMILIES)
+      .filter(([, r]) => r.includes('Graphic Designer'))
+      .map(([f]) => f)
+      .join() === 'Design'
 );
 check(
   'every family role is a setup role',
@@ -192,6 +198,45 @@ check(
   'PR E roles in the profile role picker with their suggested skills',
   Object.entries(PRE_SKILLS).every(([r, s]) => ROLES.includes(r) && ROLE_SKILLS[r].join() === s)
 );
+// PR F: Design, Video and Animation, and Writing roles: id, label, setup role, role in answers.
+const PRF_SPEC = {
+  uiux: ['UI/UX Design', 'UI/UX Designer', 'UI/UX Designer'],
+  uxresearch: ['UX Researcher', 'UX Researcher', 'UX Researcher'],
+  productdesign: ['Product Designer', 'Product Designer', 'Product Designer'],
+  video: ['Video Editor', 'Video Editor', 'Video Editor'],
+  motion: ['Motion Graphics Designer', 'Motion Graphics Designer', 'Motion Graphics Designer'],
+  anim2d: ['2D Animator', '2D Animator', '2D Animator'],
+  anim3d: ['3D Animator', '3D Animator', '3D Animator'],
+  contentwriter: ['Content Writer', 'Content Writer', 'Content Writer'],
+  techwriter: ['Technical Writer', 'Technical Writer', 'Technical Writer'],
+  copywriter: ['Copywriter', 'Copywriter', 'Copywriter']
+};
+const PRF = Object.keys(PRF_SPEC);
+for (const [c, [label, setupRole, role]] of Object.entries(PRF_SPEC))
+  check(`${c}: "${label}", setup role ${setupRole}, role in answers ${role}`, CATS[c] === label && catToRole(c) === setupRole && ROLE[c] === role);
+const PRF_SKILLS = {
+  'UI/UX Designer': 'Figma,Wireframing,Prototyping,User flows,Design systems,Accessibility,Visual hierarchy,Usability testing,Auto layout,Developer handoff',
+  'UX Researcher':
+    'User interviews,Usability testing,Surveys,Personas,Journey maps,Affinity mapping,Research planning,Recruiting participants,Data analysis,Storytelling',
+  'Product Designer':
+    'Problem framing,User research,Interaction design,Prototyping,Figma,Design systems,Product metrics,A/B testing,Design critique,Collaboration',
+  'Video Editor': 'Premiere Pro,DaVinci Resolve,CapCut,Final Cut Pro,Color correction,Audio cleanup,Storytelling,Pacing,Export settings,File organization',
+  'Motion Graphics Designer': 'After Effects,Illustrator,Keyframes,Easing,Storyboarding,Typography,Lottie,Premiere Pro,Cinema 4D,Brand guidelines',
+  '2D Animator':
+    '12 principles of animation,Frame-by-frame animation,Toon Boom Harmony,Blender Grease Pencil,After Effects,Storyboarding,Animatics,Character rigging,Timing,Drawing',
+  '3D Animator': 'Maya,Blender,Keyframe animation,Graph editor,Motion capture cleanup,Body mechanics,Acting,Rig testing,FBX export,Rendering',
+  'Content Writer': 'Writing,Editing,Research,SEO basics,Content planning,Proofreading,WordPress,Google Docs,Fact checking,Social media writing',
+  'Technical Writer': 'Technical writing,Markdown,Git,API documentation,OpenAPI,Docs as code,Style guides,Information architecture,Editing,Diagrams',
+  Copywriter: 'Copywriting,Brand voice,Headlines,Calls to action,Ad copy,Email marketing,A/B testing,Editing,Research,Persuasive writing'
+};
+check(
+  'PR F roles in the profile role picker with their suggested skills',
+  Object.entries(PRF_SKILLS).every(([r, s]) => ROLES.includes(r) && ROLE_SKILLS[r].join() === s)
+);
+check(
+  'PR F: no discontinued design tools (Adobe XD) in the new answers',
+  PRF.every(c => !/\bAdobe XD\b|\bXD\b/.test(JSON.stringify(MORE[c])))
+);
 const NEW = [
   'it',
   'cyber',
@@ -211,7 +256,8 @@ const NEW = [
   'ir',
   ...PRC,
   ...PRD,
-  ...PRE
+  ...PRE,
+  ...PRF
 ];
 const cols = Object.values(PCI).map(x => x[0].toLowerCase());
 check(
@@ -242,8 +288,24 @@ for (const c of Object.keys(CATS)) {
   );
 }
 
-// PR B, PR C, PR D and PR E roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
-for (const c of ['cloudadmin', 'cloudarch', 'cloudsec', 'clouddata', 'devops', 'platform', 'soc', 'pentest', 'appsec', 'grc', 'ir', ...PRC, ...PRD, ...PRE])
+// PR B, PR C, PR D, PR E and PR F roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
+for (const c of [
+  'cloudadmin',
+  'cloudarch',
+  'cloudsec',
+  'clouddata',
+  'devops',
+  'platform',
+  'soc',
+  'pentest',
+  'appsec',
+  'grc',
+  'ir',
+  ...PRC,
+  ...PRD,
+  ...PRE,
+  ...PRF
+])
   check(
     `${c}: 10 / 19 / 19 questions`,
     Object.keys(LEVELS)
