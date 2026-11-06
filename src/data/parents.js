@@ -209,8 +209,10 @@ export const PARENTS = [
     order: 20,
     color: '#9333ea',
     icon: 'M9 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1M16 4a3 3 0 0 1 0 6M21 20v-1a5 5 0 0 0-3-4.6',
-    children: ['hr'],
-    keywords: ['recruiter', 'hr']
+    // "Training and Development Specialist" needs 3 lines in the list with wide fonts; the full
+    // name stays the type label and the role in answers.
+    children: ['hr', 'recruiter', 'hrmanager', 'payroll', { id: 'lnd', label: 'Training and Development' }],
+    keywords: ['hr', 'personnel']
   },
   {
     id: 'management',
@@ -219,8 +221,9 @@ export const PARENTS = [
     order: 21,
     color: '#c2410c',
     icon: 'M8 4h8v3H8zM6 5H4v16h16V5h-2M8 12h8M8 16h5',
-    children: ['ops'],
-    keywords: ['manager', 'operations']
+    // The general type keeps the parent name here: "Operations Manager" is now its own type.
+    children: [{ id: 'ops', label: 'Management and Operations' }, 'projectmgr', 'opsmgr', 'teamlead', 'logistics'],
+    keywords: ['management', 'leadership']
   },
   {
     id: 'finance',
@@ -381,10 +384,12 @@ export const FAMILIES = {
   Mobile: ['Mobile App Developer', 'Android Developer', 'Flutter Developer', 'React Native Developer', 'iOS Developer'],
   Game: ['Game Developer', 'Unity Developer', 'Unreal Developer', 'Game Designer', 'Game Artist', 'Game Tester'],
   Testing: ['QA Tester', 'Automation Tester', 'Game Tester'],
-  'Business and Product': ['Business Analyst', 'Product Manager', 'Product Owner'],
+  'Business and Product': ['Business Analyst', 'Product Manager', 'Product Owner', 'Project Manager'],
   Design: ['UI/UX Designer', 'UX Researcher', 'Product Designer', 'Graphic Designer', 'Motion Graphics Designer'],
   'Video and Animation': ['Video Editor', 'Motion Graphics Designer', '2D Animator', '3D Animator'],
-  Writing: ['Content Writer', 'Technical Writer', 'Copywriter']
+  Writing: ['Content Writer', 'Technical Writer', 'Copywriter'],
+  HR: ['HR', 'Recruiter', 'HR Manager', 'Payroll and Compensation Officer', 'Training and Development Specialist'],
+  Management: ['Operations Manager', 'Project Manager', 'Team Leader', 'Supply Chain and Logistics Coordinator']
 };
 
 const kid = x => (typeof x === 'string' ? { id: x } : x);

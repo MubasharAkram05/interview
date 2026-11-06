@@ -3,7 +3,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { PARENTS, FAMILIES, childrenOf, visibleParents, parentOf, displayLabel, searchCats, tileLabel } from '../../src/data/parents.js';
-import { CATS, ROLE, LEVELS, CAT_LEVELS, levelsOf, fitLevel, usedLevels, catId, CAT_ALIAS } from '../../src/data/questions.js';
+import { CATS, ROLE, LEVELS, CAT_LEVELS, levelsOf, fitLevel, usedLevels, catId, CAT_ALIAS, KEYWORDS } from '../../src/data/questions.js';
 import { FAMILIES as RESOLVER_FAMILIES, roleMatches } from '../../src/services/answer-context.js';
 import { ROLES, catToRole } from '../../src/services/setup.js';
 import { KEYS } from '../../src/services/storage.js';
@@ -65,7 +65,7 @@ check(
   `every type in exactly one parent (${Object.keys(CATS).length} types)`,
   Object.keys(CATS).every(c => kids.filter(k => k === c).length === 1)
 );
-check('83 types, HR Questions removed', Object.keys(CATS).length === 83 && !CATS.hrq);
+check('91 types, HR Questions removed', Object.keys(CATS).length === 91 && !CATS.hrq);
 const vis = visibleParents();
 check('parents with no children are hidden', vis.every(p => childrenOf(p).length) && PARENTS.filter(p => !childrenOf(p).length).every(p => !vis.includes(p)));
 check('General Interview is first', vis[0].id === 'general');
@@ -92,8 +92,8 @@ check(
       'UI/UX Design': ['uiux', 'uxresearch', 'productdesign'],
       'Video and Animation': ['video', 'motion', 'anim2d', 'anim3d'],
       'Content and Writing': ['contentwriter', 'techwriter', 'copywriter'],
-      'Human Resources': ['hr'],
-      'Management and Operations': ['ops'],
+      'Human Resources': ['hr', 'recruiter', 'hrmanager', 'payroll', 'lnd'],
+      'Management and Operations': ['ops', 'projectmgr', 'opsmgr', 'teamlead', 'logistics'],
       'Finance and Banking': ['accounting', 'finance'],
       Marketing: ['marketing'],
       'Sales and Retail': ['sales'],
@@ -257,6 +257,46 @@ check(
     parentOf('copywriter').id === 'content' &&
     parentOf('graphic').id === 'graphic'
 );
+check(
+  'search: PR G1 roles by keyword (talent acquisition, payroll, PMP, Prince2, Lean, Six Sigma, supervisor, logistics)',
+  found('talent acquisition').join() === 'recruiter' &&
+    found('payroll').join() === 'payroll' &&
+    found('learning and development').join() === 'lnd' &&
+    found('pmp').join() === 'projectmgr' &&
+    found('prince2').join() === 'projectmgr' &&
+    found('lean').join() === 'opsmgr' &&
+    found('six sigma').join() === 'opsmgr' &&
+    found('supervisor').join() === 'teamlead' &&
+    found('logistics').join() === 'logistics' &&
+    found('hr manager').join() === 'hrmanager'
+);
+check(
+  'search: no child keyword on the HR and Management parents (recruiter, operations, manager), and no keyword splits into single letters',
+  !['recruiter', 'operations', 'manager'].some(k => ['hr', 'management'].some(id => PARENTS.find(p => p.id === id).keywords.includes(k))) &&
+    ['recruiter', 'hrmanager', 'payroll', 'lnd', 'projectmgr', 'opsmgr', 'teamlead', 'logistics'].every(c =>
+      (KEYWORDS[c] || []).every(k =>
+        k
+          .toLowerCase()
+          .split(/[^a-z0-9+#]+/)
+          .filter(Boolean)
+          .every(w => w.length > 1)
+      )
+    )
+);
+check(
+  'Human Resources 5, Management and Operations 5; the general Operations type is named like the parent, its id and answers unchanged',
+  ['hr', 'management'].map(id => childrenOf(PARENTS.find(p => p.id === id)).length).join() === '5,5' &&
+    displayLabel('ops') === 'Management and Operations' &&
+    CATS.ops === 'Operations Manager' &&
+    ROLE.ops === 'Operations Manager' &&
+    displayLabel('opsmgr') === 'Operations Manager' &&
+    displayLabel('hr') === 'HR Generalist' &&
+    displayLabel('lnd') === 'Training and Development' &&
+    CATS.lnd === 'Training and Development Specialist' &&
+    ROLE.lnd === 'Training and Development Specialist' &&
+    parentOf('logistics').id === 'management' &&
+    parentOf('payroll').id === 'hr'
+);
 check('search: a parent label keeps all its children (Database)', found('database').join() === 'dbgen,sql,dba,etl,nosql');
 check('search by keyword (call centre)', found('call centre').join() === 'customer');
 check('search by skill keyword (AWS)', found('aws').includes('cloud'));
@@ -286,7 +326,7 @@ check(
   'family map is the config object',
   RESOLVER_FAMILIES === FAMILIES &&
     Object.keys(FAMILIES).join() ===
-      'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product,Design,Video and Animation,Writing'
+      'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product,Design,Video and Animation,Writing,HR,Management'
 );
 check('Software Engineer still matches Java (family)', roleMatches({ roleKey: 'Software Engineer' }, 'java'));
 check(

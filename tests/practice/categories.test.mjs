@@ -20,7 +20,7 @@ const list = (c, level) => {
     .concat(extra);
 };
 
-check(`83 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 83 && !CATS.hrq);
+check(`91 interview types (${Object.keys(CATS).length})`, Object.keys(CATS).length === 91 && !CATS.hrq);
 check('tiles follow ORDER (each type next to related ones)', Object.keys(CATS).join() === ORDER.join());
 
 // The four split types keep their ids; each new half gets its own id.
@@ -45,9 +45,9 @@ for (const [c, [label, setupRole, role]] of Object.entries(SPEC))
 check('only one Sales type', Object.values(CATS).filter(l => /sales/i.test(l)).length === 1);
 check('Fresh Graduate is a general type', isGeneric('fresh') && !ROLE.fresh);
 check(
-  'families: Software, Cloud and DevOps, Security, Infra, Data and Analytics, AI and ML, Database, Web, Mobile, Game, Testing, Business and Product, Design, Video and Animation, Writing; Graphic Designer in Design only',
+  'families: Software, Cloud and DevOps, Security, Infra, Data and Analytics, AI and ML, Database, Web, Mobile, Game, Testing, Business and Product, Design, Video and Animation, Writing, HR, Management; Graphic Designer in Design only',
   Object.keys(FAMILIES).join() ===
-    'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product,Design,Video and Animation,Writing' &&
+    'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product,Design,Video and Animation,Writing,HR,Management' &&
     FAMILIES.Software.join() ===
       'Software Engineer,Web Developer,Java Developer,C/C++ Developer,Database Developer,Python Developer,C#/.NET Developer,Frontend Developer,Backend Developer,Full Stack Developer' &&
     FAMILIES.Web.join() === 'Web Developer,Frontend Developer,Backend Developer,Full Stack Developer,WordPress Developer' &&
@@ -60,10 +60,12 @@ check(
     FAMILIES.Database.join() === 'Database Developer,Database Engineer,Database Administrator,ETL Developer,NoSQL Developer' &&
     FAMILIES.Game.join() === 'Game Developer,Unity Developer,Unreal Developer,Game Designer,Game Artist,Game Tester' &&
     FAMILIES.Testing.join() === 'QA Tester,Automation Tester,Game Tester' &&
-    FAMILIES['Business and Product'].join() === 'Business Analyst,Product Manager,Product Owner' &&
+    FAMILIES['Business and Product'].join() === 'Business Analyst,Product Manager,Product Owner,Project Manager' &&
     FAMILIES.Design.join() === 'UI/UX Designer,UX Researcher,Product Designer,Graphic Designer,Motion Graphics Designer' &&
     FAMILIES['Video and Animation'].join() === 'Video Editor,Motion Graphics Designer,2D Animator,3D Animator' &&
     FAMILIES.Writing.join() === 'Content Writer,Technical Writer,Copywriter' &&
+    FAMILIES.HR.join() === 'HR,Recruiter,HR Manager,Payroll and Compensation Officer,Training and Development Specialist' &&
+    FAMILIES.Management.join() === 'Operations Manager,Project Manager,Team Leader,Supply Chain and Logistics Coordinator' &&
     Object.entries(FAMILIES)
       .filter(([, r]) => r.includes('Graphic Designer'))
       .map(([f]) => f)
@@ -237,6 +239,46 @@ check(
   'PR F: no discontinued design tools (Adobe XD) in the new answers',
   PRF.every(c => !/\bAdobe XD\b|\bXD\b/.test(JSON.stringify(MORE[c])))
 );
+// PR G1: HR and Management roles: id, label, setup role, role in answers.
+const PRG1_SPEC = {
+  recruiter: ['Recruiter', 'Recruiter', 'Recruiter'],
+  hrmanager: ['HR Manager', 'HR Manager', 'HR Manager'],
+  payroll: ['Payroll and Compensation Officer', 'Payroll and Compensation Officer', 'Payroll and Compensation Officer'],
+  lnd: ['Training and Development Specialist', 'Training and Development Specialist', 'Training and Development Specialist'],
+  projectmgr: ['Project Manager', 'Project Manager', 'Project Manager'],
+  opsmgr: ['Operations Manager', 'Operations Manager', 'Operations Manager'],
+  teamlead: ['Team Leader', 'Team Leader', 'Team Leader'],
+  logistics: ['Supply Chain and Logistics Coordinator', 'Supply Chain and Logistics Coordinator', 'Supply Chain and Logistics Coordinator']
+};
+const PRG1 = Object.keys(PRG1_SPEC);
+for (const [c, [label, setupRole, role]] of Object.entries(PRG1_SPEC))
+  check(`${c}: "${label}", setup role ${setupRole}, role in answers ${role}`, CATS[c] === label && catToRole(c) === setupRole && ROLE[c] === role);
+const PRG1_SKILLS = {
+  Recruiter: 'Sourcing,Screening,Interviewing,Job descriptions,LinkedIn Recruiter,ATS,Candidate experience,Employer branding,Fair hiring,Communication',
+  'HR Manager':
+    'HR policies,Employee relations,Performance management,Onboarding,Labour law awareness,HR metrics,HRIS,Conflict resolution,Retention,Coaching managers',
+  'Payroll and Compensation Officer':
+    'Payroll processing,Excel,Payroll software,Tax deductions,Attendance data,Compensation,Reconciliation,Confidentiality,Labour law awareness,Attention to detail',
+  'Training and Development Specialist':
+    'Training needs analysis,Instructional design,Facilitation,E-learning,LMS,Onboarding programs,Evaluation,Kirkpatrick model,Presentation skills,Coaching',
+  'Project Manager': 'Project planning,Scope management,Risk management,Stakeholder communication,Agile,Scrum,Waterfall,MS Project,Jira,Budgeting',
+  'Team Leader':
+    'Delegation,Motivation,Feedback,Coaching,Performance management,Conflict resolution,Target setting,Communication,Time management,Decision making',
+  'Supply Chain and Logistics Coordinator':
+    'Inventory control,Order tracking,Shipping documents,Carrier management,ERP systems,Excel,Demand planning,Warehouse operations,Cost control,Communication'
+};
+check(
+  'PR G1 roles in the profile role picker with their suggested skills',
+  Object.entries(PRG1_SKILLS).every(([r, s]) => ROLES.includes(r) && ROLE_SKILLS[r].join() === s)
+);
+check(
+  'Operations Manager: one profile role for ops and opsmgr, its existing skills unchanged, listed once',
+  catToRole('ops') === 'Operations Manager' &&
+    catToRole('opsmgr') === 'Operations Manager' &&
+    ROLES.filter(r => r === 'Operations Manager').length === 1 &&
+    ROLE_SKILLS['Operations Manager'].join() ===
+      'Process improvement,Lean,Six Sigma,Supply chain,Inventory management,KPIs,Team leadership,Budgeting,Excel,Vendor management'
+);
 const NEW = [
   'it',
   'cyber',
@@ -257,7 +299,8 @@ const NEW = [
   ...PRC,
   ...PRD,
   ...PRE,
-  ...PRF
+  ...PRF,
+  ...PRG1
 ];
 const cols = Object.values(PCI).map(x => x[0].toLowerCase());
 check(
@@ -288,7 +331,7 @@ for (const c of Object.keys(CATS)) {
   );
 }
 
-// PR B, PR C, PR D, PR E and PR F roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
+// PR B to PR G1 roles: exactly the role structure (Fresher 10, Junior 19, Senior 19).
 for (const c of [
   'cloudadmin',
   'cloudarch',
@@ -304,7 +347,8 @@ for (const c of [
   ...PRC,
   ...PRD,
   ...PRE,
-  ...PRF
+  ...PRF,
+  ...PRG1
 ])
   check(
     `${c}: 10 / 19 / 19 questions`,
