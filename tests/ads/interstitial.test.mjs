@@ -332,11 +332,36 @@ async function freshAds() {
       space === 0
   );
 
+  // Consent request throws (offline / UMP error): consent is unknown, so no ads this launch.
   m.reset();
   m.state.consent = 'throw';
   ads = await freshAds();
-  const ok = await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
-  check('E7 no network for consent: no crash, SDK still starts (Google decides)', ok === true && m.calls.some(c => c.startsWith('init:')));
+  space = -1;
+  const ok = await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: h => (space = h) });
+  await advance(10 * 60_000);
+  now += INTERSTITIAL_COOLDOWN_MS + MIN_LAUNCH;
+  const shown = await ads.showInterstitialAtBreak('mock-finished');
+  check(
+    'E7 consent request throws: no crash, no SDK start, no banner, no interstitial, slot collapsed',
+    ok === false &&
+      shown === false &&
+      !m.calls.some(c => c.startsWith('init:')) &&
+      !m.calls.includes('prepare') &&
+      !m.calls.some(c => c.startsWith('showBanner')) &&
+      !m.calls.includes('show') &&
+      space === 0 &&
+      ads.getAdsDebugState().consent.canRequestAds === false &&
+      ads.getAdsDebugState().consent.error !== null
+  );
+
+  // Next launch (fresh module): consent answers, so ads start normally.
+  m.reset();
+  ads = await freshAds();
+  const again = await ads.initializeAdMob({ layout: () => ({ headerBottom: 74, safeTop: 0 }), onSpace: () => {} });
+  check(
+    'E8 next launch asks for consent again and starts ads',
+    again === true && m.calls.some(c => c.startsWith('consent:')) && m.calls.some(c => c.startsWith('init:'))
+  );
 }
 
 // ---- Scenario H: never during mic recording; retry cap
