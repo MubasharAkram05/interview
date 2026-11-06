@@ -251,6 +251,32 @@ check('System Administrator profile in Software Developer: the sheet opens', awa
 await p.click('#psSkip');
 await wait(400);
 check('profiles changed only by the test role switches', typeof prof0 === 'string');
+// PR F families: Design (Graphic Designer and Motion Graphics Designer too), Video and Animation, Writing.
+await asProfile('UI/UX Designer');
+await open('uxresearch');
+check('UI/UX profile in UX Researcher: no sheet (Design family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('video');
+check('UI/UX profile in Video Editor: the sheet opens', await sheetOpen());
+await p.fill('#psSkills', 'Premiere Pro, Color correction');
+await p.click('#psUse');
+await wait(400);
+const ux = JSON.parse((await storage()).profiles)['Sara Ahmed'];
+check('sheet values never written to the profile', ux.role === 'UI/UX Designer' && !/Premiere Pro|Color correction/.test(JSON.stringify(ux)));
+await asProfile('Graphic Designer');
+await open('productdesign');
+check('Graphic Designer profile in Product Designer: no sheet (Design family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await asProfile('Motion Graphics Designer');
+await open('anim3d');
+check('Motion Graphics profile in 3D Animator: no sheet (Video and Animation family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('uiux');
+check('Motion Graphics profile in UI/UX Design: no sheet (Design family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await asProfile('Content Writer');
+await open('copywriter');
+check('Content Writer profile in Copywriter: no sheet (Writing family)', !(await sheetOpen()) && (await p.isVisible('#practice')));
+await open('marketing');
+check('Content Writer profile in Marketing: the sheet opens', await sheetOpen());
+await p.click('#psSkip');
+await wait(400);
 
 check('no page errors', errors.length === 0, errors.join(' | '));
 await b.close();

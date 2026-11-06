@@ -65,7 +65,7 @@ check(
   `every type in exactly one parent (${Object.keys(CATS).length} types)`,
   Object.keys(CATS).every(c => kids.filter(k => k === c).length === 1)
 );
-check('73 types, HR Questions removed', Object.keys(CATS).length === 73 && !CATS.hrq);
+check('83 types, HR Questions removed', Object.keys(CATS).length === 83 && !CATS.hrq);
 const vis = visibleParents();
 check('parents with no children are hidden', vis.every(p => childrenOf(p).length) && PARENTS.filter(p => !childrenOf(p).length).every(p => !vis.includes(p)));
 check('General Interview is first', vis[0].id === 'general');
@@ -89,6 +89,9 @@ check(
       'Testing and QA': ['qa', 'autotest'],
       'Business and Product': ['ba', 'pm', 'po'],
       'Graphic Design': ['graphic'],
+      'UI/UX Design': ['uiux', 'uxresearch', 'productdesign'],
+      'Video and Animation': ['video', 'motion', 'anim2d', 'anim3d'],
+      'Content and Writing': ['contentwriter', 'techwriter', 'copywriter'],
       'Human Resources': ['hr'],
       'Management and Operations': ['ops'],
       'Finance and Banking': ['accounting', 'finance'],
@@ -124,7 +127,7 @@ check(
 check(
   'tile names: the parent names (shortened only where a third line would be needed)',
   vis.map(tileLabel).join('|') ===
-    'General Interview|Software Development|Web Development|Mobile App Development|Game Development|Database|Data and Analytics|AI and ML|Cloud|DevOps|Cyber Security|IT and Networking|System Administrator|Testing and QA|Business and Product|Graphic Design|Human Resources|Operations Management|Finance and Banking|Marketing|Sales and Retail|Customer Service|Embedded Electronics|Civil and Construction|Mechanical and Industrial|Hospitality|Education',
+    'General Interview|Software Development|Web Development|Mobile App Development|Game Development|Database|Data and Analytics|AI and ML|Cloud|DevOps|Cyber Security|IT and Networking|System Administrator|Testing and QA|Business and Product|Graphic Design|UI/UX Design|Video and Animation|Content and Writing|Human Resources|Operations Management|Finance and Banking|Marketing|Sales and Retail|Customer Service|Embedded Electronics|Civil and Construction|Mechanical and Industrial|Hospitality|Education',
   vis.map(tileLabel).join('|')
 );
 
@@ -226,6 +229,34 @@ check(
       .map(k => k.label)
       .join() === 'System Administrator'
 );
+check(
+  'search: PR F roles by keyword (Figma, Premiere Pro, After Effects, Lottie, Toon Boom, Maya, Markdown, SEO, copywriting)',
+  found('figma').join() === 'uiux' &&
+    found('premiere pro').join() === 'video' &&
+    found('davinci resolve').join() === 'video' &&
+    found('after effects').join() === 'motion' &&
+    found('lottie').join() === 'motion' &&
+    found('toon boom').join() === 'anim2d' &&
+    found('maya').join() === 'anim3d' &&
+    found('motion capture').join() === 'anim3d' &&
+    found('markdown').join() === 'techwriter' &&
+    found('api docs').join() === 'techwriter' &&
+    found('copywriting').join() === 'copywriter' &&
+    found('seo').includes('contentwriter') &&
+    found('user research').includes('uxresearch')
+);
+check(
+  'search: no child keyword on the PR F parents (figma, ux, editor, motion, copywriting)',
+  !['figma', 'ux', 'editor', 'motion', 'copywriting'].some(k => ['uiux', 'video', 'content'].some(id => PARENTS.find(p => p.id === id).keywords.includes(k)))
+);
+check(
+  'UI/UX Design 3, Video and Animation 4, Content and Writing 3; UI/UX first child named like the parent; Graphic Design still one type',
+  ['uiux', 'video', 'content', 'graphic'].map(id => childrenOf(PARENTS.find(p => p.id === id)).length).join() === '3,4,3,1' &&
+    displayLabel('uiux') === 'UI/UX Design' &&
+    parentOf('anim3d').id === 'video' &&
+    parentOf('copywriter').id === 'content' &&
+    parentOf('graphic').id === 'graphic'
+);
 check('search: a parent label keeps all its children (Database)', found('database').join() === 'dbgen,sql,dba,etl,nosql');
 check('search by keyword (call centre)', found('call centre').join() === 'customer');
 check('search by skill keyword (AWS)', found('aws').includes('cloud'));
@@ -255,7 +286,7 @@ check(
   'family map is the config object',
   RESOLVER_FAMILIES === FAMILIES &&
     Object.keys(FAMILIES).join() ===
-      'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product'
+      'Software,Cloud and DevOps,Security,Infra,Data and Analytics,AI and ML,Database,Web,Mobile,Game,Testing,Business and Product,Design,Video and Animation,Writing'
 );
 check('Software Engineer still matches Java (family)', roleMatches({ roleKey: 'Software Engineer' }, 'java'));
 check(
