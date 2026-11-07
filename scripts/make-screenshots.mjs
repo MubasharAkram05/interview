@@ -1,5 +1,5 @@
-// Play Store phone screenshots from the release web build, at a real phone's width: 412 CSS px
-// at 1080/412 = 2.621x, so every PNG is 1080 px wide, with a fictional profile ("Alex",
+// Play Store phone screenshots from the release web build, at a real phone's width: 393 CSS px
+// at 1080/393 = 2.748x, so every PNG is 1080 px wide, with a fictional profile ("Alex",
 // Software Engineer), never real personal data. Two sets, app UI only (no status bar):
 //   store-assets/screenshots/1-home.png ... 6-profile.png         1080x1920 (9:16)
 //   store-assets/screenshots-tall/1-home.png ... 6-profile.png    1080x2160 (2:1, the Play maximum)
@@ -50,11 +50,11 @@ function cropPngHeight(png, rows) {
 const URL = process.env.UI_URL || 'http://localhost:4173/';
 const TALL = process.argv.includes('--tall');
 const OUT = TALL ? 'store-assets/screenshots-tall' : 'store-assets/screenshots';
-// 412 CSS px wide at 2.621x = 1080 px. Output height: 1920 px = 732.44 CSS px, which is no
-// whole number, so the page is 733 px tall (1921 px) and the bottom pixel row (empty space under
-// the bottom nav) is cut from the PNG; nothing is stretched. The tall set is 824 CSS px = exactly
+// 393 CSS px wide at 2.748x = 1080 px. Output height: 1920 px = 698.67 CSS px, which is no
+// whole number, so the page is 699 px tall (1921 px) and the bottom pixel row (empty space under
+// the bottom nav) is cut from the PNG; nothing is stretched. The tall set is 786 CSS px = exactly
 // 2160 px, nothing cut.
-const W = 412;
+const W = 393;
 const SCALE = 1080 / W;
 const OUT_H = TALL ? 2160 : 1920;
 const H = Math.ceil(OUT_H / SCALE - 1e-9);
