@@ -1,5 +1,5 @@
 // Play Store phone screenshots from the release web build, 1080x1920 (360x640 at 3x), with a
-// fictional profile ("Sara Ahmed"), never real personal data:
+// fictional profile ("Alex", Software Engineer), never real personal data:
 //   store-assets/screenshots/1-home.png ... 6-profile.png
 // Run: npm run build && npx vite preview --port 4173 &   then  npm run store:screens
 // The mic button and voice are native (Android only), so the browser hides them. On the Mock
@@ -31,7 +31,7 @@ await p.evaluate(() => {
     ])
   );
   const me = {
-    name: 'Sara Ahmed',
+    name: 'Alex',
     role: 'Software Engineer',
     roleKey: 'Software Engineer',
     edu: 'BS Computer Science',
@@ -40,11 +40,11 @@ await p.evaluate(() => {
     exp: 'fresher',
     skillTags: ['JavaScript', 'React', 'SQL'],
     skills: 'JavaScript, React, SQL',
-    words: ['Sara', 'Ahmed', 'Lahore'],
+    words: ['Alex', 'Lahore'],
     setup: 1
   };
-  localStorage.setItem('is_profiles', JSON.stringify({ 'Sara Ahmed': me }));
-  localStorage.setItem('is_active', JSON.stringify('Sara Ahmed'));
+  localStorage.setItem('is_profiles', JSON.stringify({ Alex: me }));
+  localStorage.setItem('is_active', JSON.stringify('Alex'));
 });
 await p.addInitScript(() => {
   window.__skipIntro = true;
@@ -83,11 +83,26 @@ const shot = async (name, wait = 800) => {
   console.log(`Wrote ${OUT}/${name}.png`);
 };
 
+// Home: scroll so the level tabs, search and the category grid fill the screen.
+await p.evaluate(() => {
+  const g = document.getElementById('hSeg');
+  const m = document.getElementById('main') || document.scrollingElement;
+  const top = g.getBoundingClientRect().top - 72;
+  m.scrollBy(0, top);
+  window.scrollBy(0, top);
+});
 await shot('1-home');
+await p.evaluate(() => {
+  (document.getElementById('main') || document.scrollingElement).scrollTop = 0;
+  window.scrollTo(0, 0);
+});
 
 await p.evaluate(() => window.startPractice());
 await p.waitForTimeout(500);
-await p.click('#pPath .pt[data-c="software"]');
+// The grid shows parent tiles: open Software Development, then pick Software Developer in its list.
+await p.click('#pPath .cp[data-p="software"]');
+await p.waitForTimeout(300);
+await p.click('#pPath-pop [data-c="software"]');
 // The question and sample answer type in letter by letter (.c gets .in when shown).
 await p.waitForFunction(
   () => {
@@ -100,18 +115,22 @@ await p.waitForFunction(
 await shot('2-practice');
 
 await p.evaluate(() => window.startMock());
-await shot('3-mock-setup');
-
-await p.click('#mGrid .cp[data-p="software"]'); // open the Software Development group
-await p.waitForTimeout(300);
-await p.click('#mGrid [data-c="software"]');
+await p.waitForTimeout(600);
+await p.click('#mGrid .cp[data-p="software"]'); // Mock setup with the Software Development list open
+await shot('3-mock-setup', 1000);
+await p.click('#mGrid-pop [data-c="software"]');
 await p.waitForTimeout(1200);
 const showPhoneMic = () =>
   p.evaluate(() => {
     document.getElementById('mic').classList.remove('hidden');
     document.getElementById('micSt').textContent = '';
   });
-await answerMock(24); // an answer in progress: said words dark, the rest still grey
+// An answer in progress: said words dark, the rest still grey. 23 words ends at "Science"; word 24
+// ("and") would also match a later "and". Then show the box from its first line.
+await answerMock(23);
+await p.evaluate(() => {
+  document.getElementById('ansBox').scrollTop = 0;
+});
 await showPhoneMic();
 await shot('4-mock-interview');
 
