@@ -1,6 +1,6 @@
 {
   "name": "interview-simulator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Interview Simulator Android App with Capacitor and AdMob",
   "type": "module",
   "scripts": {
