@@ -27,7 +27,7 @@
     "test": "npm run test:ads && npm run test:home && npm run test:voice && npm run test:vocab && npm run test:practice && npm run test:storage",
     "test:smoke": "node scripts/smoke.mjs",
     "test:coverage": "c8 --include=\"src/**\" --exclude=\"src/data/**\" --reporter=text-summary npm test",
-    "test:ui": "node tests/ui/home-ui.mjs && node tests/ui/voice-ui.mjs && node tests/ui/regress-ui.mjs && node tests/ui/personalize-ui.mjs && node tests/ui/migrate-ui.mjs && node tests/ui/parents-ui.mjs"
+    "test:ui": "node tests/ui/home-ui.mjs && node tests/ui/voice-ui.mjs && node tests/ui/regress-ui.mjs && node tests/ui/personalize-ui.mjs && node tests/ui/migrate-ui.mjs && node tests/ui/parents-ui.mjs && node tests/ui/adslot-ui.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.2.1",

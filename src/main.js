@@ -19,6 +19,7 @@ import {
   skipInterstitialBreak,
   setBannerSuppressed,
   requestBannerRelayout,
+  notifyScreenChange,
   needsPrivacyOptions,
   showPrivacyOptions
 } from './services/admob.js';
@@ -345,10 +346,57 @@ function bannerLayout() {
   };
 }
 
-// Decide the banner space ONCE, at first paint (before storage and consent), and never change it
-// this session: the page does not jump when the ad loads, fails, comes late or is retried.
-// Online at launch: the space is kept even with no ad. Offline at launch: 0 and no banner.
+// Decide the banner space at first paint (before storage and consent), without animation.
+// Online at launch: the space is kept even when the ad is slow, fails or has no fill.
+// Offline at launch: 0. After that admob.js changes it only with the network (applyAdSlot).
 setAdSpace(decideBannerSlot());
+
+// Open or close the banner space. Animated (350 ms ease-out, .ad-anim in style.css) unless the
+// user prefers reduced motion or the screen has no slot (.no-ad). Settles when it has finished.
+function applyAdSlot(h, { animate } = {}) {
+  return new Promise(done => {
+    const root = document.documentElement;
+    const slot = $('adSlot');
+    if (!animate || !slot || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      root.classList.remove('ad-anim');
+      setAdSpace(h);
+      done();
+      return;
+    }
+    let timer = 0;
+    const end = e => {
+      if (e && e.propertyName !== 'height') return;
+      clearTimeout(timer);
+      slot.removeEventListener('transitionend', end);
+      root.classList.remove('ad-anim');
+      done();
+    };
+    slot.addEventListener('transitionend', end);
+    timer = setTimeout(end, 600); // no transitionend (same height, hidden page)
+    root.classList.add('ad-anim');
+    setAdSpace(h);
+  });
+}
+
+// When the user last touched, typed or scrolled (the banner space opens only when idle).
+let lastUserAct = 0;
+['pointerdown', 'touchstart', 'wheel', 'keydown', 'scroll'].forEach(e =>
+  document.addEventListener(e, () => (lastUserAct = Date.now()), { capture: true, passive: true })
+);
+
+// Is it safe to open or close the banner space now? Never while the mic records, or while a
+// Mock answer is in progress (words said or typed for this question, or the answer box in use).
+function adSlotQuiet() {
+  const m = $('main');
+  const scrollable = m && m.scrollHeight - m.clientHeight > 2;
+  const answering = cs === 'interview' && ((mHeard[idx] || []).length > 0 || (document.activeElement && document.activeElement.id === 'ansBox'));
+  return {
+    idleMs: Date.now() - lastUserAct,
+    atBottom: !!scrollable && m.scrollTop + m.clientHeight >= m.scrollHeight - 2,
+    busy: mMicOn || pMicOn || isListening() || voiceState() !== 'idle' || answering,
+    hidden: document.documentElement.classList.contains('no-ad')
+  };
+}
 
 // Re-measure the banner position once the layout has settled: web fonts, Capacitor injecting the
 // --safe-area-inset-* variables (a style change on <html>), and late WebView size changes.
@@ -474,6 +522,7 @@ function render(id) {
   $('nav').classList.toggle('hidden', id === 'interview' || id === 'practice' || id === 'addq' || id === 'setup');
   $('main').scrollTop = 0;
   renderIcons();
+  notifyScreenChange(); // a waiting consent form or banner space change may run now
 }
 
 function show(id, replace = false) {
@@ -3130,7 +3179,7 @@ async function initAppMain() {
   // Consent (EEA/UK) first, then AdMob creates ONE banner under the header for the whole session.
   // Never an interstitial while the mic records (or is still finishing a recording).
   setInterstitialBlocker(() => mMicOn || pMicOn || isListening() || voiceState() !== 'idle');
-  initializeAdMob({ layout: bannerLayout });
+  initializeAdMob({ layout: bannerLayout, slot: { applySlot: applyAdSlot, quiet: adSlotQuiet } });
   watchBannerLayout();
   watchHeaderInset();
 

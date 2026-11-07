@@ -8,12 +8,22 @@ import { nativeAdLayout } from './native-info.js';
 /**
  * AdMob with Google UMP consent (EEA/UK).
  *
- * Banner: ONE standard 320x50 banner, created once and kept for the whole session,
- * placed by the native SDK at TOP_CENTER just under the app header. The web page keeps a
- * matching spacer (#adSlot) under the header, so the banner never covers any content.
- * The spacer height is decided once per launch (decideBannerSlot) and never changes, so the
- * page never jumps when the ad loads, fails, comes late or is retried.
- * After it loads, the real native position is measured: a banner outside its slot is hidden.
+ * Banner: ONE standard 320x50 banner, placed by the native SDK at TOP_CENTER just under the
+ * app header. The web page keeps a matching spacer (#adSlot) under the header, so the banner
+ * never covers any content. After it loads, the real native position is measured: a banner
+ * outside its slot is hidden.
+ *
+ * The slot (spacer) follows the network, never the ad:
+ * - Online: the slot is reserved and stays reserved while the ad loads, is slow, has no fill,
+ *   is retried or comes late. An ad never opens or closes the slot.
+ * - Offline (no network at all, confirmed after 1 s): the banner is hidden at once and the slot
+ *   closes smoothly (350 ms ease-out).
+ * - Network back: if ads are off because the consent check or the SDK start failed, both run
+ *   again (same UMP calls; a consent form waits for the next screen change). The banner loads
+ *   hidden. The slot opens smoothly only when the user is idle (no touch or scroll for 1.5 s and
+ *   not scrolled to the very bottom) or at a screen change, and the banner is shown only 150 ms
+ *   after the slot has finished opening, so a tap during the slide can never hit the ad.
+ * - The slot never opens or closes while the page is busy (mic recording, Mock answer in progress).
  *
  * Every call is wrapped so a failed or offline ad never blocks or crashes the app.
  */
@@ -63,10 +73,35 @@ const suppressed = new Set(); // reasons the banner is hidden right now (dialog,
 // Callbacks from the page
 let getLayout = () => ({ headerBottom: 0, safeTop: 0 }); // CSS px
 
-// Banner slot for this launch, decided once at first paint (decideBannerSlot).
+// Banner slot. First paint decides the start state (decideBannerSlot). After that it changes
+// only with the network (see the top of this file), never because of the ad itself.
+const SLOT_REVEAL_DELAY_MS = 150; // banner shown this long after the slot has finished opening
+const SLOT_IDLE_MS = 1500; // the slot opens only after this long without a touch or scroll
+const SLOT_POLL_MS = 250;
+const SLOT_ANIM_SAFETY_MS = 1000; // an animation that never reports its end counts as done
+const OFFLINE_CONFIRM_MS = 1000; // "offline" must still be true after this long (no flapping)
 let slotDecided = false;
-let slotHeight = 0; // CSS px of #adSlot: gap + banner + gap, or 0
-let bannerSession = false; // false = no banner at all this session (offline at launch)
+let slotFull = 0; // CSS px of an open slot: gap + banner + gap
+let slotHeight = 0; // CSS px of #adSlot now: slotFull or 0
+let bannerSession = false; // native app with the banner enabled
+let slotWant = null; // pending change: true (open), false (close) or null (none)
+let slotMoving = false; // an open / close animation is running
+let slotTimer = null;
+let revealTimer = null;
+let online = true;
+let offlineTimer = null;
+let starting = false; // the consent check and the SDK start are running
+let adsOff = null; // why ads are off: 'consent-error', 'refused', 'init-failed' or null
+let listenersAdded = false;
+let layoutWatched = false;
+let netWatched = false;
+let screenWaiters = []; // a deferred consent form waits here for the next screen change
+// The page applies the slot height (applySlot returns a promise that settles when the
+// animation has ended) and says whether the user is busy or idle (quiet).
+let page = {
+  applySlot: () => Promise.resolve(),
+  quiet: () => ({ idleMs: Infinity, atBottom: false, busy: false, hidden: false })
+};
 
 const native = () => Capacitor.isNativePlatform();
 
@@ -78,52 +113,109 @@ export function setInterstitialBlocker(fn) {
 }
 
 /**
- * Decide the banner slot ONCE per launch, at first paint, and return its height in CSS px.
- * Native build with the banner on and online at launch: gap + 50 + gap for the whole session,
- * whatever the ad does later (loads, fails, no fill, late, retried, offline, no consent).
- * Offline at launch: 0, and no banner this session even if the internet comes back.
- * Later calls return the same value. The next launch decides again.
+ * Decide the banner slot at first paint (no animation) and return its height in CSS px.
+ * Native build with the banner on and online at launch: gap + 50 + gap, kept whatever the ad
+ * does (loads, fails, no fill, late, retried). Offline at launch: 0; it opens later when the
+ * network comes back and ads can run. Later calls return the current height.
  */
-export function decideBannerSlot(online = typeof navigator === 'undefined' || navigator.onLine !== false) {
+export function decideBannerSlot(isOnline = typeof navigator === 'undefined' || navigator.onLine !== false) {
   if (slotDecided) return slotHeight;
   slotDecided = true;
-  bannerSession = native() && ADS_CONFIG.enableBanner && online;
-  slotHeight = bannerSession ? ADS_CONFIG.bannerGapTop + ADS_CONFIG.bannerReserveHeight + ADS_CONFIG.bannerGapBottom : 0;
+  online = isOnline;
+  bannerSession = native() && ADS_CONFIG.enableBanner;
+  slotFull = bannerSession ? ADS_CONFIG.bannerGapTop + ADS_CONFIG.bannerReserveHeight + ADS_CONFIG.bannerGapBottom : 0;
+  slotHeight = online ? slotFull : 0;
+  // A closed slot has no banner: it stays hidden until the slot has opened.
+  if (bannerSession && !slotHeight) suppressed.add('slot');
   return slotHeight;
 }
 
 /**
  * Ask for consent (only shows a form where the law needs it), then start the SDK and
- * the banner. No ad request is made before consent is resolved.
+ * the banner. No ad request is made before consent is resolved. If this fails because the
+ * phone is offline (or UMP / the SDK failed), it runs again when the network comes back.
  */
-export async function initializeAdMob({ layout } = {}) {
+export async function initializeAdMob({ layout, slot } = {}) {
   if (!native()) return false;
   if (layout) getLayout = layout;
+  if (slot) page = { ...page, ...slot };
   decideBannerSlot(); // normally already decided at first paint
+  watchNetwork();
+  return startAds({ deferForm: false });
+}
 
+/**
+ * The page calls this on every screen change: a waiting consent form may open now, and a
+ * waiting slot change may run now (the new screen starts at the top, so nothing moves under
+ * the user's finger).
+ */
+export function notifyScreenChange() {
+  const w = screenWaiters;
+  screenWaiters = [];
+  w.forEach(f => f());
+  pumpSlot(true);
+}
+
+const nextScreenChange = () => new Promise(r => screenWaiters.push(r));
+
+// The consent check and the SDK start. At launch as before; again (deferForm: true) when the
+// network comes back while ads are off. Same UMP calls in both cases; only on a re-run does a
+// consent form wait for the next screen change.
+async function startAds({ deferForm }) {
+  if (ready || starting) return ready;
+  starting = true;
+  try {
+    const ok = await consentAndInit(deferForm);
+    if (!ok) return false;
+  } finally {
+    starting = false;
+  }
+  ready = true;
+  adsOff = null;
+  adsLog('init ok');
+  addListeners();
+  watchLayout();
+  preloadInterstitial();
+  if (online) requestSlot(true);
+  startBanner();
+  return true;
+}
+
+async function consentAndInit(deferForm) {
   let canRequestAds = true;
+  let failed = false;
   try {
     let info = await AdMob.requestConsentInfo({ tagForUnderAgeOfConsent: ADS_CONFIG.tagForUnderAgeOfConsent });
     consent.status = info.status;
     if (info.isConsentFormAvailable && info.status === AdmobConsentStatus.REQUIRED) {
       consent.formShown = true;
+      if (deferForm) {
+        // Never while the user is using a screen: the form opens at the next screen change.
+        consent.formDeferred = true;
+        adsLog('consent form waits for the next screen change');
+        await nextScreenChange();
+        consent.formDeferred = false;
+      }
       info = await AdMob.showConsentForm();
       consent.status = info.status;
     }
     canRequestAds = info.canRequestAds !== false;
     privacyOptionsRequired = info.privacyOptionsRequirementStatus === 'REQUIRED';
   } catch (e) {
-    // Offline or UMP error: consent is unknown, so no ads this launch (no SDK start, no banner,
-    // no interstitial). The next launch asks again.
+    // Offline or UMP error: consent is unknown, so no ads for now (no SDK start, no banner, no
+    // interstitial). It is asked again when the network comes back (and at the next launch).
     consent.error = 'consent request failed (offline or UMP error)';
     canRequestAds = false;
+    failed = true;
   }
   consent.canRequestAds = canRequestAds;
   adsLog('consent', 'status=' + consent.status, 'canRequestAds=' + canRequestAds);
   if (!canRequestAds) {
+    adsOff = failed ? 'consent-error' : 'refused';
     adsLog('skipped: consent does not allow ads');
     return false;
   }
+  consent.error = null;
 
   try {
     await AdMob.initialize({
@@ -132,15 +224,10 @@ export async function initializeAdMob({ layout } = {}) {
       tagForUnderAgeOfConsent: ADS_CONFIG.tagForUnderAgeOfConsent
     });
   } catch {
+    adsOff = 'init-failed';
     adsLog('init failed');
     return false;
   }
-  ready = true;
-  adsLog('init ok');
-  addListeners();
-  watchLayoutAndNetwork();
-  preloadInterstitial();
-  startBanner();
   return true;
 }
 
@@ -149,6 +236,8 @@ function errCode(err) {
 }
 
 function addListeners() {
+  if (listenersAdded) return;
+  listenersAdded = true;
   try {
     AdMob.addListener(BannerAdPluginEvents.SizeChanged, size => {
       // Only recorded: the slot never changes. hideBanner() reports height 0, so ignore that.
@@ -239,7 +328,10 @@ function bannerFailed(code) {
   }, wait);
 }
 
-/** Create the one banner (only when consent allows, the SDK is ready and the phone is online). */
+/**
+ * Create the one banner (only when consent allows, the SDK is ready and the phone is online).
+ * While the slot is closed or opening, the banner loads hidden ('slot' in suppressed).
+ */
 async function startBanner() {
   if (!ready || !bannerSession || bannerState === 'requested' || bannerState === 'loaded') return;
   if (!(await isOnline())) {
@@ -353,20 +445,13 @@ export function requestBannerRelayout() {
   relayoutTimer = setTimeout(relayoutBanner, 300);
 }
 
-function watchLayoutAndNetwork() {
+function watchLayout() {
+  if (layoutWatched) return;
+  layoutWatched = true;
   window.addEventListener('resize', requestBannerRelayout);
   window.addEventListener('orientationchange', requestBannerRelayout);
   try {
     if (window.visualViewport) window.visualViewport.addEventListener('resize', requestBannerRelayout);
-  } catch {
-    // ignore
-  }
-  try {
-    Network.addListener('networkStatusChange', st => {
-      adsLog('network', st.connected ? 'online' : 'offline');
-      if (st.connected && bannerState === 'failed') startBanner();
-      if (st.connected && !interstitialReady && !interstitialLoading) preloadInterstitial();
-    });
   } catch {
     // ignore
   }
@@ -382,6 +467,119 @@ function watchLayoutAndNetwork() {
       }, 1500);
     }
   });
+}
+
+// ---------------------------------------------------------------- network and slot
+
+// Watched from the start (before consent), so ads can start again when the network comes back.
+function watchNetwork() {
+  if (netWatched) return;
+  netWatched = true;
+  try {
+    Network.addListener('networkStatusChange', st => onNetwork(!!(st && st.connected)));
+  } catch {
+    // ignore
+  }
+}
+
+function onNetwork(connected) {
+  adsLog('network', connected ? 'online' : 'offline');
+  clearTimeout(offlineTimer);
+  if (!connected) {
+    // Wait a moment: a short drop (switching Wi-Fi to mobile data) must not close the slot.
+    offlineTimer = setTimeout(async () => {
+      if (!(await isOnline())) wentOffline();
+    }, OFFLINE_CONFIRM_MS);
+    return;
+  }
+  online = true;
+  if (!ready) {
+    // Ads are off because the phone was offline (or UMP / the SDK failed): try again now.
+    // A user who refused consent is not asked again before the next launch.
+    if (adsOff === 'consent-error' || adsOff === 'init-failed') startAds({ deferForm: true });
+    return;
+  }
+  requestSlot(true);
+  if (bannerState === 'failed' || bannerState === 'off') startBanner();
+  if (!interstitialReady && !interstitialLoading) preloadInterstitial();
+}
+
+function wentOffline() {
+  if (!online) return;
+  online = false;
+  setBannerSuppressed('slot', true); // hidden at once, before the slot starts to close
+  requestSlot(false);
+}
+
+function requestSlot(open) {
+  if (!bannerSession) return;
+  slotWant = open;
+  if (!open) clearTimeout(revealTimer);
+  pumpSlot(false);
+}
+
+/**
+ * Run a waiting slot change when it is safe:
+ * - never while the page is busy (mic recording, Mock answer in progress);
+ * - closing (offline): as soon as the page is not busy (the banner is already hidden);
+ * - opening: at a screen change, or when the user has not touched or scrolled for 1.5 s and is
+ *   not scrolled to the very bottom;
+ * - on a screen without a slot (.no-ad forms) at once and without animation (nothing moves).
+ */
+function pumpSlot(atScreenChange) {
+  clearTimeout(slotTimer);
+  if (slotWant === null || slotMoving) return;
+  const open = slotWant;
+  if ((open ? slotFull : 0) === slotHeight) {
+    slotWant = null;
+    if (open) scheduleReveal();
+    return;
+  }
+  let q = { idleMs: Infinity, atBottom: false, busy: false, hidden: false };
+  try {
+    q = { ...q, ...page.quiet() };
+  } catch {
+    // keep defaults
+  }
+  const safe = !q.busy && (q.hidden || !open || atScreenChange || (q.idleMs >= SLOT_IDLE_MS && !q.atBottom));
+  if (!safe) {
+    slotTimer = setTimeout(() => pumpSlot(false), SLOT_POLL_MS);
+    return;
+  }
+  moveSlot(open, !q.hidden);
+}
+
+async function moveSlot(open, animate) {
+  slotWant = null;
+  slotMoving = true;
+  if (!open) setBannerSuppressed('slot', true);
+  slotHeight = open ? slotFull : 0;
+  adsLog('slot', open ? 'opens' : 'closes', animate ? '(animated)' : '');
+  let done;
+  try {
+    done = page.applySlot(slotHeight, { animate });
+  } catch {
+    done = null;
+  }
+  await Promise.race([Promise.resolve(done).catch(() => {}), new Promise(r => setTimeout(r, SLOT_ANIM_SAFETY_MS))]);
+  slotMoving = false;
+  if (slotWant !== null) {
+    pumpSlot(false); // the network changed again during the animation
+    return;
+  }
+  if (open) scheduleReveal();
+}
+
+// Show the banner only once the slot is open and has stopped moving, plus a short pause.
+function scheduleReveal() {
+  clearTimeout(revealTimer);
+  if (!suppressed.has('slot')) return;
+  revealTimer = setTimeout(() => {
+    if (online && slotHeight === slotFull && !slotMoving && slotWant === null) {
+      setBannerSuppressed('slot', false);
+      adsLog('banner revealed after the slot opened');
+    }
+  }, SLOT_REVEAL_DELAY_MS);
 }
 
 /**
@@ -617,6 +815,11 @@ export function getAdsDebugState() {
       state: bannerState,
       session: bannerSession,
       slot: slotHeight,
+      slotFull,
+      slotPending: slotWant,
+      slotMoving,
+      online,
+      adsOff,
       errorCode: bstats.errorCode,
       height: bstats.height,
       marginTop: bannerMargin,
