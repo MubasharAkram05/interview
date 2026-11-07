@@ -1,26 +1,69 @@
-// Play Store phone screenshots from the release web build, 1080x1920 (477x848 CSS px at 2.264x,
-// close to a real phone's scale; 360x640 at 3x looked zoomed in and cut Home short), with a
-// fictional profile ("Alex", Software Engineer), never real personal data:
-//   store-assets/screenshots/1-home.png ... 6-profile.png
+// Play Store phone screenshots from the release web build, at a real phone's width: 412 CSS px
+// at 1080/412 = 2.621x, so every PNG is 1080 px wide, with a fictional profile ("Alex",
+// Software Engineer), never real personal data. Two sets, app UI only (no status bar):
+//   store-assets/screenshots/1-home.png ... 6-profile.png         1080x1920 (9:16)
+//   store-assets/screenshots-tall/1-home.png ... 6-profile.png    1080x2160 (2:1, the Play maximum)
 // Run: npm run build && npx vite preview --port 4173 &   then  npm run store:screens
 // The mic button and voice are native (Android only), so the browser hides them. On the Mock
 // screen the script shows the mic button as it looks on a phone and types the answer instead.
 const { chromium } = await import('playwright').catch(() => import('/opt/node-tools/node_modules/playwright/index.mjs'));
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import zlib from 'node:zlib';
+
+/**
+ * Keep only the top `rows` pixel rows of an 8-bit RGB, non-interlaced PNG (what the browser
+ * writes). Each PNG row filter only uses the row above it, so dropping rows at the bottom needs
+ * no re-filtering: inflate, cut, deflate, new height in IHDR. The image stays RGB (no alpha).
+ */
+function cropPngHeight(png, rows) {
+  const chunks = [];
+  for (let o = 8; o < png.length;) {
+    const len = png.readUInt32BE(o);
+    chunks.push({ type: png.toString('latin1', o + 4, o + 8), data: png.subarray(o + 8, o + 8 + len) });
+    o += 12 + len;
+  }
+  const ihdr = Buffer.from(chunks[0].data);
+  const width = ihdr.readUInt32BE(0);
+  const height = ihdr.readUInt32BE(4);
+  if (ihdr[8] !== 8 || ihdr[9] !== 2 || ihdr[12] !== 0) throw new Error('expected an 8-bit RGB PNG');
+  if (height === rows) return png;
+  if (height < rows) throw new Error(`screenshot is ${height} px tall, needs ${rows}`);
+  const raw = zlib.inflateSync(Buffer.concat(chunks.filter(c => c.type === 'IDAT').map(c => c.data)));
+  ihdr.writeUInt32BE(rows, 4);
+  const chunk = (type, data) => {
+    const head = Buffer.alloc(8);
+    head.writeUInt32BE(data.length, 0);
+    head.write(type, 4, 'latin1');
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(zlib.crc32(Buffer.concat([Buffer.from(type, 'latin1'), data])) >>> 0, 0);
+    return Buffer.concat([head, data, crc]);
+  };
+  return Buffer.concat([
+    png.subarray(0, 8),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(raw.subarray(0, rows * (1 + width * 3)))),
+    chunk('IEND', Buffer.alloc(0))
+  ]);
+}
 
 const URL = process.env.UI_URL || 'http://localhost:4173/';
-const OUT = 'store-assets/screenshots';
+const TALL = process.argv.includes('--tall');
+const OUT = TALL ? 'store-assets/screenshots-tall' : 'store-assets/screenshots';
+// 412 CSS px wide at 2.621x = 1080 px. Output height: 1920 px = 732.44 CSS px, which is no
+// whole number, so the page is 733 px tall (1921 px) and the bottom pixel row (empty space under
+// the bottom nav) is cut from the PNG; nothing is stretched. The tall set is 824 CSS px = exactly
+// 2160 px, nothing cut.
+const W = 412;
+const SCALE = 1080 / W;
+const OUT_H = TALL ? 2160 : 1920;
+const H = Math.ceil(OUT_H / SCALE - 1e-9);
 
 fs.mkdirSync(OUT, { recursive: true });
 for (const f of fs.readdirSync(OUT)) if (f.endsWith('.png')) fs.rmSync(`${OUT}/${f}`);
 
 const b = await chromium.launch();
-// 477 x 848 is exactly 9:16 and full width (the app is at most 480 px wide, so a wider viewport
-// would show empty bands at the sides). Home shows the header, hero card, Question of the day,
-// level tabs, search and the top of the first row of tiles above the bottom nav.
-const W = 477;
-const H = 848;
-const p = await b.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1080 / W });
+const p = await b.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: SCALE });
 const errors = [];
 p.on('pageerror', e => errors.push(e.message));
 await p.goto(URL);
@@ -101,7 +144,7 @@ const settle = () =>
 const shot = async (name, wait = 800, { top = true } = {}) => {
   await p.waitForTimeout(wait);
   if (top) await settle();
-  await p.screenshot({ path: `${OUT}/${name}.png` });
+  fs.writeFileSync(`${OUT}/${name}.png`, cropPngHeight(await p.screenshot(), OUT_H));
   console.log(`Wrote ${OUT}/${name}.png`);
 };
 
@@ -162,4 +205,9 @@ await b.close();
 if (errors.length) {
   console.error('Page errors:', errors);
   process.exit(1);
+}
+// One run makes both sets: the 9:16 set, then the same steps again for the 2:1 set.
+if (!TALL) {
+  const r = spawnSync(process.execPath, [process.argv[1], '--tall'], { stdio: 'inherit' });
+  process.exit(r.status ?? 1);
 }
