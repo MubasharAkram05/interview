@@ -271,10 +271,15 @@ Use the `app-debug.apk` from the workflow first, then the release build from the
 3. Reopen: you are on the same screen and typed answers are still there.
 
 ### Ad failure case
-1. Airplane mode on, open app, go Home and Results. Check: no banner and no space under the header (offline at launch = no banner for this session), no freeze.
+1. Airplane mode on, open app, go Home and Results. Check: no banner and no space under the header, no freeze, the space never animates on first paint.
 2. Finish a mock interview offline. Check: results show, no ad, no error.
-3. Turn airplane mode off. The layout does not change and no banner appears in this session. Close and reopen the app online: the 68px space is there from the start and the test banner loads into it.
-3b. Online launch, then airplane mode on: the 68px space stays (no jump). Airplane mode off: the banner loads into the same space.
+3. Airplane mode off while on Home, then do not touch the screen. Check: after about 1.5 s the 68px space opens smoothly (about 350 ms), and the test banner appears only after the space has stopped moving. Interstitials work again later in the session (at the next break after the 10 minute gap).
+3a. Same, but keep scrolling or tapping: the space does not open while you use the screen. It opens when you stop for 1.5 s, or when you change screens (tab bar). If you are scrolled to the very bottom of a page, it waits until you scroll up or change screens.
+3b. Online launch, then airplane mode on: the banner disappears at once and the space closes smoothly (about 1 s later). Airplane mode off: the space opens again (idle or next screen change) and the banner comes back after it.
+3c. On the Mock interview question screen, start the mic (or say / type part of an answer), then turn airplane mode on or off: the space does not open or close until you stop the mic and move to the next question or another screen.
+3d. Slow network (Developer options or a weak signal), online launch: the 68px space is there from the start and never collapses while the ad is slow, has no fill or is retried (60 s, 2 min, 4 min, 8 min).
+3e. Quick drop (turn Wi-Fi off and mobile data takes over within a second): nothing changes.
+3f. Settings > Accessibility > Remove animations on: the space opens and closes at once, without a slide.
 4. Online: ONE banner sits right under the header on every screen (Home, Practice, Mock, Interview, Results, Profile, Add question, Privacy Policy). It never covers the header buttons, content, mic, text boxes or the bottom tab bar, and it does not reload or flicker when you change screens. It does not reload when you change screens.
 5. Open any dialog (for example delete a question, or tap an interview type on Home): the banner disappears while the dialog is open and comes back after.
 6. EEA/UK test (optional): the consent form shows once, with no banner on top of it. Profile > Privacy Policy shows "Ad privacy choices"; the banner hides while that form is open.

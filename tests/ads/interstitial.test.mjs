@@ -467,27 +467,35 @@ async function freshAds() {
   check('I10 failed load: no ad and no gap', !(await ads3.showInterstitialAtBreak('interview_finished')) && gapLeft(ads3) === 0);
 }
 
-// ---- Scenario S: the banner slot is decided once per launch and never changes
+// ---- Scenario S: online, the banner slot never changes because of the ad
+const LAYOUT = () => ({ headerBottom: 98, safeTop: 24 });
+const shows = () => m.calls.filter(c => c.startsWith('showBanner')).length;
+// One app launch: first paint decides the slot, then consent and the SDK start. The fake page
+// records every slot change and settles each animation after 350 ms.
+async function launch({ online = true, consent = null, formResult = null, initFails = false, quiet = {} } = {}) {
+  m.reset();
+  m.state.online = online;
+  m.state.consent = consent;
+  m.state.formResult = formResult;
+  m.state.initFails = initFails;
+  const ads = await freshAds();
+  const slot = ads.decideBannerSlot(online);
+  const applied = [];
+  const q = { idleMs: Infinity, atBottom: false, busy: false, hidden: false, ...quiet };
+  const page = {
+    applySlot: (h, o) => {
+      applied.push({ h, animate: o.animate, at: now, hidden: [...ads.getAdsDebugState().banner.hiddenFor] });
+      return new Promise(r => setTimeout(r, 350));
+    },
+    quiet: () => ({ ...q })
+  };
+  const started = await ads.initializeAdMob({ layout: LAYOUT, slot: page });
+  await tick();
+  // The slot stays what first paint decided while the network does not change.
+  const same = () => ads.getAdsDebugState().banner.slot === slot && applied.length === 0;
+  return { ads, slot, started, same, applied, q };
+}
 {
-  const LAYOUT = () => ({ headerBottom: 98, safeTop: 24 });
-  const shows = () => m.calls.filter(c => c.startsWith('showBanner')).length;
-  // One app launch: first paint decides the slot, then consent and the SDK start.
-  async function launch({ online = true, consent = null, formResult = null, initFails = false } = {}) {
-    m.reset();
-    m.state.online = online;
-    m.state.consent = consent;
-    m.state.formResult = formResult;
-    m.state.initFails = initFails;
-    const ads = await freshAds();
-    const slot = ads.decideBannerSlot(online);
-    let spaceCalls = 0;
-    const started = await ads.initializeAdMob({ layout: LAYOUT, onSpace: () => spaceCalls++ });
-    await tick();
-    // The slot stays what first paint decided: asking again (even with the other network state)
-    // gives the same height, and nothing ever asks the page to change it.
-    const same = () => ads.decideBannerSlot(!online) === slot && ads.getAdsDebugState().banner.slot === slot && spaceCalls === 0;
-    return { ads, slot, started, same };
-  }
   const inSlot = { found: true, visible: true, top: 108, height: 50, width: 320 };
 
   let L = await launch();
@@ -538,32 +546,195 @@ async function freshAds() {
   check('S10 SDK init failed: slot unchanged, no banner', L.started === false && shows() === 0 && L.same());
 
   L = await launch();
+  m.emit('bf', { code: 3 });
+  await advance(61000);
+  m.emit('bf', { code: 3 });
+  await advance(121000);
+  check('S11 online, many no fills and retries over 3 min: slot never changes', L.same() && shows() === 3);
+
+  L = await launch({ online: false });
+  check('S12 offline at launch: slot 0 at first paint, no animation, no banner', L.slot === 0 && L.applied.length === 0 && shows() === 0);
+}
+
+// ---- Scenario N: the slot follows the network (collapse offline, expand when back)
+{
+  const inSlot = { found: true, visible: true, top: 108, height: 50, width: 320 };
+  const hidden = L => L.ads.getAdsDebugState().banner.hiddenFor;
+
+  // Online launch, ad shown, then the phone goes offline.
+  let L = await launch();
+  m.state.adLayout = inSlot;
+  m.emit('bl');
+  await advance(400);
+  m.emitNetwork(false);
+  await advance(500);
+  check('N1 offline: nothing changes during the 1 s confirmation (no flapping)', L.applied.length === 0);
+  await advance(600);
+  check(
+    'N2 offline confirmed: banner hidden first, then the slot closes, animated',
+    hidden(L).includes('slot') && L.applied[0]?.h === 0 && L.applied[0].animate === true && L.applied[0].hidden.includes('slot')
+  );
+  await advance(400);
+  check('N3 closed slot: 0 px', L.ads.getAdsDebugState().banner.slot === 0);
+
+  // A short drop (offline then online within 1 s) changes nothing.
+  L = await launch();
+  m.emitNetwork(false);
+  await advance(400);
+  m.emitNetwork(true);
+  await advance(2000);
+  check('N4 a short network drop: slot never closes', L.applied.length === 0 && L.ads.getAdsDebugState().banner.slot === 68);
+
+  // Offline at launch, consent check fails (no network): ads off, slot 0.
+  L = await launch({ online: false, consent: 'throw' });
+  check(
+    'N5 offline at launch, consent check fails: ads off, slot 0',
+    L.started === false && L.ads.getAdsDebugState().banner.adsOff === 'consent-error' && L.slot === 0
+  );
+  m.state.consent = null;
+  const consentCalls = () => m.calls.filter(c => c.startsWith('consent:')).length;
+  const before = consentCalls();
+  L.q.idleMs = 0; // the user is using the screen
+  m.emitNetwork(true);
+  await tick();
+  await tick();
+  check('N6 network back: consent check and SDK start run again by themselves', consentCalls() === before + 1 && L.ads.getAdsDebugState().ready === true);
+  check('N7 ...banner requested again, loading hidden', shows() === 1 && hidden(L).includes('slot'));
+  check(
+    'N8 ...interstitial preloaded again',
+    m.calls.some(c => c.startsWith('prepareInterstitial') || c.startsWith('prepare'))
+  );
+  await advance(5000);
+  check('N9 user still active (touch or scroll in the last 1.5 s): slot does not open', L.applied.length === 0);
+  L.q.idleMs = 2000;
+  L.q.atBottom = true;
+  await advance(1000);
+  check('N10 idle but scrolled to the very bottom: slot still waits', L.applied.length === 0);
+  L.q.atBottom = false;
+  await advance(300);
+  check(
+    'N11 idle and not at the bottom: slot opens, animated, banner still hidden',
+    L.applied[0]?.h === 68 && L.applied[0].animate === true && hidden(L).includes('slot')
+  );
+  m.state.adLayout = inSlot;
+  m.emit('bl');
+  await advance(340);
+  check('N12 during the slide the banner stays hidden (even when loaded)', hidden(L).includes('slot') && !m.calls.includes('resumeBanner'));
+  await advance(100); // animation ended at 350 ms
+  check('N13 slide ended: banner still hidden for 150 ms', hidden(L).includes('slot'));
+  await advance(200);
+  check('N14 ...then shown', !hidden(L).includes('slot') && m.calls.includes('resumeBanner'));
+
+  // Expansion at a screen change, even while the user was active.
+  L = await launch({ online: false, quiet: { idleMs: 0 } });
+  m.emitNetwork(true);
+  await advance(3000);
+  check('N15 active user: no expansion yet', L.applied.length === 0);
+  L.ads.notifyScreenChange();
+  await tick();
+  check('N16 screen change: slot opens', L.applied[0]?.h === 68);
+
+  // Never while the mic records or a Mock answer is in progress, not even at a screen change.
+  L = await launch({ online: false, quiet: { busy: true } });
+  m.emitNetwork(true);
+  await advance(3000);
+  L.ads.notifyScreenChange();
+  await advance(3000);
+  check('N17 busy (mic / Mock answer): slot does not open, not even at a screen change', L.applied.length === 0);
+  L.q.busy = false;
+  await advance(300);
+  check('N18 ...opens once it is no longer busy', L.applied[0]?.h === 68);
+  L = await launch({ quiet: { busy: true } });
+  m.emitNetwork(false);
+  await advance(5000);
+  check('N19 busy: going offline hides the banner but does not close the slot yet', L.applied.length === 0 && hidden(L).includes('slot'));
+  L.q.busy = false;
+  await advance(300);
+  check('N20 ...closes once it is no longer busy', L.applied[0]?.h === 0);
+
+  // A screen without a slot (.no-ad form): the change happens at once, without animation.
+  L = await launch({ online: false, quiet: { idleMs: 0, hidden: true } });
+  m.emitNetwork(true);
+  await tick();
+  await tick();
+  check('N21 on a form without slot: changed at once, no animation', L.applied[0]?.h === 68 && L.applied[0].animate === false);
+
+  // Consent form (EEA/UK) on a re-run waits for the next screen change.
+  L = await launch({ online: false, consent: 'throw' });
+  m.state.consent = { status: 'REQUIRED', isConsentFormAvailable: true, canRequestAds: false };
+  m.emitNetwork(true);
+  await advance(5000);
+  check(
+    'N22 re-run needs a consent form: not shown while the user is on a screen',
+    !m.calls.includes('consentForm') && L.ads.getAdsDebugState().consent.formDeferred === true
+  );
+  L.ads.notifyScreenChange();
+  await tick();
+  await tick();
+  await tick();
+  check('N23 ...shown at the next screen change, then ads start', m.calls.includes('consentForm') && L.ads.getAdsDebugState().ready === true);
+
+  // At launch the form is shown at once, as before.
+  L = await launch({ consent: { status: 'REQUIRED', isConsentFormAvailable: true, canRequestAds: false } });
+  check('N24 at launch the consent form is not deferred (unchanged)', m.calls.includes('consentForm') && L.started === true);
+
+  // Consent fails again on the re-run: ads stay off, slot stays closed.
+  L = await launch({ online: false, consent: 'throw' });
+  m.emitNetwork(true);
+  await advance(10000);
+  check('N25 consent fails again: ads off, slot stays 0, no banner', L.ads.getAdsDebugState().ready === false && L.applied.length === 0 && shows() === 0);
+
+  // A refused consent is not asked again in this session.
+  L = await launch({
+    consent: { status: 'REQUIRED', isConsentFormAvailable: true, canRequestAds: false },
+    formResult: { status: 'REQUIRED', canRequestAds: false }
+  });
+  m.emitNetwork(false);
+  await advance(2000);
+  const forms = m.calls.filter(c => c === 'consentForm').length;
+  m.emitNetwork(true);
+  await advance(5000);
+  check(
+    'N26 refused consent: no new form when the network comes back',
+    m.calls.filter(c => c === 'consentForm').length === forms && L.ads.getAdsDebugState().ready === false
+  );
+
+  // SDK start failed while offline: started again when the network comes back.
+  L = await launch({ online: false, initFails: true });
+  m.state.initFails = false;
+  m.emitNetwork(true);
+  await advance(3000);
+  check('N27 SDK start failed: started again when the network comes back', L.ads.getAdsDebugState().ready === true && L.applied[0]?.h === 68);
+
+  // Back online after an online launch: the banner is requested again and revealed after the slide.
+  L = await launch();
   m.state.adLayout = inSlot;
   m.emit('bl');
   await advance(400);
   m.emitNetwork(false);
   m.emit('bf', { code: 2 });
-  await advance(61000); // the retry finds the phone offline
-  check('S11 going offline after launch: slot unchanged', L.same() && L.ads.getAdsDebugState().banner.errorCode === 'offline');
-  const before = shows();
+  await advance(3000);
+  const s0 = shows();
   m.emitNetwork(true);
-  await tick();
-  await tick();
-  check('S12 back online: banner requested again into the same slot', shows() === before + 1 && L.same());
-
-  L = await launch({ online: false });
-  check('S13 offline at launch: slot 0, SDK still starts (interstitials), no banner', L.slot === 0 && L.started === true && shows() === 0);
-  m.emitNetwork(true);
-  await tick();
-  await advance(10 * 60_000);
-  check('S14 offline at launch: internet back, still no banner and slot 0 all session', shows() === 0 && L.same() && L.slot === 0);
+  await advance(2000);
+  check('N28 back online: slot opens again and the banner is requested again', L.applied.at(-1)?.h === 68 && shows() === s0 + 1);
+  m.emit('bl');
+  await advance(1000);
+  check('N29 ...and shown after the slide', !hidden(L).includes('slot'));
 
   const fs = await import('node:fs');
+  const css = fs.readFileSync(new URL('../../src/style.css', import.meta.url), 'utf8');
   const mainSrc = fs.readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8');
   check(
-    'S15 the page sets the slot once (first paint) and gives admob.js no way to change it',
-    mainSrc.match(/setAdSpace\(/g).length === 2 && mainSrc.includes('setAdSpace(decideBannerSlot())') && !mainSrc.includes('onSpace')
+    'N30 animation 350 ms ease-out, off with reduced motion',
+    css.includes('.ad-anim #adSlot{transition:height .35s cubic-bezier(0,0,.2,1)}') &&
+      /prefers-reduced-motion:reduce\)\{#adSlot,\.ad-anim #adSlot\{transition:none\}/.test(css)
   );
+  check(
+    'N31 first paint sets the slot without animation; every screen change is reported',
+    mainSrc.includes('setAdSpace(decideBannerSlot())') && /render\(id\)[\s\S]*?notifyScreenChange\(\)/.test(mainSrc)
+  );
+  check('N32 .no-ad stays only on Setup and Add question', mainSrc.includes("const noAd = id === 'setup' || id === 'addq';"));
 }
 
 // ---- Scenario G: config rules

@@ -218,15 +218,17 @@ header.bar{height:auto;min-height:56px;overflow:visible;margin:0;border-radius:0
 header.bar .ic{width:44px;height:44px;min-height:44px}
 
 /* Ad banner slot: the native AdMob banner sits on top of this spacer, right under the header.
-   Its height is set from JS ONCE per launch (--ad-slot = 10px gap + 50px banner + 8px gap, or 0
-   when offline at launch) and never changes, so main shrinks, nothing is covered, nothing jumps. */
+   Its height (--ad-slot = 10px gap + 50px banner + 8px gap, or 0) is set at first paint and
+   then follows only the network, never the ad (admob.js), so main shrinks and nothing is covered. */
 #adSlot{flex:none;height:var(--ad-slot,0px);background:var(--bg);transition:height .2s ease;pointer-events:none}
 /* Measures the top safe area (notch / status bar) in CSS px for the banner position. */
 #safeTopProbe{position:fixed;top:0;left:0;width:0;visibility:hidden;pointer-events:none;height:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px))}
 /* Use Capacitor's injected inset vars too (older Android WebViews have no env() insets). */
 header.bar{padding-top:calc(12px + max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px)))}
 nav{padding-bottom:calc(6px + var(--sab))}
-@media(prefers-reduced-motion:reduce){#adSlot{transition:none}}
+/* Opening / closing the slot when the network changes (admob.js): 350 ms ease-out. */
+.ad-anim #adSlot{transition:height .35s cubic-bezier(0,0,.2,1)}
+@media(prefers-reduced-motion:reduce){#adSlot,.ad-anim #adSlot{transition:none}}
 
 
 /* ---- Header refresh: logo tile, glass bar, softer icon buttons ---- */
